@@ -109,3 +109,22 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build Android and iOS bundles
         run: pnpm build
+
+  required-ci-gate:
+    name: Required CI gate
+    if: ${{ always() }}
+    needs: [static-checks, tests, project-health, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require every CI job to succeed
+        env:
+          STATIC_CHECKS_RESULT: ${{ needs.static-checks.result }}
+          TESTS_RESULT: ${{ needs.tests.result }}
+          PROJECT_HEALTH_RESULT: ${{ needs.project-health.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+        run: |
+          test "$STATIC_CHECKS_RESULT" = success
+          test "$TESTS_RESULT" = success
+          test "$PROJECT_HEALTH_RESULT" = success
+          test "$BUILD_RESULT" = success
