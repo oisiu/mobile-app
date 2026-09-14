@@ -71,6 +71,6 @@ Run relevant checks on Android and iOS. Before release, complete the checklist o
 
 [CI](../.github/workflows/ci.yml) runs Knip, lint, typecheck, tests, Doctor, audit, and the Android/iOS bundle build serially. A failure stops all later steps. Local required gates are listed above.
 
-[Security](../.github/workflows/security.yml) owns CodeQL, full-history Gitleaks, and zizmor scans. [Dependency review](../.github/workflows/dependency-review.yml) owns pull-request dependency checks. These workflows run independently of CI; a local quality-gate pass does not verify them. Schedules and dependency groups belong in [Dependabot configuration](../.github/dependabot.yml).
+[Security](../.github/workflows/security.yml) owns CodeQL, full-history Gitleaks, and zizmor scans. [Dependency review](../.github/workflows/dependency-review.yml) owns pull-request dependency checks. These workflows run independently of CI; a local quality-gate pass does not verify them. Schedules and dependency groups belong in [Dependabot configuration](../.github/dependabot.yml). [Dependabot auto-merge](../.github/workflows/dependabot-auto-merge.yml) enables squash auto-merge for patch and minor updates; major updates require manual review, and protected-branch checks remain the merge gate.
 
 Follow the [Security policy](../SECURITY.md) for vulnerability reports and [documentation privacy guidance](DEVELOPMENT.md#documentation-privacy) before sharing evidence.
