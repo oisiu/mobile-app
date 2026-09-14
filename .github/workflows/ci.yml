@@ -14,8 +14,84 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  quality:
-    name: Sequential quality checks
+  static-checks:
+    name: Static checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Knip
+        run: pnpm deadcode
+      - name: Lint
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
+
+  tests:
+    name: Tests and coverage
+    needs: static-checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Test
+        run: pnpm test:coverage
+      - name: Upload coverage report
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: domain-coverage
+          path: coverage
+          if-no-files-found: error
+          retention-days: 14
+
+  project-health:
+    name: Project health
+    needs: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Expo Doctor
+        run: pnpm run doctor
+      - name: Dependency audit
+        run: pnpm run audit
+
+  build:
+    name: Build application bundles
+    needs: project-health
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -31,27 +107,24 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      # GitHub Actions stops this serial pipeline when any step fails.
-      - name: 1. Knip
-        run: pnpm deadcode
-      - name: 2. Lint
-        run: pnpm lint
-      - name: 3. Typecheck
-        run: pnpm typecheck
-      - name: 4. Test
-        run: pnpm test:coverage
-      - name: 5. Expo Doctor
-        run: pnpm run doctor
-      - name: 6. Dependency audit
-        run: pnpm run audit
-      - name: 7. Build Android and iOS bundles
+      - name: Build Android and iOS bundles
         run: pnpm build
 
-      - name: Upload coverage report
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: domain-coverage
-          path: coverage
-          if-no-files-found: error
-          retention-days: 14
+  required-ci-gate:
+    name: Required CI gate
+    if: ${{ always() }}
+    needs: [static-checks, tests, project-health, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require every CI job to succeed
+        env:
+          STATIC_CHECKS_RESULT: ${{ needs.static-checks.result }}
+          TESTS_RESULT: ${{ needs.tests.result }}
+          PROJECT_HEALTH_RESULT: ${{ needs.project-health.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+        run: |
+          test "$STATIC_CHECKS_RESULT" = success
+          test "$TESTS_RESULT" = success
+          test "$PROJECT_HEALTH_RESULT" = success
+          test "$BUILD_RESULT" = success
