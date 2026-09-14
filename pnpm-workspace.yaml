@@ -1,0 +1,14 @@
+overrides:
+  '@react-native/metro-config': 0.86.3
+  postcss: 8.5.23
+  react-dom: 19.2.3
+  react-native-worklets: 0.10.4
+
+auditConfig:
+  ignoreCves:
+    - CVE-2025-71330
+    - CVE-2025-71329
+
+allowBuilds:
+  esbuild: true
+  unrs-resolver: true

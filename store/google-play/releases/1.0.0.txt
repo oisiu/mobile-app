@@ -1,0 +1,48 @@
+<en-US>
+Build habits at your own pace with Oisiu.
+• Organize habits and track daily progress.
+• Explore your history in Calendar and Insights.
+• Import and export your data.
+• Choose light or dark mode.
+• Works offline. No account required.
+</en-US>
+<es-ES>
+Crea hábitos a tu ritmo con Oisiu.
+• Organiza tus hábitos y registra tu progreso diario.
+• Consulta tu historial en Calendario y Estadísticas.
+• Importa y exporta tus datos.
+• Elige el modo claro u oscuro.
+• Funciona sin conexión. No necesitas una cuenta.
+</es-ES>
+<fr-FR>
+Adoptez de nouvelles habitudes à votre rythme avec Oisiu.
+• Organisez vos habitudes et suivez vos progrès quotidiens.
+• Consultez votre historique dans le calendrier et les statistiques.
+• Importez et exportez vos données.
+• Choisissez le mode clair ou sombre.
+• Fonctionne hors connexion. Aucun compte requis.
+</fr-FR>
+<it-IT>
+Coltiva le tue abitudini al tuo ritmo con Oisiu.
+• Organizza le abitudini e monitora i progressi quotidiani.
+• Esplora la cronologia nel calendario e nelle statistiche.
+• Importa ed esporta i tuoi dati.
+• Scegli il tema chiaro o scuro.
+• Funziona offline. Nessun account necessario.
+</it-IT>
+<pt-PT>
+Cria hábitos ao teu ritmo com o Oisiu.
+• Organiza os teus hábitos e acompanha o progresso diário.
+• Consulta o histórico no calendário e nas estatísticas.
+• Importa e exporta os teus dados.
+• Escolhe o modo claro ou escuro.
+• Funciona sem ligação à Internet. Não precisas de uma conta.
+</pt-PT>
+<de-DE>
+Entwickle Gewohnheiten in deinem eigenen Tempo mit Oisiu.
+• Organisiere Gewohnheiten und erfasse tägliche Fortschritte.
+• Entdecke deinen Verlauf im Kalender und in den Statistiken.
+• Importiere und exportiere deine Daten.
+• Wähle den hellen oder dunklen Modus.
+• Funktioniert offline. Kein Konto erforderlich.
+</de-DE>

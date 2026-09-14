@@ -1,0 +1,67 @@
+{
+  "name": "@oisiu/mobile-app",
+  "version": "1.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/oisiu/mobile-app.git"
+  },
+  "bugs": {
+    "url": "https://github.com/oisiu/mobile-app/issues"
+  },
+  "homepage": "https://github.com/oisiu/mobile-app#readme",
+  "main": "expo-router/entry",
+  "engines": {
+    "node": ">=22.14"
+  },
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "build": "expo export --platform android --output-dir dist/android && expo export --platform ios --output-dir dist/ios",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint . --max-warnings=0",
+    "deadcode": "knip",
+    "doctor": "expo-doctor .",
+    "audit": "pnpm audit --prod --audit-level high --ignore-unfixable",
+    "verify": "pnpm typecheck && pnpm lint && pnpm deadcode && pnpm test:coverage"
+  },
+  "packageManager": "pnpm@12.4.1+sha512.2e81e399d73fe8390dab25e06aa788ab7a5908248d2f5a370f82b481147a6a7a367bf8048f9a6fdb6460f21a66f0542dedb8b94ca2c8723596741920b1656d4c",
+  "dependencies": {
+    "@expo/vector-icons": "^15.0.0",
+    "drizzle-orm": "^0.45.2",
+    "expo": "~57.0.22",
+    "expo-clipboard": "~57.0.2",
+    "expo-constants": "~57.0.18",
+    "expo-document-picker": "~57.0.2",
+    "expo-file-system": "~57.0.7",
+    "expo-font": "~57.0.4",
+    "expo-haptics": "~57.0.3",
+    "expo-linking": "~57.0.10",
+    "expo-router": "~57.0.21",
+    "expo-sharing": "~57.0.19",
+    "expo-splash-screen": "~57.0.9",
+    "expo-sqlite": "~57.0.3",
+    "expo-status-bar": "~57.0.1",
+    "expo-system-ui": "~57.0.4",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-gesture-handler": "~2.32.0",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.2",
+    "react-native-svg": "15.15.4"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.18",
+    "@vitest/coverage-v8": "5.0.0",
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "~57.0.2",
+    "expo-doctor": "1.20.4",
+    "knip": "^6.35.1",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.0"
+  }
+}

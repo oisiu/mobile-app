@@ -1,0 +1,21 @@
+Build habits at your own pace with Oisiu, a habit tracker that works offline without an account.
+
+ORGANIZE YOUR HABITS
+Create habits and arrange them into groups and subgroups. Track completion, numbers, or durations to suit your routine.
+
+TRACK YOUR DAILY PROGRESS
+Record daily values and review previous entries. Use the calendar to explore your history and update your records.
+
+UNDERSTAND YOUR PATTERNS
+Explore your progress, streaks, and frequency to see how your habits develop over time.
+
+KEEP CONTROL OF YOUR DATA
+Your habit records stay on your device. Export your data as JSON for backup or CSV for use in a spreadsheet. Import compatible JSON files without overwriting existing records.
+
+CHOOSE YOUR APPEARANCE
+Use light or dark mode to match your preference.
+
+NO ACCOUNT REQUIRED
+Start tracking without signing up. Oisiu has no advertising, analytics, or developer-operated backend.
+
+Habit tracking works without an internet connection. Data leaves the app only through actions you choose, such as exporting or sharing, or through your device’s backup settings.

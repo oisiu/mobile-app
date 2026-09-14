@@ -1,0 +1,16 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "app/**/*.tsx",
+    "tests/**/*.test.ts",
+    "src/data/schema.ts"
+  ],
+  "project": [
+    "app/**/*.{ts,tsx}",
+    "src/**/*.{ts,tsx}",
+    "tests/**/*.ts"
+  ],
+  "ignoreDependencies": [
+    "expo-updates"
+  ]
+}

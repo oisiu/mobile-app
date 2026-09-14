@@ -1,21 +1,19 @@
 # Contributing to Oisiu
 
-Thanks for helping improve Oisiu.
-
 ## Before starting
 
 For a substantial change, open an issue first so its behavior and scope can be agreed before implementation. Bug fixes and focused documentation corrections can go directly to a pull request.
 
-Read the [development guide](docs/DEVELOPMENT.md) for setup and workflow, the [architecture](docs/ARCHITECTURE.md) for code boundaries, and the [current status](docs/STATUS.md) for known gaps. User-facing behavior belongs in [Product](docs/PRODUCT.md) or [UI and UX](docs/UI_UX.md), rather than being repeated in this file.
+Read the [development guide](docs/DEVELOPMENT.md) for setup and workflow and the [architecture](docs/ARCHITECTURE.md) for code boundaries. User-facing behavior belongs in [Product](docs/PRODUCT.md) or [UI and UX](docs/UI_UX.md), rather than being repeated here.
 
 ## Pull requests
 
 - Keep changes focused and preserve the local-first, account-free design.
-- Put pure rules in `apps/mobile/src/domain/`, persistence in `apps/mobile/src/data/`, and UI coordination in `apps/mobile/src/features/`. Expo Router files should remain screens and navigation entry points.
+- Follow the [architecture boundaries](docs/ARCHITECTURE.md#runtime-boundaries).
 - Add meaningful regression tests for changed behavior.
-- Update the document that owns any changed fact and record current verification in `docs/STATUS.md`.
+- Update the document that owns any changed fact.
 - Complete the checks in [Testing](docs/TESTING.md#required-gates). Document any unperformed native checks or unresolved failures instead of hiding them.
-- Never commit credentials, signing material, real user exports, personal paths, or unredacted logs.
+- Follow the [documentation privacy guidance](docs/DEVELOPMENT.md#documentation-privacy).
 
 ## Licensing
 

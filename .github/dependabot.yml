@@ -1,0 +1,42 @@
+version: 2
+updates:
+  # Expo/React Native upgrades are coordinated and limited to patch releases.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      expo-runtime:
+        patterns: ['expo', 'expo-*', '@expo/*', 'react', 'react-native', 'react-native-*', '@types/react', 'eslint-config-expo']
+        update-types: [patch]
+      production-dependencies:
+        dependency-type: production
+        update-types: [minor, patch]
+      tooling:
+        dependency-type: development
+        update-types: [minor, patch]
+      security-updates:
+        applies-to: security-updates
+        patterns: ['*']
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      github-actions:
+        patterns: ['*']
+        update-types: [minor, patch]
