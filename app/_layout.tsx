@@ -18,7 +18,7 @@ function Shell(){
   if(!themeReady)return null;
   return <View style={[s.root,{backgroundColor:c.bg,paddingTop:insets.top,paddingLeft:insets.left,paddingRight:insets.right}]} onLayout={()=>SplashScreen.hide()}>
     <StatusBar style={resolvedTheme==='dark'?'light':'dark'}/>
-    {ready?<><Stack screenOptions={{headerShown:false,contentStyle:{backgroundColor:c.bg}}}/><AppBar/><SuccessToast/></>:<View style={s.loading}><Image source={resolvedTheme==='dark'?require('../assets/app/logo-dark.png'):require('../assets/app/logo-light.png')} resizeMode="contain" style={s.logo}/><ActivityIndicator color={c.accent}/></View>}
+    {ready?<><Stack screenOptions={{headerShown:false,animation:'slide_from_right',contentStyle:{backgroundColor:c.bg}}}/><AppBar/><SuccessToast/></>:<View style={s.loading}><Image source={resolvedTheme==='dark'?require('../assets/app/logo-dark.png'):require('../assets/app/logo-light.png')} resizeMode="contain" style={s.logo}/><ActivityIndicator color={c.accent}/></View>}
   </View>;
 }
 export default function RootLayout(){return <AppProvider><Shell/></AppProvider>}

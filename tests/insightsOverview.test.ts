@@ -7,6 +7,14 @@ const habit=(id:string,type:Habit['type']='number',parentId:string|null=null,sor
 const entry=(habitId:string,localDate:string,value:number):Entry=>({id:`${habitId}-${localDate}`,habitId,localDate,value,occurredAt:timestamp,timezone:'UTC',createdAt:timestamp,updatedAt:timestamp});
 
 describe('monthly Insights overview',()=>{
+  it('ranks the elapsed Monday–today week across month and year boundaries',()=>{
+    const habits=[habit('week'),habit('outside')];
+    const entries=[entry('week','2025-12-29',2),entry('week','2026-01-01',3),entry('week','2026-01-02',99),entry('outside','2025-12-28',100)];
+    const result=buildInsightsOverview(habits,entries,'2026-01-01','week');
+    expect(result.elapsedDays).toBe(4);
+    expect(result.ranked.map(({habit,active,total})=>({id:habit.id,active,total}))).toEqual([{id:'week',active:2,total:5},{id:'outside',active:0,total:0}]);
+    expect(buildInsightsOverview(habits,entries,'2026-01-01','month').elapsedDays).toBe(1);
+  });
   it.each(['2026-09-01','2026-09-03','2026-04-30','2026-01-31','2024-02-29','2026-02-28'])('uses elapsed calendar days on %s',today=>{
     const result=buildInsightsOverview([habit('a')],[entry('a',`${today.slice(0,7)}-01`,2)],today);
     expect(result.elapsedDays).toBe(Number(today.slice(-2)));
