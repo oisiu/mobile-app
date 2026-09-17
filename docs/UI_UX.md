@@ -9,13 +9,14 @@ Use system fonts, the green palette, restrained motion, and labels/icons that do
 Appearance supports System, Light, and Dark. The native splash initially follows the device theme; the app applies the saved preference once loaded. Branding assets and rebuild guidance belong in [Development](DEVELOPMENT.md#generated-android-files-and-assets).
 
 The persistent footer offers Home, Calendar, Insights, and Settings, including on detail and editor screens. Detail selects Insights; editing selects Home. Choosing a destination dismisses those routes, subject to the draft guard below.
+Footer destinations use a restrained horizontal shift. Detail and editor screens slide in from the right and reverse when returning.
 
 ## Home
 
 - Show “Oi Siu”, a top-right New habit button, and the full localized month name; include the year outside the current year. Empty guidance points to the same add button.
 - Show five day columns, initially today into the past. Horizontal date-header scrolling moves values while habit labels stay fixed. Load older dates as needed; accessibility actions also navigate dates.
 - Keep the header visible while habits scroll vertically. Each habit, including expanded children, has a full-width rectangular surface band; gaps separate root groups. Indentation expresses hierarchy.
-- Expanded descendants use a progressively tinted full-width surface in light and dark themes. The tint approaches a bounded shade. Indentation and name-size reduction both cap after four levels to preserve habit-name space and readability at arbitrary depth: root names are 13 px, then each descendant level is one pixel smaller through 9 px at depth four. Value font sizes stay constant.
+- Expanded descendants use a progressively tinted full-width surface in light and dark themes. The tint approaches a bounded shade. Indentation and name-size reduction cap after four levels to keep deep trees readable. Value font sizes stay constant.
 - Habit identities open Insights; separate chevrons expand groups. There is no reorder control.
 - A Today shortcut appears after scrolling into the past and returns dates and values to today.
 - Boolean leaves and parents with only direct activity toggle immediately. A parent with active descendant records opens the branch day editor. Number/duration parents open it when descendant records exist, including zero; other number/duration cells use the shared entry form.
@@ -41,7 +42,7 @@ Descendant deletions are staged after impact confirmation; Save commits the hier
 
 Insight detail places Back, the wrapping habit title, and an accessible edit button in its header.
 
-Habit-to-detail and detail-to-editor taps show immediate in-place progress and reject repeated taps while navigation starts. Insight detail paints its header and theme-aware chart skeletons first, then builds the chart-heavy content after the native route transition. Opening the larger Insight calendar similarly paints its dialog and calendar-shaped skeleton before constructing the full timeline. Skeletons are static so their feedback adds minimal rendering work.
+Navigation shows immediate progress, exposes its pending state to accessibility services, and rejects repeated taps. Insight detail shows its header and static chart placeholders during the opening transition, then reveals Score and Calendar. Reduce Motion disables fades. The larger calendar also shows a static placeholder while opening and renders the selected weeks first.
 
 ## Entry editing and sheets
 
@@ -65,7 +66,7 @@ Boolean values toggle immediately. Number/duration editing follows the shared ru
 
 ## Insights
 
-The overview ranks active roots for the current month through today by active days, typed total, and stored sibling order. Future and prior-month records are excluded.
+The overview offers Week and Month, defaulting to Month. Week uses Monday through today; Month uses the first day of the month through today. Rankings use active days, typed total, and stored sibling order within the selected range. Future and earlier-period records are excluded. The active-day fraction and bar use elapsed days in that range.
 
 Detail sections appear in this order:
 
@@ -93,6 +94,8 @@ All five habit selectors list each parent immediately followed by its complete v
 | Year | Months of the selected year | Six annual buckets |
 
 Both show the date range and Previous/Next controls. Next stops at the current range; changing period returns there. Score also supports horizontal gestures and accessibility navigation. History steps one week, one year, two years, or six years according to its selected period.
+
+Score and History show the ISO week number and its week year in the period selector, such as `38 2026`. Score's Month selector shows the localized full month name and year; its Year selector shows the year. History's Month selector shows the selected year because its chart contains all twelve months, and its Year selector shows the selected year for its six-year chart. Quarter x-axis labels use the quarter number and two-digit year, such as `1'25`.
 
 Keep future axis positions empty and exclude them from Score denominators. Compare incomplete Score periods with the elapsed portion of the preceding period. History axes start at zero and show meaningful typed units, including duration units and integer active-day counts.
 

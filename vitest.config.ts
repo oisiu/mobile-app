@@ -6,7 +6,12 @@ export default defineConfig({
   test: {
     coverage: {
       provider: 'v8',
-      include: ['src/domain/**/*.ts'],
+      include: [
+        'src/domain/**/*.ts',
+        'src/features/insights/calendarScroll.ts',
+        'src/features/insights/calendarTimeline.ts',
+        'src/features/insights/chartEntrance.ts',
+      ],
       exclude: ['src/domain/types.ts'],
       reporter: ['text', 'json-summary', 'lcov'],
       reportsDirectory: 'coverage',

@@ -2,9 +2,9 @@
 
 ## Environment and commands
 
-Use the [root setup instructions](../README.md#start-development). The root [package.json](../package.json) owns the Node.js requirement and pnpm version; [CI](../.github/workflows/ci.yml) owns its runtime selection. Tests require Node's SQLite runtime. Use Java 21 for Android Gradle builds. Expo and React Native versions live in the [mobile manifest](../package.json).
+Use the [root setup instructions](../README.md#development). The root [package.json](../package.json) owns the Node.js requirement and pnpm version; [CI](../.github/workflows/ci.yml) owns its runtime selection. Tests require Node's SQLite runtime. Use Java 21 for Android Gradle builds. Expo and React Native versions live in the [mobile manifest](../package.json).
 
-The root manifest owns the application scripts:
+The [package manifest](../package.json) defines all scripts:
 
 | Command | Purpose |
 | --- | --- |
@@ -20,15 +20,21 @@ Use Android Studio/emulator for Android and Xcode on macOS for iOS. In Expo, `a`
 
 `app.json`, the package manifest, and the lockfile own native configuration. `android/` is an ignored Expo-generated project, retained locally for Android Studio and signing. When absent, `pnpm android` generates it before building. Avoid keeping durable configuration only in generated files; inspect local native changes and preserve signing material before regenerating.
 
+After an Expo SDK upgrade, regenerate Android with `pnpm expo prebuild --platform android --no-install` after preserving local native configuration and signing material. Old application templates can reference APIs removed by the new SDK even when JavaScript exports and Expo Doctor pass.
+
 Android `app/build/`, `app/.cxx/`, `build/`, `.gradle/`, and `.kotlin/` are disposable output/cache directories. Remove them only when builds are stopped; the next build recreates them and takes longer. Preserve release bundles and signing files until their release lifecycle is complete.
 
 All three `assets/app/` images are runtime/build inputs used by Expo for the icon and light/dark splash. Store exports have different dimensions and purposes; maintain them separately according to the [listing guide](../store/google-play/README.md). Do not retain temporary captures or superseded design references.
 
-## Android development connection recovery
+## Android connection troubleshooting
 
-Keep the `pnpm android` terminal running while using the debug app. Expo Go's “Something went wrong” with “Failed to download remote update” means it could not load the project; inspect its error log before treating this as an application crash. `pnpm android` opens the installed Oisiu debug app, while `pnpm start` can open Expo Go.
+Keep Metro running while using a debug build. If the app cannot load JavaScript:
 
-If the native app reports “Unable to load script”, confirm Metro is running at `http://localhost:8081/status`. If the emulator cannot reach its default `10.0.2.2:8081` address, run `adb reverse tcp:8081 tcp:8081`, open the React Native developer menu (`adb shell input keyevent 82`), choose **Change Bundle Location**, enter `localhost:8081`, and apply the change. The bundle location persists for that debug installation; repeat ADB forwarding after reconnecting if needed. This recovery does not require clearing application data. Release builds contain their JavaScript bundle and do not need Metro.
+1. Check Metro at `http://localhost:8081/status`.
+2. Run `adb reverse tcp:8081 tcp:8081` for a connected Android device.
+3. If needed, set **Change Bundle Location** in the developer menu to `localhost:8081`.
+
+Repeat port forwarding after reconnecting. Release builds include their JavaScript bundle and do not need Metro.
 
 ## Android release builds
 
@@ -39,6 +45,7 @@ For each new Google Play bundle, increment `expo.android.versionCode` in `app.js
 - From the repository root, add Expo-managed/native packages with `pnpm expo install <package>` and development packages with `pnpm add -D <package>`.
 - Commit manifest and lockfile changes together. Check native alignment with `pnpm expo install --check`.
 - Preserve pnpm's isolated layout. Add hoisting configuration only to resolve an observed dependency issue.
+- Keep the Reanimated override aligned with Expo's bundled native version: automatic peer resolution can select a release that rejects the configured Worklets version during Android builds.
 - Run the [required verification gates](TESTING.md#required-gates) before handoff, including after dependency changes.
 
 [Dependabot configuration](../.github/dependabot.yml) owns update schedules, cooldowns, and dependency groups. Review Expo compatibility with Doctor and `expo install --check`; grouping does not establish SDK compatibility. Review updates before merging.

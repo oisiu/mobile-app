@@ -17,7 +17,7 @@ The repository root is the single Expo application and owns its manifest, lockfi
 
 Current flow: **screens/components → AppProvider or HabitRepository → Expo SQLite**.
 
-`HabitRepository` is the persistence and application-operation boundary; a separate use-case layer and repository interface are not yet implemented. SQL stays in `data/`. Domain code imports no React, Expo, SQLite, or Drizzle modules.
+`HabitRepository` is the persistence and application-operation boundary; a separate use-case layer and repository interface are not yet implemented. SQL stays in `src/data/`. Domain code imports no React, Expo, SQLite, or Drizzle modules.
 
 For the current single application, this concrete boundary keeps the codebase small. Before adding another UI client, alternative persistence, or complex cross-repository workflows, introduce an application/use-case layer and depend on repository interfaces rather than allowing screens to acquire new data-layer dependencies.
 
@@ -37,8 +37,8 @@ Home uses a horizontal `Animated.ScrollView` only for the date header. Its nativ
 
 The Calendar tab virtualizes month grids in a native vertical list. The Insight activity calendar uses native horizontal scrolling with history prepending. Their interaction rules belong in [UI and UX](UI_UX.md).
 
-`domain/aggregation.ts` builds a weakly cached hierarchy/entry index for each immutable provider snapshot. Repeated Home, Calendar, and Insights calculations reuse leaf, habit/date value, activity, and record-presence lookups without persisting derived data. `domain/insightsOverview.ts` computes the monthly root ranking and elapsed-day denominator used by the overview screen and its regression tests.
+`domain/aggregation.ts` builds a weakly cached hierarchy/entry index for each immutable provider snapshot. Repeated Home, Calendar, and Insights calculations reuse leaf, habit/date value, activity, and record-presence lookups without persisting derived data. `domain/insightsOverview.ts` computes week/month root rankings and elapsed-day denominators.
 
-Focused main screens prefetch their currently reachable dynamic routes. Insight detail mounts Score and Calendar first; History, streaks, and Frequency replace fixed-height skeletons as scrolling approaches them. Off-screen native timeline children are clipped, while Calendar month grids and day-sheet habit rows use virtualized lists.
+Main screens prefetch reachable routes. Insight detail defers chart rendering until its opening transition ends, with a fallback for direct launches. Score and Calendar render first; lower sections load as scrolling approaches them. Reveals respect Reduce Motion. Calendar grids, day-sheet rows, and Insight calendar weeks use virtualized lists; the larger calendar starts at the selected week.
 
 `domain/analytics.ts` owns common periods, Score windows, streaks, and series selection. `domain/history.ts` computes History ranges, totals, and rounded axes; `domain/frequency.ts` computes full-month weekday frequencies. Feature components coordinate filters and render the results with native views and `react-native-svg`.

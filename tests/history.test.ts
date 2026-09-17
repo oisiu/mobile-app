@@ -1,5 +1,5 @@
 import { describe,expect,it } from 'vitest';
-import { buildHistorySeries,buildHistoryWindow,historyAxis,shiftHistoryAnchor } from '../src/domain/history';
+import { buildHistorySeries,buildHistoryWindow,historyAxis,historyWeekLabel,shiftHistoryAnchor } from '../src/domain/history';
 import { Entry,Habit } from '../src/domain/types';
 const now='2026-09-08T12:00:00Z';
 const habit=(id:string,type:Habit['type']='number',parentId:string|null=null,isGeneral=false):Habit=>({id,type,parentId,isGeneral,name:id,emoji:'📖',sortOrder:0,archivedAt:null,createdAt:now,updatedAt:now});
@@ -35,6 +35,12 @@ describe('History ranges',()=>{
 });
 
 describe('History navigation',()=>{
+  it('labels ISO weeks using their week year across calendar boundaries',()=>{
+    expect(historyWeekLabel('2026-09-14')).toBe('38 2026');
+    expect(historyWeekLabel('2025-03-31')).toBe('14 2025');
+    expect(historyWeekLabel('2025-12-29')).toBe('1 2026');
+    expect(historyWeekLabel('2026-12-28')).toBe('53 2026');
+  });
   it('moves Monday weeks across a year boundary and caps forward movement',()=>{
     expect(shiftHistoryAnchor('2026-01-01','week',-1,'2026-01-01')).toBe('2025-12-22');
     expect(shiftHistoryAnchor('2025-12-22','week',1,'2026-01-01')).toBe('2025-12-29');

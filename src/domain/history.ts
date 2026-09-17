@@ -3,6 +3,17 @@ import { buildScoreWindow,InsightPeriod,InsightWindow,TimeBucket } from './analy
 import { descendants } from './tree';
 import { Entry,Habit } from './types';
 
+export function historyWeekLabel(start:string):string{
+  const monday=new Date(`${start}T12:00:00Z`);
+  const thursday=new Date(monday);
+  thursday.setUTCDate(thursday.getUTCDate()+3);
+  const weekYear=thursday.getUTCFullYear();
+  const firstThursday=new Date(Date.UTC(weekYear,0,4,12));
+  firstThursday.setUTCDate(firstThursday.getUTCDate()+3-((firstThursday.getUTCDay()+6)%7));
+  const number=1+Math.round((thursday.getTime()-firstThursday.getTime())/(7*86400000));
+  return `${number} ${weekYear}`;
+}
+
 export function buildHistoryWindow(period:InsightPeriod,anchor:string,today:string):InsightWindow{
   if(period==='week')return buildScoreWindow('week',anchor,today);
   if(period==='month')return buildScoreWindow('year',anchor,today);
