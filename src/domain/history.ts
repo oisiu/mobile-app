@@ -27,8 +27,7 @@ export function buildHistoryWindow(period:InsightPeriod,anchor:string,today:stri
     for(let offset=-1;offset<=0;offset++)for(let quarter=0;quarter<4;quarter++){
       const bucketYear=year+offset,first=`${bucketYear}-${String(quarter*3+1).padStart(2,'0')}`;
       const label=(month:string)=>new Intl.DateTimeFormat(undefined,{month:'short'}).format(new Date(`${month}-01T12:00:00`)).replace('.','');
-      const initials=[0,1,2].map(offset=>label(addMonths(first,offset)).replace(/[^\p{L}]/gu,'').charAt(0).toLocaleUpperCase()).join('');
-      append(`${bucketYear}-Q${quarter+1}`,initials,`${first}-01`,addDays(`${addMonths(first,3)}-01`,-1));
+      append(`${bucketYear}-Q${quarter+1}`,label(first),`${first}-01`,addDays(`${addMonths(first,3)}-01`,-1));
     }
   }else{
     for(let item=year-5;item<=year;item++)append(String(item),String(item),`${item}-01-01`,`${item}-12-31`);
@@ -46,16 +45,36 @@ export function shiftHistoryAnchor(anchor:string,period:InsightPeriod,amount:num
   return `${Math.min(year,Number(today.slice(0,4)))}-01-01`;
 }
 
-export function buildHistorySeries(selected:Habit[],_candidates:Habit[],habits:Habit[],entries:Entry[],buckets:TimeBucket[]){
+export function buildHistorySeries(selected:Habit[],habits:Habit[],entries:Entry[],buckets:TimeBucket[]){
   const parents=new Set(habits.map(h=>h.parentId));
-  return selected.filter((h,index)=>selected.findIndex(item=>item.id===h.id)===index).map(habit=>{
-    const ids=new Set([habit,...descendants(habits,habit.id)].filter(h=>!parents.has(h.id)).map(h=>h.id));
-    const contributions=entries.filter(e=>ids.has(e.habitId));
-    return {habit,records:buckets.map(bucket=>contributions.filter(e=>bucket.dates.has(e.localDate))),values:buckets.map(bucket=>{
-      const records=contributions.filter(e=>bucket.dates.has(e.localDate));
-      return habit.type==='boolean'?new Set(records.filter(e=>e.value>0).map(e=>e.localDate)).size:records.reduce((sum,e)=>sum+e.value,0);
-    })};
+  const unique=selected.filter((h,index)=>selected.findIndex(item=>item.id===h.id)===index);
+  const branches=unique.map(habit=>new Set([habit,...descendants(habits,habit.id)].map(h=>h.id)));
+  // Each leaf belongs to the deepest selected branch, never both child and parent.
+  const owners=new Map<string,number>();
+  habits.filter(h=>!parents.has(h.id)).forEach(leaf=>{
+    let owner=-1;
+    unique.forEach((habit,index)=>{
+      if(branches[index].has(leaf.id)&&(owner<0||branches[owner].has(habit.id)))owner=index;
+    });
+    if(owner>=0)owners.set(leaf.id,owner);
   });
+  const series=unique.map(habit=>({habit,records:buckets.map(()=>[] as Entry[]),values:buckets.map(()=>0)}));
+  buckets.forEach((bucket,bucketIndex)=>{
+    const days=new Map<string,Set<number>>();
+    entries.forEach(entry=>{
+      const owner=owners.get(entry.habitId);
+      if(owner===undefined||!bucket.dates.has(entry.localDate))return;
+      series[owner].records[bucketIndex].push(entry);
+      if(unique[owner].type!=='boolean')series[owner].values[bucketIndex]+=entry.value;
+      else if(entry.value>0){
+        const active=days.get(entry.localDate)??new Set<number>();
+        active.add(owner);days.set(entry.localDate,active);
+      }
+    });
+    // Shared Boolean dates occupy one day in total, split among active segments.
+    days.forEach(active=>active.forEach(owner=>{series[owner].values[bucketIndex]+=1/active.size}));
+  });
+  return series;
 }
 
 export function historyAxis(values:number[],type:Habit['type']){

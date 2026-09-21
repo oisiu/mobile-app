@@ -17,10 +17,11 @@ describe('History ranges',()=>{
     expect(window.buckets[8].dates.size).toBe(8);
     expect(window.buckets[9].dates.size).toBe(0);
   });
-  it('groups eight quarters with compact month initials',()=>{
+  it('groups eight quarters labeled by their starting month',()=>{
     const window=buildHistoryWindow('quarter','2026-09-08','2026-09-08');
     expect(window.buckets.map(bucket=>bucket.key)).toEqual(['2025-Q1','2025-Q2','2025-Q3','2025-Q4','2026-Q1','2026-Q2','2026-Q3','2026-Q4']);
-    expect(window.buckets.every(bucket=>bucket.label.length===3)).toBe(true);
+    expect(window.buckets[0].label).toBe(new Intl.DateTimeFormat(undefined,{month:'short'}).format(new Date('2025-01-01T12:00:00')).replace('.',''));
+    expect(window.buckets[4].label).toBe(window.buckets[0].label);
   });
   it('handles historical leap quarters and six years including the current year',()=>{
     const quarterWindow=buildHistoryWindow('quarter','2024-03-10','2026-09-08');
@@ -59,25 +60,25 @@ describe('History navigation',()=>{
 });
 
 describe('History aggregation',()=>{
-  it('compares full branch totals without silently replacing selected habits',()=>{
+  it('assigns child records to the selected child and leaves direct records with the parent',()=>{
     const root=habit('root'),general=habit('general','number','root',true),child=habit('child','number','root');
     const buckets=buildHistoryWindow('month','2026-09-08','2026-09-08').buckets;
-    const series=buildHistorySeries([root,child],[root,child],[root,general,child],[entry('general','2026-01-01',2),entry('child','2026-01-01',3),entry('child','2025-01-01',99),entry('child','2026-10-01',99)],buckets);
+    const series=buildHistorySeries([root,child],[root,general,child],[entry('general','2026-01-01',2),entry('child','2026-01-01',3),entry('child','2025-01-01',99),entry('child','2026-10-01',99)],buckets);
     expect(series.map(item=>item.habit.id).sort()).toEqual(['child','root']);
-    expect(series.find(item=>item.habit.id==='root')!.values[0]).toBe(5);
+    expect(series.find(item=>item.habit.id==='root')!.values[0]).toBe(2);
     expect(series.find(item=>item.habit.id==='child')!.values[0]).toBe(3);
     expect(series.every(item=>item.values[9]===0)).toBe(true);
   });
   it('counts Boolean branch activity once per day, including hidden descendants',()=>{
     const root=habit('root','boolean'),a=habit('a','boolean','root'),b=habit('b','boolean','root');
     const buckets=buildHistoryWindow('year','2026-09-08','2026-09-08').buckets;
-    const [series]=buildHistorySeries([root],[root],[root,a,b],[entry('a','2026-01-01',1),entry('b','2026-01-01',1),entry('a','2026-01-02',1),entry('b','2026-01-03',0)],buckets);
+    const [series]=buildHistorySeries([root],[root,a,b],[entry('a','2026-01-01',1),entry('b','2026-01-01',1),entry('a','2026-01-02',1),entry('b','2026-01-03',0)],buckets);
     expect(series.values[5]).toBe(2);
   });
   it('sums duration seconds across quarters and leaves empty buckets at zero',()=>{
     const leaf=habit('leaf','duration'),buckets=buildHistoryWindow('quarter','2026-09-08','2026-09-08').buckets;
-    expect(buildHistorySeries([leaf],[leaf],[leaf],[entry('leaf','2026-01-01',3600),entry('leaf','2026-03-31',1800),entry('leaf','2026-04-01',60)],buckets)[0].values).toEqual([0,0,0,0,5400,60,0,0]);
-    expect(buildHistorySeries([leaf],[leaf],[leaf],[],buckets)[0].values).toEqual([0,0,0,0,0,0,0,0]);
+    expect(buildHistorySeries([leaf],[leaf],[entry('leaf','2026-01-01',3600),entry('leaf','2026-03-31',1800),entry('leaf','2026-04-01',60)],buckets)[0].values).toEqual([0,0,0,0,5400,60,0,0]);
+    expect(buildHistorySeries([leaf],[leaf],[],buckets)[0].values).toEqual([0,0,0,0,0,0,0,0]);
   });
 });
 
@@ -107,22 +108,46 @@ describe('History Y-axis',()=>{
 
 
 describe('History overlapping selections',()=>{
-  it.each(['boolean','number','duration'] as const)('retains exact selected %s branches and intermediate General contributions',type=>{
+  it.each(['boolean','number','duration'] as const)('prioritizes deepest selected %s branches and retains intermediate General contributions',type=>{
     const root=habit('sport',type),gym=habit('gym',type,'sport'),arms=habit('arms',type,'gym'),legs=habit('legs',type,'gym'),general=habit('general',type,'gym',true);
     const habits=[root,gym,arms,legs,general],value=type==='boolean'?1:8;
     const entries=[entry('arms','2026-01-01',value),entry('legs','2026-01-01',value),entry('general','2026-01-01',value)];
     const buckets=buildHistoryWindow('month','2026-09-08','2026-09-08').buckets;
-    const series=buildHistorySeries([root,gym,arms,root],habits,habits,entries,buckets);
+    const series=buildHistorySeries([root,gym,arms,root],habits,entries,buckets);
     expect(series.map(s=>s.habit.id)).toEqual(['sport','gym','arms']);
-    expect(series.map(s=>s.values[0])).toEqual(type==='boolean'?[1,1,1]:[24,24,8]);
-    expect(series[0].records[0]).toHaveLength(3);
-    expect(buildHistorySeries([root],[root],habits,entries,buckets)[0].values[0]).toBe(type==='boolean'?1:24);
+    expect(series.map(s=>s.values[0])).toEqual(type==='boolean'?[0,.5,.5]:[0,16,8]);
+    expect(series[0].records[0]).toHaveLength(0);
+    expect(series[1].records[0]).toHaveLength(2);
+    expect(buildHistorySeries([root],habits,entries,buckets)[0].values[0]).toBe(type==='boolean'?1:24);
   });
   it('includes archived branches and zeros while leaving an empty selection empty',()=>{
     const root=habit('root'),child={...habit('child','number','root'),archivedAt:now},buckets=buildHistoryWindow('week','2026-09-08','2026-09-08').buckets;
     const entries=[entry('child','2026-09-07',0),entry('child','2026-09-08',8)];
-    const [series]=buildHistorySeries([root],[root],[root,child],entries,buckets);
+    const [series]=buildHistorySeries([root],[root,child],entries,buckets);
     expect(series.values.slice(0,2)).toEqual([0,8]);expect(series.records[0]).toHaveLength(1);
-    expect(buildHistorySeries([],[root],[root,child],entries,buckets)).toEqual([]);
+    expect(buildHistorySeries([],[root,child],entries,buckets)).toEqual([]);
+  });
+});
+
+
+describe('History stacked contributions',()=>{
+  it.each(['number','duration'] as const)('splits a parent total of ten into two child halves for %s',type=>{
+    const root=habit('root',type),a=habit('a',type,'root'),b=habit('b',type,'root'),habits=[root,a,b];
+    const buckets=buildHistoryWindow('month','2026-09-08','2026-09-08').buckets;
+    const entries=[entry('a','2026-01-01',5),entry('b','2026-01-01',5)];
+    for(const selected of [[root,a,b],[b,a,root]]){
+      const series=buildHistorySeries(selected,habits,entries,buckets);
+      expect(series.find(s=>s.habit.id==='root')!.values[0]).toBe(0);
+      expect(series.find(s=>s.habit.id==='a')!.values[0]).toBe(5);
+      expect(series.find(s=>s.habit.id==='b')!.values[0]).toBe(5);
+      expect(series.reduce((sum,s)=>sum+s.values[0],0)).toBe(10);
+    }
+  });
+  it('splits shared Boolean days equally and counts exclusive days once',()=>{
+    const root=habit('root','boolean'),a=habit('a','boolean','root'),b=habit('b','boolean','root'),habits=[root,a,b];
+    const buckets=buildHistoryWindow('month','2026-09-08','2026-09-08').buckets;
+    const series=buildHistorySeries(habits,habits,[entry('a','2026-01-01',1),entry('b','2026-01-01',1),entry('a','2026-01-02',1),entry('b','2026-01-03',0)],buckets);
+    expect(series.map(s=>s.values[0])).toEqual([0,1.5,.5]);
+    expect(historyAxis([2],'boolean').max).toBeGreaterThanOrEqual(2);
   });
 });

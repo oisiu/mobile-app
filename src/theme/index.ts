@@ -1,8 +1,7 @@
-export const light={bg:'#F6F7F2',card:'#FFFFFF',text:'#1F2925',muted:'#78827D',accent:'#4E7C67',onAccent:'#FFFFFF',soft:'#DDE9E2',line:'#E5E9E5',danger:'#9A504B'};
-export const dark={bg:'#111714',card:'#1A231F',text:'#F0F4F1',muted:'#9EAAA4',accent:'#80B89E',onAccent:'#111714',soft:'#263B31',line:'#2B3731',danger:'#E49A93'};
+export const light={bg:'#F2F2F7',card:'#FFFFFF',text:'#1C1C1E',muted:'#63666B',accent:'#356B50',onAccent:'#FFFFFF',soft:'#DDE9E2',line:'#E1E3E6',danger:'#9A504B'};
+export const dark={bg:'#101112',card:'#1C1E20',text:'#F0F4F1',muted:'#9EAAA4',accent:'#80B89E',onAccent:'#101112',soft:'#263B31',line:'#343638',danger:'#E49A93'};
 
-// Use the platform system font consistently across the four main tab headings.
-export const mainTitle={fontSize:24,fontWeight:'700',letterSpacing:0} as const;
+export const mainTitle={fontSize:32,lineHeight:38,fontWeight:'700',letterSpacing:-0.8,flexShrink:1} as const;
 
 // Approach the soft surface gradually, keeping deep trees readable in either theme.
 export function depthBackground(card:string,soft:string,depth:number){

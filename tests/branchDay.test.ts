@@ -84,7 +84,7 @@ describe('Branch and chart localization',()=>{
   it.each(['en-US','es-ES','fr-FR'])('translates all new copy for %s',async locale=>{
     vi.spyOn(Intl.DateTimeFormat.prototype,'resolvedOptions').mockReturnValue({...new Intl.DateTimeFormat().resolvedOptions(),locale});
     const {t}=await import('../src/i18n');
-    const keys=['branchDirectShort','branchBefore','branchAfter','branchClearShort','branchMoveShort','branchMovingCount','branchConflictShort','branchRecordSwitch','branchChanged','branchChangedError','branchNoRecords','branchKeepDate','branchDateError','branchConflictHelp','branchManage','branchCellHint','historyComparisonHelp','historyBranchTotal','historyRecordDetails'] as const;
+    const keys=['branchDirectShort','branchBefore','branchAfter','branchClearShort','branchMoveShort','branchMovingCount','branchConflictShort','branchRecordSwitch','branchChanged','branchChangedError','branchNoRecords','branchKeepDate','branchDateError','branchConflictHelp','branchManage','branchCellHint'] as const;
     for(const key of keys){const text=t(key,{name:'Sport',date,count:2,value:8});expect(text).toBeTruthy();expect(text).not.toMatch(/\{\w+\}/)}
     expect(t('branchMoveShort')).toBe(locale==='es-ES'?'Mover día':'Move day');
   });

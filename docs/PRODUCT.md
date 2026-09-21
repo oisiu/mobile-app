@@ -26,7 +26,7 @@ Persistence and transition details belong in [Database](DATABASE.md).
 | Insights | Rank active root habits for the current week or month through today and explore Score, Calendar, History, streaks, and Frequency |
 | Settings | Choose appearance and import/export data |
 
-Insights describes recorded patterns without causal claims. Score compares activity rates across types; History compares complete typed branch totals in separate bars. Boolean totals count unique active dates; overlapping parent/child totals are never stacked or added together. Detailed controls and chart definitions are in [UI and UX](UI_UX.md).
+Insights describes recorded patterns without causal claims. Score tracks gradually changing habit strength from daily branch activity across all types; History shows one stacked bar per period. Comparisons avoid duplicate parent/child contributions and count Boolean activity by unique date. Detailed controls and chart definitions are in [UI and UX](UI_UX.md).
 
 ## Data portability
 

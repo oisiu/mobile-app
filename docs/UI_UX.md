@@ -4,7 +4,7 @@ This document owns durable interaction and presentation rules. [Product](PRODUCT
 
 ## Shared presentation
 
-Use system fonts, the green palette, restrained motion, and labels/icons that do not rely on color alone. Respect safe areas and large text. Keep controls accessible and chart labels readable on narrow screens. Destructive confirmations identify affected habits and records.
+Use system fonts, large headings with tight tracking, neutral grouped surfaces, green accents, rounded controls, and quiet separators. Keep touch feedback immediate and motion restrained. Respect safe areas and large text; keep controls accessible and chart labels readable on narrow screens. Footer selection uses a filled icon and tinted capsule as well as color. Appearance choices have visible localized labels. Destructive confirmations identify affected habits and records.
 
 Appearance supports System, Light, and Dark. The native splash initially follows the device theme; the app applies the saved preference once loaded. Branding assets and rebuild guidance belong in [Development](DEVELOPMENT.md#generated-android-files-and-assets).
 
@@ -72,32 +72,33 @@ Detail sections appear in this order:
 
 | Section | Behavior |
 | --- | --- |
-| Score | Active-day percentage, with solid current and dotted previous-period series. |
+| Score | Habit strength from 0–100%, rising with activity and gradually decaying on missed days, with the same period windows and navigation as History. |
 | Calendar | Activity timeline whose day boxes open a larger calendar for day editing. |
-| History | Separate grouped bars for exact selected habits. Each parent includes its complete branch; comparisons are never stacked or added together. Boolean values count unique active dates. |
+| History | One stacked bar per period. Records belong to the deepest selected habit; parents retain only contributions not assigned to selected descendants. Boolean dates count once, split equally among active selected segments. |
 | Best streaks | Up to five longest active-date ranges, with dates above full-width bars. |
 | Frequency | Horizontally scrollable monthly weekday activity, initially ending at the current month and loading earlier months on demand. Circle size and shade reflect active days divided by possible weekdays in the full month. Future activity is excluded. |
 
 Score and Calendar become interactive first. Fixed-height skeleton cards preserve the remaining layout until scrolling approaches History and the lower sections, which are then mounted without changing section order.
 
-Score and History have independent multi-select filters and default to Week. Both initially select only the habit whose detail view was opened; their top-right menus let users add or hide comparison habits. Calendar, streaks, and Frequency each select one habit. Legends use habit emojis and identify parent series as branch totals. Tap History for emoji-led per-habit totals and a deduplicated list of contributing records, including direct entries at all depths and archived descendants. Wide comparisons scroll horizontally to preserve bar width. Tap Score for date/value readouts; tap a Frequency circle for its month, weekday, and active/possible count.
+Score and History have independent multi-select filters. Both default to Week. Opening a different habit resets the detail filters and chart periods to their defaults. Both initially select only the habit whose detail view was opened; their top-right menus let users add or hide comparison habits. Calendar, streaks, and Frequency each select one habit. Legends use habit emojis and names. History includes direct entries at all depths and archived descendants without counting any record twice. Bars do not open explanatory text or record lists. History omits the active-day unit caption and comparison guidance; duration units remain visible. Month mode fits all twelve bars within the card and skips month labels as needed to avoid crowding. Frequency circles are non-interactive; their month, weekday, and active/possible counts remain available to screen readers.
 
 All five habit selectors list each parent immediately followed by its complete visible subtree, with siblings in saved order. Hidden General and archived branches are omitted. Rows share Home’s depth-based light/dark background tint, with bounded indentation and constant font size; selection remains explicit through checkboxes or radio buttons. The selector sheet adds its normal bottom spacing after the device safe-area inset so the final row stays above system navigation controls.
 
-### Score and History periods
+### Score timeline
 
-| Control | Score | History |
-| --- | --- | --- |
-| Week | Monday–Sunday | Monday–Sunday |
-| Month | Days of the selected month | Months of the selected year |
-| Quarter | Not offered | Eight quarters across two years |
-| Year | Months of the selected year | Six annual buckets |
+Score starts at zero. Any positive branch activity counts once per day for all habit types, including direct and archived descendant records. Daily exponential smoothing has a thirteen-day half-life: thirteen consecutive active days reach 50% from zero; thirteen missed days halve the existing score. The score carries across all history and never resets at a period boundary. No targets or schedules are implied.
 
-Both show the date range and Previous/Next controls. Next stops at the current range; changing period returns there. Score also supports horizontal gestures and accessibility navigation. History steps one week, one year, two years, or six years according to its selected period.
+Score follows the shared periods below. Week shows daily scores; other modes average daily strength within each displayed bucket. Current buckets stop at today and future positions remain empty. Each selected habit keeps its own line, with dots and a fixed percentage axis. Y-axis labels use compact `N%` text in a dedicated left gutter outside the plot. Dots do not open readouts, and no habit-name legend appears below the Score heading. Values remain available to screen readers.
 
-Score and History show the ISO week number and its week year in the period selector, such as `38 2026`. Score's Month selector shows the localized full month name and year; its Year selector shows the year. History's Month selector shows the selected year because its chart contains all twelve months, and its Year selector shows the selected year for its six-year chart. Quarter x-axis labels use the quarter number and two-digit year, such as `1'25`.
+Above the plot, show the opened habit’s current strength, changes since 30 and 365 days ago, and total unique active dates through today. Changes are percentage-point differences, displayed with a sign. These summary values stay anchored to today while browsing older periods or comparing habits.
 
-Keep future axis positions empty and exclude them from Score denominators. Compare incomplete Score periods with the elapsed portion of the preceding period. History axes start at zero and show meaningful typed units, including duration units and integer active-day counts.
+### Shared Score and History periods
+
+Week shows Monday–Sunday, Month shows all months of the selected year, Quarter shows eight quarters across two years, and Year shows six annual buckets. Previous/Next step one week, one year, two years, or six years respectively. Next stops at the current range; changing period returns there.
+
+Week navigation shows the ISO week number and week year, such as `38 2026`. Month and Year show the selected year; Quarter shows the year range. Quarter x-axis labels use the localized starting month, with the full year on a second line at the first quarter and each year change.
+
+Keep future axis positions empty. History axes start at zero and show meaningful typed units, including duration units and integer active-day counts.
 
 ### Detail Calendar
 
@@ -105,11 +106,11 @@ Initially show the end of the current month. Complete the final week through Sun
 
 Tapping any compact calendar box opens the larger calendar dialog without changing its record; there is no separate Edit button. The tapped week is centered when space permits, clamped near timeline edges, and the chosen day is outlined with its full date above the grid. The dialog has weekday labels, 44-point day targets, and a top-right close icon with a localized accessibility label. Future boxes can open the dialog but remain disabled for editing inside it.
 
-Only the larger dialog allows day editing: Boolean days toggle direct input; number and duration days open the shared value form within the same native modal. Save, Delete, or Cancel returns to the larger calendar. Back first leaves the value form, then closes the calendar. Writes block repeated input and dismissal; failures retain the editor. Parent General routing and future-date restrictions still apply.
+Only the larger dialog allows day editing: Boolean days toggle direct input; number and duration days open the shared value form within the same native modal. Save, Delete, or Cancel returns to the larger calendar. Back first leaves the value form, then closes the calendar. The tapped day shows a pending indicator while saving. Writes block repeated input and dismissal; failures retain the editor. Parent General routing and future-date restrictions still apply.
 
 ### Frequency timeline
 
-Show fixed-width month columns with month/year labels and a fixed weekday key. Start with thirteen loaded months, scrolled to the newest; reaching the left edge loads twelve more months while retaining the visible position. Native horizontal scrolling provides momentum; accessibility actions navigate periods. Tapping a circle opens its monthly active/possible count. The timeline ends at the current month.
+Show fixed-width month columns with month/year labels and a fixed weekday key. Start with thirteen loaded months, scrolled to the newest; reaching the left edge loads twelve more months while retaining the visible position. Native horizontal scrolling provides momentum; accessibility actions navigate periods. Tapping a circle does nothing. The timeline ends at the current month.
 
 ## Settings
 

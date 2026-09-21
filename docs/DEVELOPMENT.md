@@ -12,7 +12,7 @@ The [package manifest](../package.json) defines all scripts:
 | `pnpm android` / `pnpm ios` | Build and install the native debug app and start Metro; these do not generate release builds |
 | `pnpm build` | Export production Android and iOS JavaScript bundles |
 | `pnpm typecheck` / `pnpm lint` / `pnpm deadcode` | Run individual static checks |
-| `pnpm test:coverage` | Run tests with domain coverage |
+| `pnpm test:coverage` | Run tests with enforced coverage |
 
 Use Android Studio/emulator for Android and Xcode on macOS for iOS. In Expo, `a` opens Android and `i` opens iOS. Fast Refresh handles ordinary source edits; use `pnpm start --clear` from the repository root if the Metro cache is stale. The `deadcode` script runs Knip. Web is unsupported and has no launch script.
 
@@ -45,7 +45,6 @@ For each new Google Play bundle, increment `expo.android.versionCode` in `app.js
 - From the repository root, add Expo-managed/native packages with `pnpm expo install <package>` and development packages with `pnpm add -D <package>`.
 - Commit manifest and lockfile changes together. Check native alignment with `pnpm expo install --check`.
 - Preserve pnpm's isolated layout. Add hoisting configuration only to resolve an observed dependency issue.
-- Keep the Reanimated override aligned with Expo's bundled native version: automatic peer resolution can select a release that rejects the configured Worklets version during Android builds.
 - Run the [required verification gates](TESTING.md#required-gates) before handoff, including after dependency changes.
 
 [Dependabot configuration](../.github/dependabot.yml) owns update schedules, cooldowns, and dependency groups. Review Expo compatibility with Doctor and `expo install --check`; grouping does not establish SDK compatibility. Review updates before merging.
