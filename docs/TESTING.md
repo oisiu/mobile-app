@@ -24,7 +24,7 @@ Whenever user-facing text is added or changed, update all supported translations
 
 The [test suite](../tests/) covers domain rules, aggregation, analytics, calendar positioning, chart scheduling, translations, and repository transactions. Repository tests run real migrations against Node's in-memory SQLite, including rollback after injected failures.
 
-These tests do not establish native animation timing or Expo SQLite behavior. Add regression tests for changed behavior; keep exact coverage scope and thresholds in [Vitest configuration](../vitest.config.ts).
+Component tests use React test renderer with mocked native hosts to cover chart labels, calendar caching and save guards, draft recovery, appearance controls, navigation, and complete refresh snapshots. Palette tests check text contrast in both themes. These tests do not measure native layout or device latency.
 
 ## Integration gaps
 
@@ -39,7 +39,7 @@ Check affected flows on Android and iOS, including persistence after restart. Be
 - **Startup:** empty install, upgrade preservation, offline use, saved appearance, icons, and splash.
 - **Home and habits:** date scrolling, fixed labels, hierarchy expansion, entry editing, date moves/conflicts, draft guards, archive, and deletion.
 - **Calendars:** history loading, Today, selected-day positioning, future-date restrictions, direct parent entries, editing, and Back behavior.
-- **Insights:** period navigation, filters, typed totals, chart readouts, horizontal scrolling, and deferred rendering.
+- **Insights:** period navigation, filters, typed totals, accessible chart values, horizontal scrolling, and deferred rendering.
 - **Settings:** appearance, JSON/CSV export, safe import, conversion guide, and localized errors.
 - **Resilience:** failed/repeated writes, retained drafts, cancellation, import rollback, large datasets, and restart.
 - **Accessibility:** English/Spanish, light/dark themes, large text, narrow screens, safe areas, Reduce Motion, TalkBack/VoiceOver, and keyboard handling.

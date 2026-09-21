@@ -11,6 +11,9 @@ describe('Insights overview language',()=>{
     const options=new Intl.DateTimeFormat().resolvedOptions();
     vi.spyOn(Intl.DateTimeFormat.prototype,'resolvedOptions').mockReturnValue({...options,locale});
     const {t}=await import('../src/i18n');
+    expect(t('strengthTotal')).toBe(locale==='es-ES'?'Total de días activos':'Total active days');
+    expect(t('strengthMonthChange')).toContain('30');
+    expect(t('strengthYearChange')).toContain('365');
     expect([t('insights'),t('week'),t('month'),t('insightsRankingWeekIntro'),t('insightsRankingIntro'),t('activeDays'),t('total')]).toEqual([title,week,month,weekIntro,monthIntro,activeDays,total]);
   });
 });
