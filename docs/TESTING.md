@@ -52,6 +52,4 @@ Check affected flows on Android and iOS, including persistence after restart. Be
 
 [Security](../.github/workflows/security.yml) owns CodeQL, full-history Gitleaks, and zizmor scans. [Dependency review](../.github/workflows/dependency-review.yml) owns pull-request dependency checks. These workflows run independently of CI; a local quality-gate pass does not verify them. Schedules and dependency groups belong in [Dependabot configuration](../.github/dependabot.yml). [Dependabot auto-merge](../.github/workflows/dependabot-auto-merge.yml) enables squash auto-merge for patch and minor updates; major updates require manual review, and protected-branch checks remain the merge gate.
 
-Draft dependency PRs skip auto-merge so upgrades requiring manual native validation remain under review.
-
 Follow the [Security policy](../SECURITY.md) for vulnerability reports and [documentation privacy guidance](DEVELOPMENT.md#documentation-privacy) before sharing evidence.
