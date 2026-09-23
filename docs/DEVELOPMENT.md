@@ -42,7 +42,7 @@ For each new Google Play bundle, increment `expo.android.versionCode` in `app.js
 
 ## Dependencies
 
-The app currently targets the Expo SDK 58 prerelease and its React Native release candidate. Use the versions in the manifest and lockfile together. Android is the primary validation target; passing JavaScript exports does not replace Android device checks or iOS native validation. Regenerate native projects after preserving local configuration and signing material before running this SDK.
+Upgrade Expo and its managed dependencies together, using the SDK-compatible versions in the manifest and lockfile. Follow the native regeneration guidance above and the [native testing checklist](TESTING.md#native-checklist); successful JavaScript bundle exports do not establish native compatibility.
 
 - From the repository root, add Expo-managed/native packages with `pnpm expo install <package>` and development packages with `pnpm add -D <package>`.
 - Commit manifest and lockfile changes together. Check native alignment with `pnpm expo install --check`.
