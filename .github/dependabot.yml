@@ -12,6 +12,24 @@ updates:
     commit-message:
       prefix: chore
       include: scope
+    # Group update-types alone do not block updates from other groups.
+    ignore:
+      - dependency-name: expo
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: 'expo-*'
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: '@expo/*'
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: react
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: react-native
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: 'react-native-*'
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: '@types/react'
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: eslint-config-expo
+        update-types: [version-update:semver-major, version-update:semver-minor]
     groups:
       expo-runtime:
         patterns: ['expo', 'expo-*', '@expo/*', 'react', 'react-native', 'react-native-*', '@types/react', 'eslint-config-expo']

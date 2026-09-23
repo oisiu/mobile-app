@@ -42,12 +42,14 @@ For each new Google Play bundle, increment `expo.android.versionCode` in `app.js
 
 ## Dependencies
 
+The app currently targets the Expo SDK 58 prerelease and its React Native release candidate. Use the versions in the manifest and lockfile together. Android is the primary validation target; passing JavaScript exports does not replace Android device checks or iOS native validation. Regenerate native projects after preserving local configuration and signing material before running this SDK.
+
 - From the repository root, add Expo-managed/native packages with `pnpm expo install <package>` and development packages with `pnpm add -D <package>`.
 - Commit manifest and lockfile changes together. Check native alignment with `pnpm expo install --check`.
 - Preserve pnpm's isolated layout. Add hoisting configuration only to resolve an observed dependency issue.
 - Run the [required verification gates](TESTING.md#required-gates) before handoff, including after dependency changes.
 
-[Dependabot configuration](../.github/dependabot.yml) owns update schedules, cooldowns, and dependency groups. Review Expo compatibility with Doctor and `expo install --check`; grouping does not establish SDK compatibility. Review updates before merging.
+[Dependabot configuration](../.github/dependabot.yml) owns update schedules, cooldowns, and dependency groups. Expo runtime dependencies and their React types exclude automatic minor and major version updates; upgrade these together when adopting a compatible SDK. Patch updates still require review with Doctor and `expo install --check`, because grouping does not establish SDK compatibility. Review updates before merging.
 
 ## Change workflow
 
