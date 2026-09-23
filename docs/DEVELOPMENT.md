@@ -49,7 +49,7 @@ The app currently targets the Expo SDK 58 prerelease and its React Native releas
 - Preserve pnpm's isolated layout. Add hoisting configuration only to resolve an observed dependency issue.
 - Run the [required verification gates](TESTING.md#required-gates) before handoff, including after dependency changes.
 
-[Dependabot configuration](../.github/dependabot.yml) owns update schedules, cooldowns, and dependency groups. Expo runtime dependencies and their React types exclude automatic minor and major version updates; upgrade these together when adopting a compatible SDK. Patch updates still require review with Doctor and `expo install --check`, because grouping does not establish SDK compatibility. Review updates before merging.
+[Dependabot configuration](../.github/dependabot.yml) owns update schedules, cooldowns, and dependency groups. Review Expo compatibility with Doctor and `expo install --check`; grouping does not establish SDK compatibility. Review updates before merging.
 
 ## Change workflow
 
