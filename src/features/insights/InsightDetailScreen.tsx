@@ -10,7 +10,7 @@ import { SheetHandle } from '@/features/SheetHandle';
 import { Ionicons } from '@expo/vector-icons';
 import { router,useLocalSearchParams } from 'expo-router';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
-import { AccessibilityInfo,ActivityIndicator,Alert,Animated,FlatList,Modal,Pressable,ScrollView,StyleSheet,Text,TouchableOpacity,View } from 'react-native';
+import { AccessibilityInfo,ActivityIndicator,Alert,Animated,FlatList,Modal,Pressable,ScrollView,type ScrollViewInstance,StyleSheet,Text,TouchableOpacity,View } from 'react-native';
 import Svg,{Line,Rect,Text as SvgText} from 'react-native-svg';
 import { aggregate } from '@/domain/aggregation';
 import { bestActivityStreaks,InsightPeriod,TimeBucket } from '@/domain/analytics';
@@ -268,7 +268,7 @@ function CalendarTimeline({habit,habits,entries,today,color,c,onSelectDate,onOpe
 function Streaks({habit,habits,entries,today,color,onFilter,c}:{habit:Habit;habits:Habit[];entries:Entry[];today:string;color:string;onFilter:()=>void;c:Palette}){const first=entries.reduce((min,e)=>e.localDate<min?e.localDate:min,today),count=Math.max(1,Math.round((new Date(`${today}T12:00:00`).getTime()-new Date(`${first}T12:00:00`).getTime())/86400000)+1),dates=Array.from({length:count},(_,i)=>addDays(first,i)),streaks=bestActivityStreaks(activeDates(habit,habits,entries,dates)),max=Math.max(...streaks.map(item=>item.length),1);return <View style={[s.card,{backgroundColor:c.card}]}><Header title={t('bestStreaks')} habit={habit} onFilter={onFilter} c={c}/><View style={[s.chartBody,{gap:8}]}>{streaks.length?streaks.map((item,index)=><View key={`${item.start}-${item.end}`} style={{gap:4}}><View style={{flexDirection:'row',justifyContent:'space-between'}}><Text style={[s.streakDate,{color:c.muted}]}>{dateLabel(item.start)}</Text><Text style={{color:c.muted,fontSize:11}}>{dateLabel(item.end)}</Text></View><View style={s.streakTrack}><View style={[s.streakBar,{width:`${Math.max(28,item.length/max*100)}%`,backgroundColor:color,opacity:index?Math.max(.3,.72-index*.09):1}]}><Text style={s.streakCount}>{item.length}</Text></View></View></View>):<Text style={[s.empty,{color:c.muted}]}>{t('noStreaks')}</Text>}</View></View>}
 function Frequency({habit,habits,entries,today,color,onFilter,c}:{habit:Habit;habits:Habit[];entries:Entry[];today:string;color:string;onFilter:()=>void;c:Palette}){
   const [firstMonth,setFirstMonth]=useState(()=>addMonths(today.slice(0,7),-12));
-  const scroll=useRef<ScrollView>(null),initialized=useRef(false),offset=useRef(0),loadingEarlier=useRef(false);
+  const scroll=useRef<ScrollViewInstance>(null),initialized=useRef(false),offset=useRef(0),loadingEarlier=useRef(false);
   const step=44;
   const {months,rows}=useMemo(()=>buildFrequency(habit,habits,entries,today,firstMonth),[habit,habits,entries,today,firstMonth]);
   const weekdays=Array.from({length:7},(_,i)=>new Intl.DateTimeFormat(undefined,{weekday:'narrow'}).format(new Date(2024,0,1+i)));

@@ -42,6 +42,8 @@ For each new Google Play bundle, increment `expo.android.versionCode` in `app.js
 
 ## Dependencies
 
+Upgrade Expo and its managed dependencies together, using the SDK-compatible versions in the manifest and lockfile. Follow the native regeneration guidance above and the [native testing checklist](TESTING.md#native-checklist); successful JavaScript bundle exports do not establish native compatibility.
+
 - From the repository root, add Expo-managed/native packages with `pnpm expo install <package>` and development packages with `pnpm add -D <package>`.
 - Commit manifest and lockfile changes together. Check native alignment with `pnpm expo install --check`.
 - Preserve pnpm's isolated layout. Add hoisting configuration only to resolve an observed dependency issue.
