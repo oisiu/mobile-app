@@ -1,0 +1,14 @@
+<en-US>
+• Customize habits with optional emojis and inherited colors.
+• Explore activity rankings for the current week, month, or year.
+• Improved import merging and recovery from startup errors.
+• Clearer navigation, calendar headings, and duration displays.
+• Your habits stay on your device. No account required.
+</en-US>
+<es-ES>
+• Personaliza tus hábitos con emojis opcionales y colores heredados.
+• Consulta la actividad de la semana, el mes o el año actual.
+• Mejoras al combinar importaciones y recuperar errores de inicio.
+• Navegación, títulos del calendario y duraciones más claros.
+• Tus hábitos permanecen en tu dispositivo. Sin cuentas.
+</es-ES>
