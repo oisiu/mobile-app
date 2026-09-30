@@ -9,7 +9,7 @@ Run from the repository root before handoff:
 | Command | Checks |
 | --- | --- |
 | `pnpm run doctor` | Expo configuration and native dependency compatibility |
-| `pnpm verify` | TypeScript, zero-warning ESLint, Knip, and enforced coverage |
+| `pnpm verify` | Dependency version alignment, TypeScript, zero-warning ESLint, Knip, and enforced coverage |
 | `pnpm test` | Complete Vitest suite |
 | `pnpm build` | Production Android and iOS bundle export |
 | `pnpm run audit` | Fixable high/critical production advisories, subject to configured exceptions |
@@ -49,6 +49,8 @@ Check affected flows on Android and iOS, including persistence after restart. Be
 ## CI and security
 
 [CI](../.github/workflows/ci.yml) runs four dependent jobs in sequence: static checks; tests and coverage; project health with Doctor and dependency audit; then the Android/iOS bundle build. A final `Required CI gate` job always evaluates their results and succeeds only when all four passed; branch rules require this stable aggregate check rather than individual implementation jobs. Local required gates are listed above.
+
+Static checks run `pnpm deps:check` against installed package versions and `pnpm expo install --check` before linting or tests. React and React test renderer must match exactly, as must Vitest and its coverage provider; missing packages fail the check. This catches incompatible updates even when component tests happen to pass. Expo validates SDK-managed package versions, and Doctor remains a separate project-health gate. These checks block the required aggregate gate and therefore Dependabot auto-merge; they do not establish native device compatibility.
 
 [Security](../.github/workflows/security.yml) owns CodeQL, full-history Gitleaks, and zizmor scans. [Dependency review](../.github/workflows/dependency-review.yml) owns pull-request dependency checks. These workflows run independently of CI; a local quality-gate pass does not verify them. Schedules and dependency groups belong in [Dependabot configuration](../.github/dependabot.yml). [Dependabot auto-merge](../.github/workflows/dependabot-auto-merge.yml) enables squash auto-merge for patch and minor updates; major updates require manual review, and protected-branch checks remain the merge gate.
 
