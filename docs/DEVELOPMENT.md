@@ -2,7 +2,7 @@
 
 ## Environment and commands
 
-Use the [root setup instructions](../README.md#development). The root [package.json](../package.json) owns the Node.js requirement and pnpm version; [CI](../.github/workflows/ci.yml) owns its runtime selection. Tests require Node's SQLite runtime. Use Java 21 for Android Gradle builds. Expo and React Native versions live in the [mobile manifest](../package.json).
+Use the [root setup instructions](../README.md#development). The root [package.json](../package.json) owns the Node.js requirement and pnpm version; [CI](../.github/workflows/ci.yml) owns its runtime selection. Tests require Node's SQLite runtime. Use Java 21 for Android Gradle builds, including Android Studio sync. After regenerating Android, check the Gradle JDK or daemon JVM criteria in Android Studio; do not let it select the bundled Java 25 runtime. Java 25 native-access warnings can fail the Prefab configuration step in this SDK. If `android/gradle/gradle-daemon-jvm.properties` exists, its `toolchainVersion` must be `21`. Expo and React Native versions live in the [mobile manifest](../package.json).
 
 The [package manifest](../package.json) defines all scripts:
 
@@ -20,7 +20,7 @@ Use Android Studio/emulator for Android and Xcode on macOS for iOS. In Expo, `a`
 
 `app.json`, the package manifest, and the lockfile own native configuration. `android/` is an ignored Expo-generated project, retained locally for Android Studio and signing. When absent, `pnpm android` generates it before building. Avoid keeping durable configuration only in generated files; inspect local native changes and preserve signing material before regenerating.
 
-After an Expo SDK upgrade, regenerate Android with `pnpm expo prebuild --platform android --no-install` after preserving local native configuration and signing material. Old application templates can reference APIs removed by the new SDK even when JavaScript exports and Expo Doctor pass.
+After an Expo SDK version change (upgrade or downgrade), regenerate Android with `pnpm expo prebuild --platform android --no-install` after preserving local native configuration and signing material. Old application templates can reference APIs removed by the new SDK even when JavaScript exports and Expo Doctor pass.
 
 Android `app/build/`, `app/.cxx/`, `build/`, `.gradle/`, and `.kotlin/` are disposable output/cache directories. Remove them only when builds are stopped; the next build recreates them and takes longer. Preserve release bundles and signing files until their release lifecycle is complete.
 
@@ -42,7 +42,7 @@ For each new Google Play bundle, increment `expo.android.versionCode` in `app.js
 
 ## Dependencies
 
-Upgrade Expo and its managed dependencies together, using the SDK-compatible versions in the manifest and lockfile. Follow the native regeneration guidance above and the [native testing checklist](TESTING.md#native-checklist); successful JavaScript bundle exports do not establish native compatibility.
+Keep Expo and its managed dependencies on compatible stable releases, using the versions in the manifest and lockfile. Coordinate SDK changes with the native dependency overrides in `pnpm-workspace.yaml`, and keep React test renderer aligned with React. Preview SDKs and React Native release candidates require an explicit decision to adopt prereleases. Follow the native regeneration guidance above and the [native testing checklist](TESTING.md#native-checklist); successful JavaScript bundle exports do not establish native compatibility.
 
 - From the repository root, add Expo-managed/native packages with `pnpm expo install <package>` and development packages with `pnpm add -D <package>`.
 - Commit manifest and lockfile changes together. Check native alignment with `pnpm expo install --check`.
