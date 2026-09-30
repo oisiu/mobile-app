@@ -31,6 +31,10 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Dependency compatibility
+        run: pnpm deps:check
+      - name: Expo dependency alignment
+        run: pnpm expo install --check
       - name: Knip
         run: pnpm deadcode
       - name: Lint

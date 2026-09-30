@@ -46,6 +46,7 @@ Keep Expo and its managed dependencies on compatible stable releases, using the 
 
 - From the repository root, add Expo-managed/native packages with `pnpm expo install <package>` and development packages with `pnpm add -D <package>`.
 - Commit manifest and lockfile changes together. Check native alignment with `pnpm expo install --check`.
+- Run `pnpm deps:check` to verify installed React/test renderer and Vitest/coverage versions match exactly. This also runs as part of `pnpm verify`; upgrade each pair together.
 - Preserve pnpm's isolated layout. Add hoisting configuration only to resolve an observed dependency issue.
 - Run the [required verification gates](TESTING.md#required-gates) before handoff, including after dependency changes.
 
