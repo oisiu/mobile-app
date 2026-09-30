@@ -26,4 +26,4 @@ export function aggregate(habits:Habit[], entries:Entry[], habitId:string, dates
   if(root.type==='boolean')return leaves.some(id=>dateList.some(date=>index.active(id,date)))?1:0;
   let total=0;for(const id of leaves)for(const date of dateList)total+=index.value(id,date);return total;
 }
-export function formatValue(type:Habit['type'],value:number):string { if(type==='boolean') return value?'✓':'–'; if(!value) return '–'; if(type==='number') return Number(value.toFixed(2)).toString(); const h=Math.floor(value/3600),m=Math.round((value%3600)/60); return [h&&`${h}h`,m&&`${m}m`].filter(Boolean).join(' ')||'<1m'; }
+export function formatValue(type:Habit['type'],value:number):string { if(type==='boolean') return value?'✓':'–'; if(!value) return '–'; if(type==='number') return Number(value.toFixed(2)).toString(); const minutes=Math.round(value/60),h=Math.floor(minutes/60),m=minutes%60; return [h&&`${h}h`,m&&`${m}m`].filter(Boolean).join(' ')||'<1m'; }

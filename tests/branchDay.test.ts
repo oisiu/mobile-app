@@ -17,7 +17,7 @@ async function setup(records:Entry[],type:Habit['type']='boolean'){
   const sqlite=new DatabaseSync(':memory:');databases.push(sqlite);
   const db={execAsync:async(sql:string)=>{sqlite.exec(sql)},getFirstAsync:async(sql:string)=>sqlite.prepare(sql).get(),getAllAsync:async(sql:string,params:(string|number|null)[]=[])=>sqlite.prepare(sql).all(...params),runAsync:vi.fn(async(sql:string,params:(string|number|null)[]=[])=>sqlite.prepare(sql).run(...params)),withTransactionAsync:async(action:()=>Promise<void>)=>{sqlite.exec('BEGIN');try{await action();sqlite.exec('COMMIT')}catch(error){sqlite.exec('ROLLBACK');throw error}}};
   await migrate(db as unknown as SQLiteDatabase);
-  for(const h of habits)sqlite.prepare('INSERT INTO habits VALUES(?,?,?,?,?,?,?,?,?,?)').run(h.id,h.parentId,h.name,h.emoji,type,h.sortOrder,Number(h.isGeneral),h.archivedAt,h.createdAt,h.updatedAt);
+  for(const h of habits)sqlite.prepare('INSERT INTO habits(id,parent_id,name,emoji,type,sort_order,is_general,archived_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)').run(h.id,h.parentId,h.name,h.emoji,type,h.sortOrder,Number(h.isGeneral),h.archivedAt,h.createdAt,h.updatedAt);
   for(const e of records)sqlite.prepare('INSERT INTO entries VALUES(?,?,?,?,?,?,?,?)').run(e.id,e.habitId,e.value,e.occurredAt,e.localDate,e.timezone,e.createdAt,e.updatedAt);
   return {repo:new HabitRepository(db as unknown as SQLiteDatabase),db,sqlite};
 }

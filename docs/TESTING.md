@@ -24,11 +24,11 @@ Whenever user-facing text is added or changed, update all supported translations
 
 The [test suite](../tests/) covers domain rules, aggregation, analytics, calendar positioning, chart scheduling, translations, and repository transactions. Repository tests run real migrations against Node's in-memory SQLite, including rollback after injected failures.
 
-Component tests use React test renderer with mocked native hosts to cover chart labels, calendar caching and save guards, draft recovery, appearance controls, navigation, and complete refresh snapshots. Palette tests check text contrast in both themes. These tests do not measure native layout or device latency.
+Component tests use React test renderer with mocked native hosts to cover chart labels, calendar caching and save guards, draft recovery, appearance controls, navigation, startup failures and guarded retry, and complete refresh snapshots. Palette tests check text contrast in both themes. These tests do not measure native layout or device latency.
 
 ## Integration gaps
 
-Automated tests do not exercise native gestures/components, the Expo SQLite bridge, or platform sharing. Node SQLite tests cover branch-edit transactions and fresh migration execution; broader upgrade/import rollback scenarios remain open. Add coverage for entry-preserving hierarchy changes, archive/delete, and migration/import rollback. Exercise affected operations in a native build until those gaps are covered.
+Automated tests do not exercise native gestures/components, the Expo SQLite bridge, or platform sharing. Node SQLite tests cover branch-edit transactions and fresh migration execution; import tests cover sibling-order merges, leaf-to-General record preservation, unordered file arrays, conflicts, and injected-write rollback. Appearance tests cover the version-2 color upgrade, color persistence and inheritance, legacy emoji preservation, complete emoji sequences, editor validation, palette contrast, and chosen chart colors. Broader upgrade rollback, archive/delete, and hierarchy-change scenarios remain open. Exercise affected operations in a native build until those gaps are covered.
 
 iOS, dark mode, large text, screen readers, narrow layouts, failure injection, and large datasets require broader device coverage. Release readiness must be checked against the signed artifact and store-delivered installation; review store artwork and release notes for every release.
 

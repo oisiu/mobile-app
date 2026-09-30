@@ -12,11 +12,11 @@ import { dark,light } from '@/theme';
 
 export type ThemeMode='system'|'light'|'dark';
 type ToastState={id:number;message:string};
-type State={ready:boolean;themeReady:boolean;error:string|null;habits:Habit[];entries:Entry[];repo:HabitRepository|null;refresh:()=>Promise<void>;changeBranchDay:(habitId:string,date:string,expected:Entry[],edits:BranchEdit[],destination:string)=>Promise<void>;changeEntry:(habitId:string,date:string,value:number|null)=>Promise<void>;showSuccess:(message:string)=>void;toast:ToastState|null;themeMode:ThemeMode;setThemeMode:(mode:ThemeMode)=>Promise<void>;resolvedTheme:'light'|'dark';palette:typeof light|typeof dark};
+type State={ready:boolean;themeReady:boolean;error:string|null;retryStartup:()=>Promise<void>;habits:Habit[];entries:Entry[];repo:HabitRepository|null;refresh:()=>Promise<void>;changeBranchDay:(habitId:string,date:string,expected:Entry[],edits:BranchEdit[],destination:string)=>Promise<void>;changeEntry:(habitId:string,date:string,value:number|null)=>Promise<void>;showSuccess:(message:string)=>void;toast:ToastState|null;themeMode:ThemeMode;setThemeMode:(mode:ThemeMode)=>Promise<void>;resolvedTheme:'light'|'dark';palette:typeof light|typeof dark};
 const Context=createContext<State|null>(null);
 
 export function AppProvider({children}:{children:React.ReactNode}){
-  const systemTheme=useColorScheme()==='dark'?'dark':'light',[themeMode,setThemeModeState]=useState<ThemeMode>('system'),[themeReady,setThemeReady]=useState(false),[repo,setRepo]=useState<HabitRepository|null>(null),[habits,setHabits]=useState<Habit[]>([]),[entries,setEntries]=useState<Entry[]>([]),[error,setError]=useState<string|null>(null),[toast,setToast]=useState<ToastState|null>(null),toastId=useRef(0);
+  const systemTheme=useColorScheme()==='dark'?'dark':'light',[themeMode,setThemeModeState]=useState<ThemeMode>('system'),[themeReady,setThemeReady]=useState(false),[ready,setReady]=useState(false),startupPending=useRef(false),[repo,setRepo]=useState<HabitRepository|null>(null),[habits,setHabits]=useState<Habit[]>([]),[entries,setEntries]=useState<Entry[]>([]),[error,setError]=useState<string|null>(null),[toast,setToast]=useState<ToastState|null>(null),toastId=useRef(0);
   const refresh=useCallback(async()=>{if(!repo)return;const [nextHabits,nextEntries]=await Promise.all([repo.habits(),repo.entries()]);setHabits(nextHabits);setEntries(nextEntries)},[repo]);
   const setThemeMode=useCallback(async(mode:ThemeMode)=>{setThemeModeState(mode);await Storage.setItem('theme-mode',mode)},[]);
   const showSuccess=useCallback((message:string)=>setToast({id:++toastId.current,message}),[]);
@@ -27,10 +27,22 @@ export function AppProvider({children}:{children:React.ReactNode}){
     await refresh();const habit=habits.find(h=>h.id===habitId);showSuccess(t('branchChanged',{name:habit?`${habit.emoji} ${habit.name}`:t('habitName')}));
   },[repo,refresh,habits,showSuccess]);
   useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(current=>current?.id===toast.id?null:current),2600);return()=>clearTimeout(timer)},[toast]);
-  useEffect(()=>{Storage.getItem('theme-mode').then(value=>{if(value==='system'||value==='light'||value==='dark')setThemeModeState(value)}).catch(e=>setError(String(e))).finally(()=>setThemeReady(true))},[]);
-  useEffect(()=>{(async()=>{try{const db=await SQLite.openDatabaseAsync('oisiu.db');await migrate(db);const r=new HabitRepository(db);setRepo(r)}catch(e){setError(e instanceof Error?e.message:String(e))}})()},[]);
-  useEffect(()=>{refresh().catch(e=>setError(String(e)))},[refresh]);
-  const resolvedTheme=themeMode==='system'?systemTheme:themeMode,palette=resolvedTheme==='dark'?dark:light,value=useMemo(()=>({ready:!!repo,themeReady,error,habits,entries,repo,refresh,changeEntry,changeBranchDay,showSuccess,toast,themeMode,setThemeMode,resolvedTheme,palette}),[repo,themeReady,error,habits,entries,refresh,changeEntry,changeBranchDay,showSuccess,toast,themeMode,setThemeMode,resolvedTheme,palette]);
+  useEffect(()=>{Storage.getItem('theme-mode').then(value=>{if(value==='system'||value==='light'||value==='dark')setThemeModeState(value)}).catch(()=>{}).finally(()=>setThemeReady(true))},[]);
+  const retryStartup=useCallback(async()=>{
+    if(startupPending.current)return;
+    startupPending.current=true;setError(null);setReady(false);
+    let db:SQLite.SQLiteDatabase|undefined;
+    try{
+      db=await SQLite.openDatabaseAsync('oisiu.db');await migrate(db);
+      const nextRepo=new HabitRepository(db),[nextHabits,nextEntries]=await Promise.all([nextRepo.habits(),nextRepo.entries()]);
+      setHabits(nextHabits);setEntries(nextEntries);setRepo(nextRepo);setReady(true);
+    }catch(e){
+      if(db)await db.closeAsync().catch(()=>{});
+      setError(e instanceof Error?e.message:String(e));
+    }finally{startupPending.current=false}
+  },[]);
+  useEffect(()=>{void retryStartup()},[retryStartup]);
+  const resolvedTheme=themeMode==='system'?systemTheme:themeMode,palette=resolvedTheme==='dark'?dark:light,value=useMemo(()=>({ready,themeReady,error,retryStartup,habits,entries,repo,refresh,changeEntry,changeBranchDay,showSuccess,toast,themeMode,setThemeMode,resolvedTheme,palette}),[ready,repo,themeReady,error,retryStartup,habits,entries,refresh,changeEntry,changeBranchDay,showSuccess,toast,themeMode,setThemeMode,resolvedTheme,palette]);
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 

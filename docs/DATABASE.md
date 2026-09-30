@@ -7,7 +7,7 @@ Foreign keys are enabled. Native-created IDs are UUIDs; imported IDs must be uni
 | Table | Main fields and constraints |
 | --- | --- |
 | `schema_versions` | Applied migration version and timestamp |
-| `habits` | Text primary key; cascading nullable `parent_id`; name, emoji, type, integer `sort_order`, `is_general`, `archived_at`, timestamps; index on parent/order |
+| `habits` | Text primary key; cascading nullable `parent_id`; name, emoji, nullable color, type, integer `sort_order`, `is_general`, `archived_at`, timestamps; index on parent/order |
 | `entries` | Text primary key; cascading `habit_id`; value, occurrence/local date/timezone, timestamps; unique habit/day; date index |
 
 Types are Boolean (0/1), number (non-negative decimal), and duration (non-negative integer seconds). Aggregates are calculated, never stored. Direct parent records use a canonical hidden General child.
@@ -26,6 +26,7 @@ Types are Boolean (0/1), number (non-negative decimal), and duration (non-negati
 | --- | --- |
 | 1 | Creates habits, entries, indexes, and daily uniqueness |
 | 2 | Finds one matching numeric `Vices → Alcohol` leaf by name, emoji, and hierarchy; creates Beer/Cocktails/Wine/Shots children and moves existing Alcohol records to General atomically |
+| 3 | Adds nullable palette color; existing habits inherit/default without changing emojis or records |
 
 Version 2 skips structures that no longer match its query, including already-expanded Alcohol. Matching is attribute-based, not an immutable seed identifier. Released migrations must not be edited; add a new version and document its upgrade behavior.
 
@@ -33,10 +34,10 @@ New databases start with no habits or entries. Startup runs the released migrati
 
 ## Import and export
 
-JSON version 1 contains `version`, `exportedAt`, `habits`, and `entries`, including `sortOrder`. [Domain types](../src/domain/types.ts) define the fields; [import validation](../src/domain/import.ts) defines accepted input.
+JSON version 1 contains `version`, `exportedAt`, `habits`, and `entries`, including `sortOrder` and optional `color` (null/absent for automatic, otherwise a supported palette key). Older version-1 files remain supported; exports preserve chosen colors. Unknown color keys and changes to existing color identities reject the merge. Legacy emoji strings remain importable. [Domain types](../src/domain/types.ts) define the fields; [import validation](../src/domain/import.ts) defines accepted input.
 
-The file reader rejects imports above 5 MiB before parsing. Validation checks IDs/references, supported types, local dates/values, acyclic homogeneous trees, unique habit/day entries, and non-negative unique non-General sibling order. It does not currently validate every metadata field or enforce every canonical General invariant.
+The file reader rejects imports above 5 MiB before parsing. Validation checks IDs/references, supported types, local dates/values, acyclic homogeneous trees, unique habit/day entries, and non-negative unique non-General sibling order. Every branch must have exactly one childless General child at order -1; General cannot be a root or the only child. Entries must belong to leaves. Metadata validation remains partial.
 
-Merge adds new identities and skips existing ones only when their serialized payloads match. A conflicting identity or daily key aborts the import; no records are overwritten or deleted. New rows are inserted transactionally. The UI's AI conversion prompt is guidance, not a replacement for validation.
+Merge compares identity fields independent of JSON key order, preserving existing sibling positions and appending new siblings in incoming order. Existing habit identity comparisons exclude sibling order so repeated imports remain safe after appending. Conflicting identities, daily keys, or combined General structures abort the import. When an existing leaf gains children, its records move to General with IDs and metadata preserved; destination daily conflicts reject the entire merge. The combined result is validated inside the same transaction as inserts and transfers. File arrays need not place parents before children; persistence resolves parent order. No recorded values are overwritten or deleted. The UI's AI conversion prompt is guidance, not a replacement for validation.
 
 CSV contains entry ID, local date, timezone, type, value, and the current full habit path. Export creation and system sharing live in Settings.

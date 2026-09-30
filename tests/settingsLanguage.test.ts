@@ -9,6 +9,8 @@ describe('Settings language', () => {
     const { t } = await import('../src/i18n');
     const { AI_IMPORT_PROMPT } = await import('../src/features/import/aiImportPrompt');
     expect(t('settings')).toBe('Ajustes');
+    expect(t('habitColor')).toBe('Color del hábito');expect(t('automaticColor')).toBe('Automático');expect(t('habitEmoji')).toBe('Emoji del hábito');expect(t('invalidEmoji')).toContain('emoji completo');
+    for(const key of ['green','blue','purple','orange','pink','teal','invalidColor','emojiHelp'] as const)expect(t(key)).toBeTruthy();
     expect(t('openCalendarDay')).toBe('Abrir este día en el calendario ampliado');
     expect(t('editCalendar')).toBe('Editar calendario');
     expect(t('calendarEditHelp')).toContain('Desliza');
@@ -30,6 +32,7 @@ describe('Settings language', () => {
     vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockReturnValue({ ...options, locale });
     const { t } = await import('../src/i18n');
     const { AI_IMPORT_PROMPT } = await import('../src/features/import/aiImportPrompt');
+    expect(t('habitColor')).toBe('Habit color');expect(t('automaticColor')).toBe('Automatic');expect(t('invalidEmoji')).toContain('complete emoji');
     expect(t('exportJson')).toBe('Export complete JSON');
     expect(t('openCalendarDay')).toBe('Open this day in the larger calendar');
     expect(t('editCalendar')).toBe('Edit calendar');

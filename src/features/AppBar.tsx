@@ -16,8 +16,8 @@ export function AppBar(){
   const {palette:c}=useApp(),insets=useSafeAreaInsets(),path=usePathname();
   const active=path.startsWith('/insight')?'insights':path.startsWith('/calendar')?'calendar':path.startsWith('/settings')?'settings':'home';
   return <View style={[s.bar,{backgroundColor:c.card,borderTopColor:c.line,paddingBottom:Math.max(insets.bottom,8)}]}>
-    {destinations.map(item=>{const selected=active===item.key,color=selected?c.accent:c.muted;return <Pressable key={item.key} accessibilityRole="tab" accessibilityLabel={t(item.key)} accessibilityState={{selected}} onPress={()=>path.startsWith('/insight/')||path.startsWith('/habit/')?router.dismissTo(item.href):router.navigate(item.href)} style={({pressed})=>[s.tab,{opacity:pressed?0.55:1}]}>
-      <View style={[s.icon,{backgroundColor:selected?c.soft:'transparent'}]}><Ionicons name={selected?item.activeIcon:item.icon} size={23} color={color}/></View>
+    {destinations.map(item=>{const selected=active===item.key,color=c.navigation[item.key];return <Pressable key={item.key} accessibilityRole="tab" accessibilityLabel={t(item.key)} accessibilityState={{selected}} onPress={()=>path.startsWith('/insight/')||path.startsWith('/habit/')?router.dismissTo(item.href):router.navigate(item.href)} style={({pressed})=>[s.tab,{opacity:pressed?0.55:1}]}>
+      <View style={s.icon}><Ionicons name={selected?item.activeIcon:item.icon} size={23} color={color}/></View>
       <Text style={[s.label,{color}]}>{t(item.key)}</Text>
     </Pressable>})}
   </View>;

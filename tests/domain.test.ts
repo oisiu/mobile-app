@@ -16,3 +16,9 @@ describe('insight periods',()=>{it('builds comparable week, month and year bucke
 describe('pannable insight windows',()=>{it('defaults a week to Monday through the selected day',()=>{const window=buildInsightWindow('week','2026-08-30','2026-08-30');expect(window.start).toBe('2026-08-24');expect(window.end).toBe('2026-08-30');expect(window.buckets).toHaveLength(7)});it('groups a quarter by weeks and a year by months',()=>{expect(buildInsightWindow('quarter','2026-08-30','2026-08-30').buckets).toHaveLength(9);expect(buildInsightWindow('year','2026-08-30','2026-08-30').buckets).toHaveLength(8)});it('pans by complete periods across boundaries',()=>{expect(shiftInsightAnchor('2026-01-05','week',-1)).toBe('2025-12-29');expect(shiftInsightAnchor('2026-01-01','quarter',-1)).toBe('2025-10-01');expect(shiftInsightAnchor('2026-08-30','year',-1)).toBe('2025-01-01')})});
 describe('insight window edges',()=>{it('builds complete historical periods and shifts months',()=>{expect(shiftInsightAnchor('2026-08-30','month',-1)).toBe('2026-07-01');expect(buildInsightWindow('month','2026-07-15','2026-08-30').buckets).toHaveLength(31);expect(buildInsightWindow('quarter','2026-04-01','2026-08-30').end).toBe('2026-06-30');expect(buildInsightWindow('year','2025-08-30','2026-08-30').buckets).toHaveLength(12)})});
 describe('insight streaks',()=>{it('returns longest consecutive activity ranges first',()=>{const result=bestActivityStreaks(new Set(['2026-08-01','2026-08-02','2026-08-04','2026-08-05','2026-08-06','2026-07-01']),2);expect(result).toEqual([{start:'2026-08-04',end:'2026-08-06',length:3},{start:'2026-08-01',end:'2026-08-02',length:2}])})});
+
+describe('duration rounding',()=>{
+  it.each([[3569,'59m'],[3570,'1h'],[3599,'1h'],[3600,'1h'],[7169,'1h 59m'],[7170,'2h'],[7199,'2h'],[7200,'2h']] as const)('formats %i seconds as %s without a 60-minute remainder',(seconds,expected)=>{
+    expect(formatValue('duration',seconds)).toBe(expected);
+  });
+});

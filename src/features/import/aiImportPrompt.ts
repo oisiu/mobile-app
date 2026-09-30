@@ -38,12 +38,13 @@ Required top-level shape:
 
 Conversion rules:
 - Use a unique, stable string ID for every habit and entry. Prefix IDs with the source app name to reduce collision risk.
+- Optional color is null (automatic/inherited) or "green", "blue", "purple", "orange", "pink", or "teal". Omit it if the source has no matching preference. Preserve legacy emoji strings; for new identities prefer one complete emoji or an empty string.
 - parentId is null for a top-level habit or the ID of its parent.
 - type must be "boolean", "number", or "duration". Every habit in one branch must use the same type.
 - Boolean values are 0 or 1. Number values are non-negative decimals. Duration values are non-negative whole seconds.
 - localDate uses YYYY-MM-DD and must not be in the future. Use one entry at most per habit and localDate.
 - sortOrder starts at 0 and is consecutive among visible siblings under the same parent.
-- Use isGeneral=false for normal habits. If a parent has children and also has its own direct records, create one hidden child named General with isGeneral=true and sortOrder=-1, then attach those direct records to it.
+- Use isGeneral=false for normal habits. Every parent with children must have exactly one hidden, childless General child with isGeneral=true and sortOrder=-1. Attach any direct parent records to General; all records must belong to leaves.
 - All referenced parentId and habitId values must exist in this file. Do not create cycles.
 - Use ISO 8601 timestamps. Preserve the source timezone when known; otherwise use "UTC".
 - Preserve all source records. Do not calculate parent totals or duplicate a child value into its parent.
@@ -89,12 +90,13 @@ Estructura obligatoria (conserva las claves y los valores técnicos en inglés):
 
 Reglas de conversión:
 - Usa un ID de texto único y estable para cada hábito y registro. Añade como prefijo el nombre de la app de origen para reducir las colisiones.
+- El color opcional es null (automático/heredado) o "green", "blue", "purple", "orange", "pink" o "teal". Omítelo si el origen no tiene una preferencia equivalente. Conserva los emojis antiguos; para nuevas identidades usa preferiblemente un emoji completo o una cadena vacía.
 - parentId es null para un hábito principal, o el ID de su padre.
 - type debe ser "boolean", "number" o "duration". Todos los hábitos de una rama deben tener el mismo tipo.
 - Los valores booleanos son 0 o 1. Los numéricos son decimales no negativos. Las duraciones son segundos enteros no negativos.
 - localDate usa YYYY-MM-DD y no puede ser una fecha futura. Usa como máximo un registro por hábito y localDate.
 - sortOrder empieza en 0 y es consecutivo entre los hermanos visibles del mismo padre.
-- Usa isGeneral=false para los hábitos normales. Si un padre tiene hijos y registros propios, crea un hijo oculto llamado General con isGeneral=true y sortOrder=-1, y asígnale esos registros propios.
+- Usa isGeneral=false para los hábitos normales. Todo padre con hijos debe tener exactamente un hijo oculto General, sin descendientes, con isGeneral=true y sortOrder=-1. Asigna los registros propios del padre a General; todos los registros deben pertenecer a hojas.
 - Todos los parentId y habitId referenciados deben existir en el archivo. No crees ciclos.
 - Usa marcas de tiempo ISO 8601. Conserva la zona horaria de origen si se conoce; en caso contrario, usa "UTC".
 - Conserva todos los registros de origen. No calcules totales de los padres ni dupliques en ellos los valores de sus hijos.

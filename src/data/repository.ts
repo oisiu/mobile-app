@@ -1,24 +1,27 @@
+import { assertHabitAppearance } from '@/domain/habitAppearance';
 import { BranchEdit,planBranchEdit } from '@/domain/branchDay';
 import { SQLiteDatabase } from 'expo-sqlite';
 import { CreateHabitInput, Entry, EntryInput, ExportData, Habit } from '@/domain/types';
-import { assertMergeSafe, validateImport } from '@/domain/import'; import { descendants, validateMove } from '@/domain/tree'; import { validateEntry } from '@/domain/entries'; import { makeId } from '@/utils/id';
+import { planImport, validateImport } from '@/domain/import'; import { descendants, validateMove } from '@/domain/tree'; import { validateEntry } from '@/domain/entries'; import { makeId } from '@/utils/id';
 
-const toHabit=(r:any):Habit=>({id:r.id,parentId:r.parent_id,name:r.name,emoji:r.emoji,type:r.type,sortOrder:r.sort_order,isGeneral:!!r.is_general,archivedAt:r.archived_at,createdAt:r.created_at,updatedAt:r.updated_at});
+const toHabit=(r:any):Habit=>({id:r.id,parentId:r.parent_id,name:r.name,emoji:r.emoji,...(r.color?{color:r.color}:{}),type:r.type,sortOrder:r.sort_order,isGeneral:!!r.is_general,archivedAt:r.archived_at,createdAt:r.created_at,updatedAt:r.updated_at});
 const toEntry=(r:any):Entry=>({id:r.id,habitId:r.habit_id,value:r.value,occurredAt:r.occurred_at,localDate:r.local_date,timezone:r.timezone,createdAt:r.created_at,updatedAt:r.updated_at});
-export interface TreeDraftCreate { key:string; parentKey:string; name:string; emoji:string }
-export interface TreeDraftUpdate { id:string; name:string; emoji:string }
+export interface TreeDraftCreate { key:string; parentKey:string; name:string; emoji:string; color?:Habit['color'] }
+export interface TreeDraftUpdate { id:string; name:string; emoji:string; color?:Habit['color'] }
 export class HabitRepository {
   constructor(private db:SQLiteDatabase){}
   async habits(){ return (await this.db.getAllAsync<any>('SELECT * FROM habits ORDER BY parent_id,sort_order')).map(toHabit); }
   async entries(from?:string,to?:string){ const rows=from&&to?await this.db.getAllAsync<any>('SELECT * FROM entries WHERE local_date BETWEEN ? AND ?',[from,to]):await this.db.getAllAsync<any>('SELECT * FROM entries'); return rows.map(toEntry); }
   private async normalize(parentId:string|null){ const rows=await this.db.getAllAsync<{id:string}>('SELECT id FROM habits WHERE parent_id IS ? AND is_general=0 ORDER BY sort_order,id',[parentId]); for(let i=0;i<rows.length;i++) await this.db.runAsync('UPDATE habits SET sort_order=? WHERE id=?',[i,rows[i].id]); }
-  async create(input:CreateHabitInput){ const all=await this.habits(); if(input.parentId){ const p=all.find(h=>h.id===input.parentId); if(!p) throw new Error('Parent not found'); if(p.type!==input.type) throw new Error('A branch must use one type'); }
-    const now=new Date().toISOString(),id=makeId(); await this.db.withTransactionAsync(async()=>{ if(input.parentId){ const real=all.filter(h=>h.parentId===input.parentId&&!h.isGeneral); if(!real.length){ const existing=all.filter(h=>h.parentId===input.parentId&&h.isGeneral)[0]; let general=existing?.id; if(!general){ general=makeId(); await this.db.runAsync('INSERT INTO habits VALUES(?,?,?,?,?,?,?,?,?,?)',[general,input.parentId,'General','•',input.type,-1,1,null,now,now]); await this.db.runAsync('UPDATE entries SET habit_id=? WHERE habit_id=?',[general,input.parentId]); } } }
-      const count=await this.db.getFirstAsync<{n:number}>('SELECT COUNT(*) n FROM habits WHERE parent_id IS ? AND is_general=0',[input.parentId]); await this.db.runAsync('INSERT INTO habits VALUES(?,?,?,?,?,?,?,?,?,?)',[id,input.parentId,input.name.trim(),input.emoji,input.type,count?.n??0,0,null,now,now]); }); return id; }
-  async update(id:string,patch:Partial<Pick<Habit,'name'|'emoji'>>){ const now=new Date().toISOString(); if(patch.name!==undefined&&!patch.name.trim()) throw new Error('Name is required'); await this.db.runAsync('UPDATE habits SET name=COALESCE(?,name),emoji=COALESCE(?,emoji),updated_at=? WHERE id=?',[patch.name?.trim()??null,patch.emoji??null,now,id]); }
+  async create(input:CreateHabitInput){ assertHabitAppearance(input.emoji,input.color); const all=await this.habits(); if(input.parentId){ const p=all.find(h=>h.id===input.parentId); if(!p) throw new Error('Parent not found'); if(p.type!==input.type) throw new Error('A branch must use one type'); }
+    const now=new Date().toISOString(),id=makeId(); await this.db.withTransactionAsync(async()=>{ if(input.parentId){ const real=all.filter(h=>h.parentId===input.parentId&&!h.isGeneral); if(!real.length){ const existing=all.filter(h=>h.parentId===input.parentId&&h.isGeneral)[0]; let general=existing?.id; if(!general){ general=makeId(); await this.db.runAsync('INSERT INTO habits(id,parent_id,name,emoji,type,sort_order,is_general,archived_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[general,input.parentId,'General','•',input.type,-1,1,null,now,now]); await this.db.runAsync('UPDATE entries SET habit_id=? WHERE habit_id=?',[general,input.parentId]); } } }
+      const count=await this.db.getFirstAsync<{n:number}>('SELECT COUNT(*) n FROM habits WHERE parent_id IS ? AND is_general=0',[input.parentId]); await this.db.runAsync('INSERT INTO habits(id,parent_id,name,emoji,type,sort_order,is_general,archived_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[id,input.parentId,input.name.trim(),input.emoji,input.type,count?.n??0,0,null,now,now]); if(input.color)await this.db.runAsync('UPDATE habits SET color=? WHERE id=?',[input.color,id]); }); return id; }
+  async update(id:string,patch:Partial<Pick<Habit,'name'|'emoji'|'color'>>){ const previous=(await this.habits()).find(h=>h.id===id);assertHabitAppearance(patch.emoji===undefined||patch.emoji===previous?.emoji?'':patch.emoji,patch.color);const now=new Date().toISOString(); if(patch.name!==undefined&&!patch.name.trim()) throw new Error('Name is required'); await this.db.runAsync('UPDATE habits SET name=COALESCE(?,name),emoji=COALESCE(?,emoji),color=CASE WHEN ? THEN ? ELSE color END,updated_at=? WHERE id=?',[patch.name?.trim()??null,patch.emoji??null,Number(patch.color!==undefined),patch.color??null,now,id]); }
   async editTree(rootId:string,updates:TreeDraftUpdate[],creates:TreeDraftCreate[],deletes:string[]){
     const all=await this.habits(),root=all.find(h=>h.id===rootId&&!h.parentId&&!h.isGeneral);
     if(!root)throw new Error('Top-level habit not found');
+    for(const item of updates)assertHabitAppearance(item.emoji===all.find(h=>h.id===item.id)?.emoji?'':item.emoji,item.color);
+    for(const item of creates)assertHabitAppearance(item.emoji,item.color);
     if(updates.some(item=>!item.name.trim())||creates.some(item=>!item.name.trim()))throw new Error('Name is required');
     const allowed=new Set([rootId,...descendants(all,rootId).filter(h=>!h.isGeneral).map(h=>h.id)]),deletedTree=new Set(deletes.flatMap(id=>[id,...descendants(all,id).map(h=>h.id)]));
     if(deletes.some(id=>id===rootId||!allowed.has(id)))throw new Error('Invalid subtree deletion');
@@ -27,7 +30,7 @@ export class HabitRepository {
     for(const item of creates){if(draftKeys.has(item.key)||(!allowed.has(item.parentKey)&&!draftKeys.has(item.parentKey))||deletedTree.has(item.parentKey))throw new Error('Invalid draft hierarchy');draftKeys.add(item.key)}
     const now=new Date().toISOString();
     await this.db.withTransactionAsync(async()=>{
-      for(const item of updates)if(!deletedTree.has(item.id))await this.db.runAsync('UPDATE habits SET name=?,emoji=?,updated_at=? WHERE id=?',[item.name.trim(),item.emoji,now,item.id]);
+      for(const item of updates)if(!deletedTree.has(item.id))await this.db.runAsync('UPDATE habits SET name=?,emoji=?,color=?,updated_at=? WHERE id=?',[item.name.trim(),item.emoji,item.color===undefined?all.find(h=>h.id===item.id)?.color??null:item.color,now,item.id]);
       const deleteRoots=deletes.filter(id=>!deletes.some(other=>other!==id&&descendants(all,other).some(item=>item.id===id))),affected=new Set<string>();
       for(const id of deleteRoots){const item=all.find(h=>h.id===id);if(item?.parentId)affected.add(item.parentId);await this.db.runAsync('DELETE FROM habits WHERE id=?',[id])}
       for(const parentId of affected){
@@ -42,8 +45,8 @@ export class HabitRepository {
         if(!parent||parent.archived_at)throw new Error('Parent not found');
         if(parent.type!==root.type)throw new Error('A branch must use one type');
         const real=await this.db.getFirstAsync<{n:number}>('SELECT COUNT(*) n FROM habits WHERE parent_id=? AND is_general=0',[parentId]);
-        if(!real?.n){let general=(await this.db.getFirstAsync<{id:string}>('SELECT id FROM habits WHERE parent_id=? AND is_general=1',[parentId]))?.id;if(!general){general=makeId();await this.db.runAsync('INSERT INTO habits VALUES(?,?,?,?,?,?,?,?,?,?)',[general,parentId,'General','•',root.type,-1,1,null,now,now]);await this.db.runAsync('UPDATE entries SET habit_id=? WHERE habit_id=?',[general,parentId])}}
-        const id=makeId();ids.set(item.key,id);await this.db.runAsync('INSERT INTO habits VALUES(?,?,?,?,?,?,?,?,?,?)',[id,parentId,item.name.trim(),item.emoji,root.type,real?.n??0,0,null,now,now]);
+        if(!real?.n){let general=(await this.db.getFirstAsync<{id:string}>('SELECT id FROM habits WHERE parent_id=? AND is_general=1',[parentId]))?.id;if(!general){general=makeId();await this.db.runAsync('INSERT INTO habits(id,parent_id,name,emoji,type,sort_order,is_general,archived_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[general,parentId,'General','•',root.type,-1,1,null,now,now]);await this.db.runAsync('UPDATE entries SET habit_id=? WHERE habit_id=?',[general,parentId])}}
+        const id=makeId();ids.set(item.key,id);await this.db.runAsync('INSERT INTO habits(id,parent_id,name,emoji,type,sort_order,is_general,archived_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[id,parentId,item.name.trim(),item.emoji,root.type,real?.n??0,0,null,now,now]);if(item.color)await this.db.runAsync('UPDATE habits SET color=? WHERE id=?',[item.color,id]);
       }
     });
   }
@@ -66,5 +69,19 @@ export class HabitRepository {
   async remove(id:string){ const all=await this.habits(),item=all.find(h=>h.id===id); if(!item)return; await this.db.withTransactionAsync(async()=>{ await this.db.runAsync('DELETE FROM habits WHERE id=?',[id]); await this.normalize(item.parentId); if(item.parentId){ const real=await this.db.getFirstAsync<{n:number}>('SELECT COUNT(*) n FROM habits WHERE parent_id=? AND is_general=0',[item.parentId]); if(!real?.n){ const general=await this.db.getFirstAsync<{id:string}>('SELECT id FROM habits WHERE parent_id=? AND is_general=1',[item.parentId]); if(general){ await this.db.runAsync('UPDATE entries SET habit_id=? WHERE habit_id=?',[item.parentId,general.id]); await this.db.runAsync('DELETE FROM habits WHERE id=?',[general.id]); } } } }); }
   async deletionImpact(id:string){ const all=await this.habits(),ids=[id,...descendants(all,id).map(h=>h.id)]; const placeholders=ids.map(()=>'?').join(','); const row=await this.db.getFirstAsync<{n:number}>(`SELECT COUNT(*) n FROM entries WHERE habit_id IN (${placeholders})`,ids); return {habits:ids.length,entries:row?.n??0}; }
   async export():Promise<ExportData>{ return {version:1,exportedAt:new Date().toISOString(),habits:await this.habits(),entries:await this.entries()}; }
-  async import(raw:unknown){ const incoming=validateImport(raw),existing=await this.export(); assertMergeSafe(existing,incoming); const hids=new Set(existing.habits.map(h=>h.id)),eids=new Set(existing.entries.map(e=>e.id)); await this.db.withTransactionAsync(async()=>{ for(const h of incoming.habits) if(!hids.has(h.id)) await this.db.runAsync('INSERT INTO habits VALUES(?,?,?,?,?,?,?,?,?,?)',[h.id,h.parentId,h.name,h.emoji,h.type,h.sortOrder,h.isGeneral?1:0,h.archivedAt,h.createdAt,h.updatedAt]); for(const e of incoming.entries) if(!eids.has(e.id)) await this.db.runAsync('INSERT INTO entries VALUES(?,?,?,?,?,?,?,?)',[e.id,e.habitId,e.value,e.occurredAt,e.localDate,e.timezone,e.createdAt,e.updatedAt]); }); }
+  async import(raw:unknown){
+    const incoming=validateImport(raw);
+    await this.db.withTransactionAsync(async()=>{
+      const existing=await this.export(),merged=planImport(existing,incoming),hids=new Set(existing.habits.map(h=>h.id)),previousEntries=new Map(existing.entries.map(e=>[e.id,e]));
+      // Parents must precede children even when the file array is unordered.
+      const pending=merged.habits.filter(h=>!hids.has(h.id));
+      while(pending.length){const index=pending.findIndex(h=>!h.parentId||hids.has(h.parentId)),h=pending.splice(index,1)[0];
+        await this.db.runAsync('INSERT INTO habits(id,parent_id,name,emoji,type,sort_order,is_general,archived_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[h.id,h.parentId,h.name,h.emoji,h.type,h.sortOrder,h.isGeneral?1:0,h.archivedAt,h.createdAt,h.updatedAt]);if(h.color)await this.db.runAsync('UPDATE habits SET color=? WHERE id=?',[h.color,h.id]);hids.add(h.id);
+      }
+      for(const e of merged.entries){
+        if(!previousEntries.has(e.id))await this.db.runAsync('INSERT INTO entries VALUES(?,?,?,?,?,?,?,?)',[e.id,e.habitId,e.value,e.occurredAt,e.localDate,e.timezone,e.createdAt,e.updatedAt]);
+        else {const previous=previousEntries.get(e.id)!;if(previous.habitId!==e.habitId)await this.db.runAsync('UPDATE entries SET habit_id=? WHERE id=?',[e.habitId,e.id]);}
+      }
+    });
+  }
 }
