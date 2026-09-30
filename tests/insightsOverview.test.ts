@@ -6,7 +6,17 @@ const timestamp='2026-01-01T00:00:00Z';
 const habit=(id:string,type:Habit['type']='number',parentId:string|null=null,sortOrder=0):Habit=>({id,name:id,emoji:'x',type,parentId,sortOrder,isGeneral:false,archivedAt:null,createdAt:timestamp,updatedAt:timestamp});
 const entry=(habitId:string,localDate:string,value:number):Entry=>({id:`${habitId}-${localDate}`,habitId,localDate,value,occurredAt:timestamp,timezone:'UTC',createdAt:timestamp,updatedAt:timestamp});
 
-describe('monthly Insights overview',()=>{
+describe('Insights overview',()=>{
+  it.each([['2026-01-01',1],['2024-03-01',61],['2024-12-31',366],['2026-12-31',365]] as const)('uses elapsed year days on %s',(today,elapsedDays)=>{
+    expect(buildInsightsOverview([],[],today,'year')).toEqual({elapsedDays,ranked:[]});
+  });
+  it('ranks year-to-date activity across months, excluding prior years and future days',()=>{
+    const habits=[habit('regular'),habit('large')];
+    const entries=[entry('regular','2025-12-31',100),entry('regular','2026-01-01',2),entry('regular','2026-02-02',3),entry('regular','2026-09-08',4),entry('regular','2026-09-09',100),entry('large','2026-08-01',50)];
+    const result=buildInsightsOverview(habits,entries,'2026-09-08','year');
+    expect(result.elapsedDays).toBe(251);
+    expect(result.ranked.map(({habit,active,total})=>({id:habit.id,active,total}))).toEqual([{id:'regular',active:3,total:9},{id:'large',active:1,total:50}]);
+  });
   it('ranks the elapsed Monday–today week across month and year boundaries',()=>{
     const habits=[habit('week'),habit('outside')];
     const entries=[entry('week','2025-12-29',2),entry('week','2026-01-01',3),entry('week','2026-01-02',99),entry('outside','2025-12-28',100)];

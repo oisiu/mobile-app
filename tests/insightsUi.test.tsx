@@ -1,3 +1,4 @@
+import { habitColorPalette } from '../src/theme/habitColors';
 import React from 'react';
 import { act,create,ReactTestRenderer,ReactTestInstance } from 'react-test-renderer';
 import { afterEach,beforeEach,describe,expect,it,vi } from 'vitest';
@@ -11,6 +12,7 @@ import { AppBar } from '../src/features/AppBar';
 import { SheetHandle } from '../src/features/SheetHandle';
 import { t } from '../src/i18n';
 import Settings from '../app/(tabs)/settings';
+import Insights from '../app/(tabs)/insights';
 
 const state=vi.hoisted(()=>({app:{} as Record<string,unknown>,alert:vi.fn(),path:'/',navigate:vi.fn(),dismissTo:vi.fn()}));
 vi.mock('react-native',()=>({
@@ -149,4 +151,24 @@ describe('Shared presentation interactions',()=>{
     await act(async()=>renderer.update(<SheetHandle onClose={close} disabled/>));
     expect(button(root,t('close')).props.disabled).toBe(true);
   });
+});
+
+it('switches the Insights overview from Month to Year',async()=>{
+  const root=await render(<Insights/>);
+  const periodButton=(label:string)=>root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.findAll(child=>child.type===('Text' as React.ElementType)&&child.props.children===label).length>0)[0];
+  expect(periodButton(t('month')).props.accessibilityState.selected).toBe(true);
+  await press(periodButton(t('year')));
+  expect(periodButton(t('year')).props.accessibilityState.selected).toBe(true);
+  expect(periodButton(t('month')).props.accessibilityState.selected).toBe(false);
+  expect(root.findAll(node=>node.type===('Text' as React.ElementType)&&node.props.children===t('insightsRankingYearIntro'))).toHaveLength(1);
+  expect(root.findAll(node=>node.type===('Text' as React.ElementType)&&Array.isArray(node.props.children)&&node.props.children.join('')==='0/251')).toHaveLength(1);
+});
+
+it('uses the chosen habit color for overview bars and score series',async()=>{
+  state.app={...state.app,habits:[{...habit,color:'purple'}]};
+  const overview=await render(<Insights/>);
+  expect(overview.findAll(node=>node.type===('View' as React.ElementType)&&Array.isArray(node.props.style)&&node.props.style.some((style:Record<string,unknown>)=>style?.backgroundColor===habitColorPalette.purple))).not.toHaveLength(0);
+  await act(async()=>renderer.unmount());
+  const detail=await render(<InsightDetailScreen/>);
+  expect(detail.findAll(node=>node.type===('Polyline' as React.ElementType)&&node.props.stroke===habitColorPalette.purple)).not.toHaveLength(0);
 });

@@ -17,4 +17,8 @@ export async function migrate(db:SQLiteDatabase){
     }
     await db.runAsync('INSERT INTO schema_versions VALUES(2,datetime(\'now\'))');
   });
+  if((row?.version??0)<3)await db.withTransactionAsync(async()=>{
+    await db.execAsync("ALTER TABLE habits ADD COLUMN color TEXT CHECK(color IS NULL OR color IN ('green','blue','purple','orange','pink','teal')); INSERT INTO schema_versions VALUES(3,datetime('now'));");
+  });
+
 }

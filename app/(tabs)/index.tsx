@@ -1,10 +1,11 @@
+import { habitAccent } from '@/theme/habitColors';
 import { BranchDayDialog } from '@/features/home/BranchDayDialog';
 import { branchRecords } from '@/domain/branchDay';
 import { CalendarEntryModal } from '@/features/insights/CalendarEntryModal';
 import { calendarDraft,calendarEntry,calendarInputValue,CalendarDraft } from '@/features/insights/calendarEntry';
 import { homeDateWindow } from '@/features/home/dateWindow';
 import { depthBackground,mainTitle } from '@/theme';
-import React,{useMemo,useRef,useState} from 'react'; import { ActivityIndicator,Alert,Animated,FlatList,Pressable,type ScrollView,StyleSheet,Text,TouchableOpacity,View } from 'react-native'; import * as Haptics from 'expo-haptics'; import { router } from 'expo-router'; import { Ionicons } from '@expo/vector-icons';
+import React,{useMemo,useRef,useState} from 'react'; import { ActivityIndicator,Alert,Animated,FlatList,Pressable,ScrollView,StyleSheet,Text,TouchableOpacity,View } from 'react-native'; import * as Haptics from 'expo-haptics'; import { router } from 'expo-router'; import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '@/features/AppProvider'; import { buildTree } from '@/domain/tree'; import { aggregate,formatValue } from '@/domain/aggregation'; import { HabitNode } from '@/domain/types'; import { addDays,shortDay } from '@/utils/dates'; import { todayLocal } from '@/domain/entries'; import { t } from '@/i18n'; import { usePrefetchRoutes,useResponsiveNavigation } from '@/features/useResponsiveNavigation';
 const HABIT_COLUMN_WIDTH=157;
 
@@ -34,7 +35,7 @@ export default function Home(){const {ready,error,habits,entries,changeEntry,pal
     const backgroundColor=depthBackground(c.card,c.soft,depth);
     return <React.Fragment key={h.id}>
     <View style={[s.row,{backgroundColor,marginBottom:0}]}>
-      <View style={[s.frozenLabel,{backgroundColor}]}>
+      <View style={[s.frozenLabel,{backgroundColor}]}><View pointerEvents="none" style={{position:'absolute',left:0,top:4,bottom:4,width:3,backgroundColor:habitAccent(h,habits,'transparent')}}/>
         <TouchableOpacity disabled={navigation.pending!==null} accessibilityRole="button" accessibilityLabel={`${t('openInsights')} ${h.name}`} accessibilityState={{busy:navigation.pending===`/insight/${h.id}`,disabled:navigation.pending!==null}} onPress={()=>navigation.push(`/insight/${h.id}`)} style={[s.label,{paddingLeft:20+Math.min(depth,4)*6}]}><Text style={s.emoji}>{h.emoji}</Text><Text numberOfLines={1} style={[s.name,{color:c.text,fontSize:13-Math.min(depth,4)}]}>{h.name}</Text></TouchableOpacity>
         {h.children.length?<TouchableOpacity accessibilityLabel={`${h.name}, ${expanded.has(h.id)?t('collapse'):t('expand')}`} onPress={()=>setExpanded(x=>{const n=new Set(x);if(n.has(h.id))n.delete(h.id);else n.add(h.id);return n})} style={s.expand}><Ionicons name={expanded.has(h.id)?'chevron-up':'chevron-down'} size={17} color={c.muted}/></TouchableOpacity>:null}
       </View>

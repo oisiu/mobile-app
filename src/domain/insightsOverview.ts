@@ -3,10 +3,10 @@ import { buildInsightWindow } from './analytics';
 import { buildTree } from './tree';
 import { Entry,Habit } from './types';
 
-export type OverviewPeriod='week'|'month';
+export type OverviewPeriod='week'|'month'|'year';
 
 export function buildInsightsOverview(habits:Habit[],entries:Entry[],today:string,period:OverviewPeriod='month'){
-  const dates=buildInsightWindow(period,today,today).buckets.map(bucket=>bucket.key);
+  const dates=buildInsightWindow(period,today,today).buckets.flatMap(bucket=>[...bucket.dates]);
   const dateSet=new Set(dates);
   const ranked=buildTree(habits).map(habit=>({
     habit,

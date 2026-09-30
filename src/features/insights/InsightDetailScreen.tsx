@@ -1,3 +1,4 @@
+import { habitAccent } from '@/theme/habitColors';
 import { StrengthChart } from './StrengthChart';
 import { buildCalendarTimeline,initialCalendarWeek } from './calendarTimeline';
 import { useChartEntrance } from './useChartEntrance';
@@ -56,9 +57,9 @@ export default function InsightDetailScreen(){
     const selected=[...(historyIds.size?historyIds:new Set([root.id]))].map(habitId=>candidates.find(habit=>habit.id===habitId)??root);
     return buildHistorySeries(selected,habits,entries,historyWindow.buckets);
   },[root,historyReady,historyIds,candidates,habits,entries,historyWindow.buckets]);
-  const scoreSelection=useMemo(()=>root?[...scoreIds].map(habitId=>candidates.find(habit=>habit.id===habitId)??root).map(habit=>({habit,color:colors[Math.max(0,candidates.findIndex(item=>item.id===habit.id))%colors.length]})):[],[scoreIds,candidates,root]);
+  const scoreSelection=useMemo(()=>root?[...scoreIds].map(habitId=>candidates.find(habit=>habit.id===habitId)??root).map(habit=>({habit,color:habitAccent(habit,habits,colors[Math.max(0,candidates.findIndex(item=>item.id===habit.id))%colors.length])})):[],[scoreIds,candidates,root,habits]);
   if(!root)return <View style={[s.center,{backgroundColor:c.bg}]}><Text style={{color:c.text}}>{t('categoryNotFound')}</Text></View>;
-  const candidate=(habitId:string)=>candidates.find(h=>h.id===habitId)??root,colorFor=(habitId:string)=>colors[Math.max(0,candidates.findIndex(h=>h.id===habitId))%colors.length];
+  const candidate=(habitId:string)=>candidates.find(h=>h.id===habitId)??root,colorFor=(habitId:string)=>habitAccent(candidate(habitId),habits,colors[Math.max(0,candidates.findIndex(h=>h.id===habitId))%colors.length]);
   const historySeries:Series[]=historyData.map(item=>({...item,color:colorFor(item.habit.id)}));
   const currentSingle=filter==='calendar'?calendarId:filter==='streaks'?streakId:frequencyId;
   const setSingle=(habitId:string)=>{if(filter==='calendar')setCalendarId(habitId);else if(filter==='streaks')setStreakId(habitId);else setFrequencyId(habitId);setFilter(null)};

@@ -4,9 +4,9 @@ This document owns durable interaction and presentation rules. [Product](PRODUCT
 
 ## Shared presentation
 
-Use system fonts, large headings with tight tracking, neutral grouped surfaces, green accents, rounded controls, and quiet separators. Keep touch feedback immediate and motion restrained. Respect safe areas and large text; keep controls accessible and chart labels readable on narrow screens. Footer selection uses a filled icon and tinted capsule as well as color. Appearance choices have visible localized labels. Destructive confirmations identify affected habits and records.
+Use system fonts, large headings with tight tracking, neutral grouped surfaces, green accents, rounded controls, and quiet separators. Keep touch feedback immediate and motion restrained. Respect safe areas and large text; keep controls accessible and chart labels readable on narrow screens. Footer destinations each keep a distinct icon and label color in both themes. Selection uses a filled icon without changing the button background. Appearance choices have visible localized labels. Destructive confirmations identify affected habits and records.
 
-Appearance supports System, Light, and Dark. The native splash initially follows the device theme; the app applies the saved preference once loaded. Branding assets and rebuild guidance belong in [Development](DEVELOPMENT.md#generated-android-files-and-assets).
+Appearance supports System, Light, and Dark. The native splash initially follows the device theme; the app applies the saved preference once loaded. Database startup failures show localized guidance and a Try again button; retries show loading and block repeated submissions. Branding assets and rebuild guidance belong in [Development](DEVELOPMENT.md#generated-android-files-and-assets).
 
 The persistent footer offers Home, Calendar, Insights, and Settings, including on detail and editor screens. Detail selects Insights; editing selects Home. Choosing a destination dismisses those routes, subject to the draft guard below.
 Footer destinations use a restrained horizontal shift. Detail and editor screens slide in from the right and reverse when returning.
@@ -34,7 +34,9 @@ Writes block repeated input and dismissal. Failures retain the draft. Changed so
 
 ## Habit editor
 
-Create roots with an emoji, name, and a localized type choice with an example. Editing a descendant opens its root's hierarchy editor. New children inherit the branch type; there is no parent selector.
+Create roots with an optional emoji, name, a six-color palette, and a localized type choice with an example. Automatic resets the color to the nearest ancestor’s choice, or the default accent for roots. Children may override that color. Colors appear as subtle Home accents, Calendar markers, overview bars, and detail chart series; names and emojis remain visible alongside color.
+
+Emoji input allows an empty field or one complete emoji, including flags, skin tones, keycaps, and joined family sequences. Save rejects multiple emojis with localized feedback and retains the draft. Existing multiple-emoji values remain unchanged when editing other fields; changing the emoji applies the new rule. Editing a descendant opens its root's hierarchy editor. New children inherit the branch type; there is no parent selector.
 
 Back, Cancel, native back gestures, and footer navigation confirm before discarding changed drafts. Unchanged or fully reverted drafts leave immediately; successful Save does not prompt.
 
@@ -48,7 +50,7 @@ Navigation shows immediate progress, exposes its pending state to accessibility 
 
 Direct parent input targets its hidden General record and preserves descendant entries. The Home branch day editor above separately allows reviewing, editing, removing, and moving descendant records. Displayed parent activity may therefore remain after deleting direct input; [Database](DATABASE.md) defines aggregation.
 
-Number/duration editors are keyboard-aware and offer Save, Delete for an existing record, and Cancel or Back. Duration input accepts decimal Minutes/Hours and preserves the amount when units change. Whole-hour values initially use Hours; other values use Minutes. Zero is valid.
+Number/duration editors are keyboard-aware and offer Save, Delete for an existing record, and Cancel or Back. Duration input accepts decimal Minutes/Hours and preserves the amount when units change. Whole-hour values initially use Hours; other values use Minutes. Zero is valid. Compact duration displays round to the nearest minute, carrying rounded minutes into hours.
 
 Writes block repeated submission and conflicting dismissal/filter changes. Failed writes retain the draft and show an error. Successful writes refresh displayed values.
 
@@ -56,7 +58,7 @@ Day sheets and Insight filters dismiss through the Close handle, backdrop, Andro
 
 ## Calendar tab
 
-Months scroll vertically and load older history. A Monday-first weekday row, month/year headings, Today shortcut, and highlighted current day orient navigation. Future days are disabled. Day cells show up to three distinct root emojis and an overflow count.
+Months scroll vertically and load older history. A Monday-first weekday row, month/year headings with only a space between the localized month and year (for example, “September 2026” / “Septiembre 2026”), Today shortcut, and highlighted current day orient navigation. Future days are disabled. Day cells show up to three distinct root emojis and an overflow count.
 
 ### Selected day
 
@@ -66,7 +68,7 @@ Boolean values toggle immediately. Number/duration editing follows the shared ru
 
 ## Insights
 
-The overview offers Week and Month, defaulting to Month. Week uses Monday through today; Month uses the first day of the month through today. Rankings use active days, typed total, and stored sibling order within the selected range. Future and earlier-period records are excluded. The active-day fraction and bar use elapsed days in that range.
+The overview offers Week, Month, and Year, defaulting to Month. Week uses Monday through today; Month uses the first day of the month through today; Year uses January 1 through today. Rankings use active days, typed total, and stored sibling order within the selected range. Future and earlier-period records are excluded. The active-day fraction and bar use elapsed days in that range.
 
 Detail sections appear in this order:
 

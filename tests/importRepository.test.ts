@@ -1,0 +1,112 @@
+import { afterEach,describe,expect,it,vi } from 'vitest';
+import { DatabaseSync } from 'node:sqlite';
+import type { SQLiteDatabase } from 'expo-sqlite';
+import { HabitRepository } from '../src/data/repository';
+import { migrate } from '../src/data/migrations';
+import { aggregate } from '../src/domain/aggregation';
+import { planImport,validateImport } from '../src/domain/import';
+import { Entry,ExportData,Habit } from '../src/domain/types';
+vi.mock('expo-sqlite',()=>({}));
+const now='2025-01-01T00:00:00.000Z',date='2025-01-01';
+const h=(id:string,parentId:string|null=null,sortOrder=0,isGeneral=false):Habit=>({id,parentId,sortOrder,isGeneral,name:id,emoji:'•',type:'number',archivedAt:null,createdAt:now,updatedAt:now});
+const e=(id:string,habitId:string,value=5):Entry=>({id,habitId,value,localDate:date,occurredAt:now,timezone:'UTC',createdAt:now,updatedAt:now});
+const doc=(habits:Habit[],entries:Entry[]=[]):ExportData=>({version:1,exportedAt:now,habits,entries});
+const databases:DatabaseSync[]=[];
+afterEach(()=>{databases.splice(0).forEach(db=>db.close())});
+async function setup(){
+  const sqlite=new DatabaseSync(':memory:');databases.push(sqlite);
+  const db={execAsync:async(sql:string)=>{sqlite.exec(sql)},getFirstAsync:async(sql:string,params:(string|number|null)[]=[])=>sqlite.prepare(sql).get(...params),getAllAsync:async(sql:string,params:(string|number|null)[]=[])=>sqlite.prepare(sql).all(...params),runAsync:async(sql:string,params:(string|number|null)[]=[])=>sqlite.prepare(sql).run(...params),withTransactionAsync:async(action:()=>Promise<void>)=>{sqlite.exec('BEGIN');try{await action();sqlite.exec('COMMIT')}catch(error){sqlite.exec('ROLLBACK');throw error}}};
+  await migrate(db as unknown as SQLiteDatabase);
+  return {repo:new HabitRepository(db as unknown as SQLiteDatabase),sqlite,db};
+}
+describe('Safe import integrity',()=>{
+  it('appends new siblings in incoming order and supports repeated imports',async()=>{
+    const {repo}=await setup();await repo.import(doc([h('existing')]));
+    const incoming=doc([h('last',null,1),h('first')]);
+    await repo.import(incoming);await repo.import(incoming);
+    const exported=await repo.export();expect(exported.habits.map(h=>[h.id,h.sortOrder])).toEqual([['existing',0],['first',1],['last',2]]);
+    expect(()=>validateImport(exported)).not.toThrow();
+  });
+  it('imports a fresh hierarchy with children before parents in the file',async()=>{
+    const {repo}=await setup();
+    await repo.import(doc([h('child','root'),h('general','root',-1,true),h('root')],[e('record','child')]));
+    const exported=await repo.export();expect(exported.habits).toHaveLength(3);
+    expect(aggregate(exported.habits,exported.entries,'root',new Set([date]))).toBe(5);
+  });
+  it('preserves totals and entry metadata when an existing leaf becomes a branch',async()=>{
+    const {repo}=await setup(),root=h('root'),record=e('old','root');await repo.import(doc([root],[record]));
+    const incoming=doc([h('child','root'),h('general','root',-1,true),root],[e('new','child',3)]);
+    await repo.import(incoming);await repo.import(incoming);
+    const exported=await repo.export();expect(exported.entries.find(e=>e.id==='old')).toEqual({...record,habitId:'general'});
+    expect(aggregate(exported.habits,exported.entries,'root',new Set([date]))).toBe(8);
+    expect(()=>validateImport(exported)).not.toThrow();
+  });
+  it('rejects a destination daily conflict after General routing without changing stored data',async()=>{
+    const {repo}=await setup(),root=h('root');await repo.import(doc([root],[e('old','root')]));
+    await expect(repo.import(doc([root,h('general','root',-1,true),h('child','root')],[e('new','general')]))).rejects.toThrow(/daily/i);
+    expect((await repo.export()).habits).toEqual([root]);expect(await repo.entries()).toEqual([e('old','root')]);
+  });
+  it('rejects a second General when combining otherwise valid documents',()=>{
+    const root=h('root'),child=h('child','root');
+    expect(()=>planImport(doc([root,child,h('general','root',-1,true)]),doc([root,child,h('other-general','root',-1,true)]))).toThrow(/General/);
+  });
+  it('rolls back inserted children and transferred records after an injected write failure',async()=>{
+    const {repo,sqlite}=await setup(),root=h('root');await repo.import(doc([root],[e('old','root')]));
+    sqlite.exec("CREATE TRIGGER fail_entry BEFORE INSERT ON entries BEGIN SELECT RAISE(ABORT,'injected failure'); END;");
+    await expect(repo.import(doc([root,h('general','root',-1,true),h('child','root')],[e('new','child')]))).rejects.toThrow('injected failure');
+    expect((await repo.export()).habits).toEqual([root]);expect(await repo.entries()).toEqual([e('old','root')]);
+  });
+  it.each([
+    [h('root'),h('child','root')],
+    [h('general',null,-1,true)],
+    [h('root'),h('general','root',0,true),h('child','root')],
+    [h('root'),h('general','root',-1,true)],
+    [h('root'),h('general','root',-1,true),h('child','root'),h('nested','general')],
+  ])('rejects noncanonical General structures %#',(...habits)=>{expect(()=>validateImport(doc(habits))).toThrow(/General/)});
+  it('rejects direct parent records instead of accepting invisible totals',()=>{
+    expect(()=>validateImport(doc([h('root'),h('general','root',-1,true),h('child','root')],[e('record','root')]))).toThrow(/entry/);
+  });
+});
+
+describe('Appearance persistence and upgrade',()=>{
+  it('upgrades version 2 without changing legacy emojis or entries and is idempotent',async()=>{
+    const {repo,sqlite,db}=await setup();await repo.import(doc([{...h('old'),emoji:'✨✨'}],[e('record','old')]));
+    sqlite.exec('ALTER TABLE habits DROP COLUMN color; DELETE FROM schema_versions WHERE version=3;');
+    await migrate(db as unknown as SQLiteDatabase);await migrate(db as unknown as SQLiteDatabase);
+    expect(sqlite.prepare('SELECT color FROM habits').get()).toEqual({color:null});
+    expect((await repo.habits())[0].emoji).toBe('✨✨');expect(await repo.entries()).toEqual([e('record','old')]);
+    expect(sqlite.prepare('SELECT COUNT(*) n FROM schema_versions WHERE version=3').get()).toEqual({n:1});
+  });
+  it('creates, updates, resets and exports colors while preserving a legacy emoji until changed',async()=>{
+    const {repo}=await setup(),id=await repo.create({name:'Colored',emoji:'👨‍👩‍👧‍👦',color:'blue',type:'number',parentId:null});
+    expect((await repo.habits())[0].color).toBe('blue');
+    await repo.update(id,{color:'pink'});expect((await repo.export()).habits[0].color).toBe('pink');
+    await repo.update(id,{color:null});expect((await repo.habits())[0].color).toBeUndefined();
+    await repo.import(doc([{...h('legacy',null,1),emoji:'✨✨'}]));
+    await repo.update('legacy',{name:'Renamed'});expect((await repo.habits()).find(h=>h.id==='legacy')?.emoji).toBe('✨✨');
+    await expect(repo.update('legacy',{emoji:'💪💪'})).rejects.toThrow('INVALID_EMOJI');
+    await repo.update('legacy',{emoji:'👍🏽'});expect((await repo.habits()).find(h=>h.id==='legacy')?.emoji).toBe('👍🏽');
+  });
+  it('stores root and child colors together and leaves records intact',async()=>{
+    const {repo}=await setup(),root=h('root');await repo.import(doc([root],[e('record','root')]));
+    await repo.editTree('root',[{id:'root',name:'Root',emoji:'🇪🇸',color:'purple'}],[{key:'new',parentKey:'root',name:'Child',emoji:'🏳️‍🌈',color:'orange'}],[]);
+    const exported=await repo.export();expect(exported.habits.find(h=>h.id==='root')?.color).toBe('purple');expect(exported.habits.find(h=>h.name==='Child')?.color).toBe('orange');
+    expect(aggregate(exported.habits,exported.entries,'root',new Set([date]))).toBe(5);
+  });
+  it('rejects invalid edits and rolls back color updates after a later failure',async()=>{
+    const {repo,sqlite}=await setup();await repo.import(doc([h('root')]));
+    await expect(repo.create({name:'Bad',emoji:'✨✨',type:'number',parentId:null})).rejects.toThrow('INVALID_EMOJI');
+    await expect(repo.editTree('root',[],[{key:'new',parentKey:'root',name:'Bad',emoji:'x'}],[])).rejects.toThrow('INVALID_EMOJI');
+    await expect(repo.editTree('root',[{id:'root',name:'Root',emoji:'✨✨'}],[],[])).rejects.toThrow('INVALID_EMOJI');
+    sqlite.exec("CREATE TRIGGER fail_child BEFORE INSERT ON habits BEGIN SELECT RAISE(ABORT,'injected failure'); END;");
+    await expect(repo.editTree('root',[{id:'root',name:'Root',emoji:'✨',color:'blue'}],[{key:'new',parentKey:'root',name:'Child',emoji:'✨'}],[])).rejects.toThrow('injected failure');
+    expect((await repo.habits())[0]).toEqual(h('root'));
+  });
+  it('accepts old colorless exports, round-trips chosen colors and rejects invalid/conflicting colors',async()=>{
+    const {repo}=await setup();await repo.import(doc([{...h('root'),color:'teal'}]));
+    await repo.import(await repo.export());expect((await repo.export()).habits[0].color).toBe('teal');
+    await expect(repo.import(doc([{...h('root'),color:'green'}]))).rejects.toThrow(/Habit conflict/);
+    expect(()=>validateImport(doc([{...h('bad'),color:'#fff' as Habit['color']}]))).toThrow(/habit/);
+    await repo.import(doc([h('old')]));expect((await repo.habits()).find(h=>h.id==='old')?.color).toBeUndefined();
+  });
+});

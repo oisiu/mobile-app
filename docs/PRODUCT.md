@@ -10,6 +10,7 @@ Oisiu targets Android and iOS. It excludes web, cloud sync, timers, event stream
 
 New installations start empty. Users add their own habits from Home or import their data from Settings.
 
+- Habits may have one optional emoji and a palette color. Children inherit the nearest ancestor’s color unless overridden. Legacy emoji strings remain intact until the emoji is changed.
 - Habits form a tree with stable stored sibling order, arbitrary depth, and one value type per branch. The UI does not expose reordering.
 - Each leaf has at most one effective value per day. Past dates are editable; future dates are rejected. Number/duration saves replace the daily total; Boolean input toggles activity. Home supports reviewing branch records and moving them to another past/current day; destination conflicts block the move without overwriting.
 - Parent totals use the current hierarchy: Boolean OR, number SUM, and duration-seconds SUM. Direct parent input belongs to its hidden General child, separate from descendant records.
@@ -23,7 +24,7 @@ Persistence and transition details belong in [Database](DATABASE.md).
 | --- | --- |
 | Home | Record daily values, browse history, expand groups, and open habit Insights |
 | Calendar | Browse months and edit a selected day's records across the habit tree |
-| Insights | Rank active root habits for the current week or month through today and explore Score, Calendar, History, streaks, and Frequency |
+| Insights | Rank active root habits for the current week, month, or year through today and explore Score, Calendar, History, streaks, and Frequency |
 | Settings | Choose appearance and import/export data |
 
 Insights describes recorded patterns without causal claims. Score tracks gradually changing habit strength from daily branch activity across all types; History shows one stacked bar per period. Comparisons avoid duplicate parent/child contributions and count Boolean activity by unique date. Detailed controls and chart definitions are in [UI and UX](UI_UX.md).

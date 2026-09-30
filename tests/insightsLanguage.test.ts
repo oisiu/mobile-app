@@ -11,6 +11,8 @@ describe('Insights overview language',()=>{
     const options=new Intl.DateTimeFormat().resolvedOptions();
     vi.spyOn(Intl.DateTimeFormat.prototype,'resolvedOptions').mockReturnValue({...options,locale});
     const {t}=await import('../src/i18n');
+    expect(t('year')).toBe(locale==='es-ES'?'Año':'Year');
+    expect(t('insightsRankingYearIntro')).toBe(locale==='es-ES'?'Hábitos principales ordenados por días activos de este año, hasta hoy.':'Top habits ranked by active days this year, through today.');
     expect(t('strengthTotal')).toBe(locale==='es-ES'?'Total de días activos':'Total active days');
     expect(t('strengthMonthChange')).toContain('30');
     expect(t('strengthYearChange')).toContain('365');
