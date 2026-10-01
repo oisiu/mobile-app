@@ -13,7 +13,7 @@ concurrency:
 jobs:
   main-only:
     name: Require manual dispatch from main
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 1
     permissions: {}
     steps:
@@ -33,7 +33,7 @@ jobs:
       actions: read
       pull-requests: read
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
