@@ -45,11 +45,11 @@ For each new Google Play bundle, increment `expo.android.versionCode` in `app.js
 Run each workflow manually from **Actions → Run workflow** on `main`, in this order:
 
 1. **Prepare release:** choose `patch`, `minor`, or `major`. Use the summary's compare link to create a PR into `main`. Complete English/Spanish release notes, pass CI, and merge. If CI does not start, run it manually on the release branch.
-2. **Build Android release:** enter the prepared tag, such as `v1.6.1`. The version on `main` must match. The workflow checks, builds, signs, and saves the AAB in a draft GitHub Release.
-3. **Release to closed testing:** enter the built tag to submit the saved AAB to the configured track. Install and test that version.
-4. **Publish to production:** enter the same tag and confirm testing. This promotes the tested version as a full rollout without rebuilding.
+2. **Build Android release:** the prepared version on `main` is selected automatically. The workflow checks, builds, signs, and saves the AAB in a draft GitHub Release.
+3. **Release to closed testing:** submit the saved AAB for that version to the configured track. Install and test that version.
+4. **Publish to production:** confirm testing of the current version on `main`. This promotes the tested version as a full rollout without rebuilding.
 
-Stages cannot be skipped. Wait for each run to finish, and keep its draft release, tag, and assets unchanged. Successful builds cannot be overwritten; inspect incomplete output after a failed build before retrying, or prepare a new version. A newer closed-testing release prevents promotion of the previous version. Check Play Console for review and publishing status after submission.
+No version input is needed. Each stage uses the prepared version on its selected `main` commit and fails if its prerequisites are missing; it never falls back to an older release. Finish the release before merging another version bump. Stages cannot be skipped. Wait for each run to finish, and keep its draft release, tag, and assets unchanged. Successful builds cannot be overwritten; inspect incomplete output after a failed build before retrying, or prepare a new version. A newer closed-testing release prevents promotion of the previous version. Check Play Console for review and publishing status after submission.
 
 ### GitHub and Play configuration
 

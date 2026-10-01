@@ -3,11 +3,6 @@ name: Release to closed testing
 
 on:
   workflow_dispatch:
-    inputs:
-      release_tag:
-        description: Successfully built release tag, for example v1.6.1
-        required: true
-        type: string
 
 permissions: {}
 
@@ -18,7 +13,7 @@ concurrency:
 jobs:
   main-only:
     name: Require manual dispatch from main
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 1
     permissions: {}
     steps:
@@ -37,7 +32,7 @@ jobs:
       contents: write
       actions: read
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -46,10 +41,13 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
+      - name: Select prepared version from main
+        run: node scripts/release/android.cjs select
+        env:
+          GH_TOKEN: ${{ github.token }}
       - name: Verify successful build and submit to closed testing
         run: node scripts/release/android.cjs closed
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
           CLOSED_TESTING_TRACK: ${{ vars.CLOSED_TESTING_TRACK }}
           GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}

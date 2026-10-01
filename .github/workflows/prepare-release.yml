@@ -19,7 +19,7 @@ concurrency:
 jobs:
   main-only:
     name: Require manual dispatch from main
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 1
     permissions: {}
     steps:
@@ -36,7 +36,7 @@ jobs:
     permissions:
       contents: write
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -72,7 +72,7 @@ jobs:
           1. Open the link and create a PR with base main and compare $RELEASE_BRANCH.
           2. Replace the English and Spanish TODO notes in store/google-play/releases/$RELEASE_VERSION.txt on that branch.
           3. Wait for CI to pass, then merge the PR.
-          4. Manually run Build Android release from main with $RELEASE_TAG.
+          4. Manually run Build Android release from main; the version is selected automatically.
 
           If CI does not start, run Actions → CI → Run workflow on $RELEASE_BRANCH.
           EOF
