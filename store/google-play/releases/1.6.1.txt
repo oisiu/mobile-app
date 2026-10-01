@@ -1,0 +1,6 @@
+<en-US>
+Patch version in EN
+</en-US>
+<es-ES>
+Path version in ES
+</es-ES>

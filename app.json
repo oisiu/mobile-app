@@ -3,7 +3,7 @@
     "name": "Oisiu",
     "slug": "oisiu",
     "scheme": "oisiu",
-    "version": "1.6.0",
+    "version": "1.6.1",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "icon": "./assets/app/icon.png",
@@ -37,7 +37,7 @@
     },
     "android": {
       "package": "com.oisiu.app",
-      "versionCode": 7,
+      "versionCode": 8,
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.READ_EXTERNAL_STORAGE",
