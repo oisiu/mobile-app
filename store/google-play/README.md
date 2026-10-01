@@ -28,6 +28,10 @@ The [approved contact sheet](sources/approved-contact-sheet.png) contains the fo
 
 The feature graphic has illustrated phone screens; its [generation prompt](sources/feature-graphic-prompt.txt) is retained for future variants. The artwork does not establish that the current app matches the store imagery.
 
+## Release submission
+
+Use the [manual GitHub release sequence](../../docs/DEVELOPMENT.md#manual-github-release-sequence) for version preparation, signed AAB builds, closed testing, and production promotion. Preparation creates release notes for the new version; complete both English and Spanish sections before building. Keep each section within Google Play’s 500-character limit and verify the notes against the selected bundle.
+
 ## Publication checks
 
 Check the [Google Play image requirements](https://support.google.com/googleplay/android-developer/answer/9866151?hl=en), current app behavior, asset rights, and synthetic data before publishing. Keep useful sources and final listing files in Git; exclude temporary captures and build artifacts. Follow the [documentation privacy guidance](../../docs/DEVELOPMENT.md#documentation-privacy).

@@ -1,0 +1,78 @@
+# Release stages are manual only. Run from main; no push/tag/workflow_run triggers.
+name: Prepare release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version increment
+        required: true
+        type: choice
+        options: [patch, minor, major]
+
+permissions: {}
+
+concurrency:
+  group: android-release
+  cancel-in-progress: false
+
+jobs:
+  main-only:
+    name: Require manual dispatch from main
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    permissions: {}
+    steps:
+      - name: Reject branches, tags, and pull requests
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != workflow_dispatch ] || [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo '::error::Release workflows can only run manually from main.'
+            exit 1
+          fi
+
+  prepare:
+    needs: main-only
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Prepare version and bilingual release notes
+        id: release
+        run: node scripts/release/android.cjs prepare
+        env:
+          BUMP: ${{ inputs.bump }}
+      - name: Push preparation branch and show manual PR link
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_BRANCH: ${{ steps.release.outputs.branch }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$RELEASE_BRANCH"
+          git add package.json app.json .github/releases/ store/google-play/releases/
+          git commit -m "Prepare Android release $RELEASE_TAG"
+          gh auth setup-git
+          git push origin "$RELEASE_BRANCH"
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ## Prepare $RELEASE_TAG
+
+          [Create the release PR]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$RELEASE_BRANCH?expand=1)
+
+          1. Open the link and create a PR with base main and compare $RELEASE_BRANCH.
+          2. Replace the English and Spanish TODO notes in store/google-play/releases/$RELEASE_VERSION.txt on that branch.
+          3. Wait for CI to pass, then merge the PR.
+          4. Manually run Build Android release from main with $RELEASE_TAG.
+
+          If CI does not start, run Actions → CI → Run workflow on $RELEASE_BRANCH.
+          EOF
