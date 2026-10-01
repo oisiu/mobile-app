@@ -38,7 +38,38 @@ Repeat port forwarding after reconnecting. Release builds include their JavaScri
 
 ## Android release builds
 
-For each new Google Play bundle, increment `expo.android.versionCode` in `app.json` above every previously uploaded code. Keep the generated `android/app/build.gradle` version code aligned before signing in Android Studio (or regenerate it with Expo prebuild). The visible app version is separate and does not replace this integer. Rebuild the signed AAB after changing the code; an existing bundle retains its original code.
+For each new Google Play bundle, increment `expo.android.versionCode` in `app.json` above every previously uploaded code. The visible app version is separate and does not replace this integer. Before first using the release workflows, ensure the committed version code is at least the highest code already uploaded to Play; preparation increments it by one.
+
+### Manual GitHub release sequence
+
+Run each workflow manually from **Actions → Run workflow** on `main`, in this order:
+
+1. **Prepare release:** choose `patch`, `minor`, or `major`. Use the summary's compare link to create a PR into `main`. Complete English/Spanish release notes, pass CI, and merge. If CI does not start, run it manually on the release branch.
+2. **Build Android release:** enter the prepared tag, such as `v1.6.1`. The version on `main` must match. The workflow checks, builds, signs, and saves the AAB in a draft GitHub Release.
+3. **Release to closed testing:** enter the built tag to submit the saved AAB to the configured track. Install and test that version.
+4. **Publish to production:** enter the same tag and confirm testing. This promotes the tested version as a full rollout without rebuilding.
+
+Stages cannot be skipped. Wait for each run to finish, and keep its draft release, tag, and assets unchanged. Successful builds cannot be overwritten; inspect incomplete output after a failed build before retrying, or prepare a new version. A newer closed-testing release prevents promotion of the previous version. Check Play Console for review and publishing status after submission.
+
+### GitHub and Play configuration
+
+Create these environments under **Repository Settings → Environments** and add the listed **environment secrets**. Secret names are configuration; their values must never be committed.
+
+| Environment | Secrets |
+| --- | --- |
+| `google-play-build` | `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` |
+| `google-play-testing` | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` |
+| `google-play-production` | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` |
+
+- Restrict every environment to **Selected branches and tags → branch `main`**. Add production reviewers if available. Remove repository-level copies of these secrets after migration.
+- Set the repository Actions variable `CLOSED_TESTING_TRACK` to the closed track API identifier, usually `alpha`.
+- Keep default token permissions read-only. **Allow GitHub Actions to create and approve pull requests** can stay disabled; PR creation is manual.
+- Enable the Google Play Android Developer API, create a service account, and invite it in Play Console **Users and permissions** with app-scoped read, testing release, and production release access. Configure the track, testers, listing, and policy declarations before submitting.
+- Back up credentials outside Git and rotate them if exposed.
+
+Implementation: [release script](../scripts/release/android.cjs).
+
+For local Android Studio signing, keep the generated `android/app/build.gradle` version code aligned with `app.json` (or regenerate with Expo prebuild). Rebuild the signed AAB after changing the code; an existing bundle retains its original code.
 
 ## Dependencies
 
@@ -60,6 +91,4 @@ Update the document that owns a changed fact. Replace superseded information ins
 
 ## Documentation privacy
 
-Use repository-relative links and synthetic examples. Keep credentials, signing keys/passwords, private URLs, personal paths, account identifiers, device serials, real exports, and unredacted logs or screenshots out of committed documentation. Review generated artifacts before sharing them. Report sensitive findings by location/category without copying their values.
-
-A clean scan of current Markdown does not establish that Git history, ignored files, exports, or external services are free of sensitive information. Generated Expo/dependency/build files are not maintained documentation and should not be committed.
+Use repository-relative links and synthetic examples. Never commit credentials, personal paths, private account details, real user exports, or unredacted logs/screenshots. Review artifacts before sharing; a Markdown review does not cover Git history or ignored files.

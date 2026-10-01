@@ -10,9 +10,10 @@ Run from the repository root before handoff:
 | --- | --- |
 | `pnpm run doctor` | Expo configuration and native dependency compatibility |
 | `pnpm verify` | Dependency version alignment, TypeScript, zero-warning ESLint, Knip, and enforced coverage |
-| `pnpm test` | Complete Vitest suite |
+| `pnpm test` | App and release test suites |
 | `pnpm build` | Production Android and iOS bundle export |
 | `pnpm run audit` | Fixable high/critical production advisories, subject to configured exceptions |
+| `git diff --check` | Whitespace errors |
 
 [Vitest configuration](../vitest.config.ts) owns coverage scope, exclusions, and enforced thresholds. CI retains coverage reports; do not lower thresholds to pass.
 
@@ -22,15 +23,13 @@ Whenever user-facing text is added or changed, update all supported translations
 
 ## Automated coverage
 
-The [test suite](../tests/) covers domain rules, aggregation, analytics, calendar positioning, chart scheduling, translations, and repository transactions. Repository tests run real migrations against Node's in-memory SQLite, including rollback after injected failures.
+The [test suite](../tests/) covers domain rules, real SQLite migrations/transactions, translations, and UI behavior with mocked native components.
 
-Component tests use React test renderer with mocked native hosts to cover chart labels, calendar caching and save guards, draft recovery, appearance controls, navigation, startup failures and guarded retry, and complete refresh snapshots. Palette tests check text contrast in both themes. These tests do not measure native layout or device latency.
+`pnpm test:release` checks release preparation, stage order, and credential handling with mocked services; it also runs in `pnpm test` and coverage checks. `pnpm test:release:signing` uses JDK tools and `zip` to sign and verify a temporary synthetic archive.
 
 ## Integration gaps
 
-Automated tests do not exercise native gestures/components, the Expo SQLite bridge, or platform sharing. Node SQLite tests cover branch-edit transactions and fresh migration execution; import tests cover sibling-order merges, leaf-to-General record preservation, unordered file arrays, conflicts, and injected-write rollback. Appearance tests cover the version-2 color upgrade, color persistence and inheritance, legacy emoji preservation, complete emoji sequences, editor validation, palette contrast, and chosen chart colors. Broader upgrade rollback, archive/delete, and hierarchy-change scenarios remain open. Exercise affected operations in a native build until those gaps are covered.
-
-iOS, dark mode, large text, screen readers, narrow layouts, failure injection, and large datasets require broader device coverage. Release readiness must be checked against the signed artifact and store-delivered installation; review store artwork and release notes for every release.
+Automated tests do not replace signed native builds, device testing, or live Play submissions. Native gestures, the Expo SQLite bridge, sharing, and broader upgrade/rollback scenarios need device verification. Check affected flows and the store-delivered installation before release.
 
 ## Native checklist
 
@@ -48,10 +47,8 @@ Check affected flows on Android and iOS, including persistence after restart. Be
 
 ## CI and security
 
-[CI](../.github/workflows/ci.yml) runs four dependent jobs in sequence: static checks; tests and coverage; project health with Doctor and dependency audit; then the Android/iOS bundle build. A final `Required CI gate` job always evaluates their results and succeeds only when all four passed; branch rules require this stable aggregate check rather than individual implementation jobs. Local required gates are listed above.
+[CI](../.github/workflows/ci.yml) runs static checks, tests/coverage, Doctor/audit, and bundle exports. Require its aggregate **Required CI gate** in branch rules. Keep dependency compatibility checks and coverage thresholds enabled.
 
-Static checks run `pnpm deps:check` against installed package versions and `pnpm expo install --check` before linting or tests. React and React test renderer must match exactly, as must Vitest and its coverage provider; missing packages fail the check. This catches incompatible updates even when component tests happen to pass. Expo validates SDK-managed package versions, and Doctor remains a separate project-health gate. These checks block the required aggregate gate and therefore Dependabot auto-merge; they do not establish native device compatibility.
+[Security scans](../.github/workflows/security.yml) and [dependency review](../.github/workflows/dependency-review.yml) run separately. [Dependabot auto-merge](../.github/workflows/dependabot-auto-merge.yml) covers patch/minor updates; major updates require manual review.
 
-[Security](../.github/workflows/security.yml) owns CodeQL, full-history Gitleaks, and zizmor scans. [Dependency review](../.github/workflows/dependency-review.yml) owns pull-request dependency checks. These workflows run independently of CI; a local quality-gate pass does not verify them. Schedules and dependency groups belong in [Dependabot configuration](../.github/dependabot.yml). [Dependabot auto-merge](../.github/workflows/dependabot-auto-merge.yml) enables squash auto-merge for patch and minor updates; major updates require manual review, and protected-branch checks remain the merge gate.
-
-Follow the [Security policy](../SECURITY.md) for vulnerability reports and [documentation privacy guidance](DEVELOPMENT.md#documentation-privacy) before sharing evidence.
+Follow the [Security policy](../SECURITY.md) for reports and [documentation privacy guidance](DEVELOPMENT.md#documentation-privacy) before sharing evidence.

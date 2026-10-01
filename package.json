@@ -21,14 +21,16 @@
     "ios": "expo run:ios",
     "build": "expo export --platform android --output-dir dist/android && expo export --platform ios --output-dir dist/ios",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
+    "test": "vitest run && pnpm test:release",
+    "test:coverage": "vitest run --coverage && pnpm test:release",
     "lint": "eslint . --max-warnings=0",
     "deadcode": "knip",
     "doctor": "expo-doctor .",
     "audit": "pnpm audit --prod --audit-level high --ignore-unfixable",
     "deps:check": "node scripts/check-dependencies.cjs",
-    "verify": "pnpm deps:check && pnpm typecheck && pnpm lint && pnpm deadcode && pnpm test:coverage"
+    "verify": "pnpm deps:check && pnpm typecheck && pnpm lint && pnpm deadcode && pnpm test:coverage",
+    "test:release": "node --test tests/release/*.cjs",
+    "test:release:signing": "node tests/native/release-signing.cjs"
   },
   "packageManager": "pnpm@12.4.1+sha512.2e81e399d73fe8390dab25e06aa788ab7a5908248d2f5a370f82b481147a6a7a367bf8048f9a6fdb6460f21a66f0542dedb8b94ca2c8723596741920b1656d4c",
   "dependencies": {
