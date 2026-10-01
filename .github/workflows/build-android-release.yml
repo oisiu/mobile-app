@@ -3,11 +3,6 @@ name: Build Android release
 
 on:
   workflow_dispatch:
-    inputs:
-      release_tag:
-        description: Prepared release tag, for example v1.6.1
-        required: true
-        type: string
 
 permissions: {}
 
@@ -40,8 +35,6 @@ jobs:
 
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    env:
-      RELEASE_TAG: ${{ inputs.release_tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -54,6 +47,10 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+      - name: Select prepared version from main
+        run: node scripts/release/android.cjs select
+        env:
+          GH_TOKEN: ${{ github.token }}
       - name: Require merged preparation and release notes
         run: node scripts/release/android.cjs validate-build
         env:

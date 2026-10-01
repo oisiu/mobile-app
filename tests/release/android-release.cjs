@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { bump, tagVersion, releaseNotes, validateRun, productionRelease, prepareFiles, playClient, serviceCredentials, googleRequest } = require('../../scripts/release/android.cjs');
+const { automaticReleaseTag, bump, tagVersion, releaseNotes, validateRun, productionRelease, prepareFiles, playClient, serviceCredentials, googleRequest } = require('../../scripts/release/android.cjs');
 
 test('manual versions and untrusted tag input', () => {
   assert.equal(bump('1.6.0', 'patch'), '1.6.1');
@@ -325,4 +325,47 @@ test('preparation needs no automatic PR permission and provides a manual compare
   assert.match(workflow, /git push origin "\$RELEASE_BRANCH"/);
   assert.match(workflow, /\$GITHUB_STEP_SUMMARY/);
   assert.match(workflow, /compare\/main\.\.\.\$RELEASE_BRANCH\?expand=1/);
+});
+
+
+test('automatic selection requires the exact prepared main version and never falls back', () => {
+  const manifest = { version: '1.6.2' };
+  const config = { version: '1.6.2', android: { versionCode: 9 } };
+  const record = { schema: 1, version: '1.6.2', versionCode: 9 };
+  assert.equal(automaticReleaseTag(manifest, config, record), 'v1.6.2');
+  for (const invalid of [undefined, { ...record, version: '1.6.1' }, { ...record, versionCode: 8 }, { ...record, schema: 2 }]) {
+    assert.throws(() => automaticReleaseTag(manifest, config, invalid));
+  }
+  assert.throws(() => automaticReleaseTag(manifest, { ...config, version: '1.6.1' }, record));
+  assert.throws(() => automaticReleaseTag({ version: '1.6.2\nBAD=1' }, config, record));
+  for (const name of ['build-android-release', 'release-closed-testing', 'publish-production']) {
+    const workflow = fs.readFileSync(`.github/workflows/${name}.yml`, 'utf8');
+    assert.doesNotMatch(workflow, /release_tag:|inputs\.release_tag/);
+    assert.match(workflow, /node scripts\/release\/android\.cjs select/);
+  }
+});
+
+test('selection writes the validated version for later workflow steps and rejects missing preparation', () => {
+  const { spawnSync } = require('node:child_process');
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'oisiu-select-test-'));
+  const script = path.resolve('scripts/release/android.cjs');
+  const environmentFile = path.join(directory, 'environment');
+  const summaryFile = path.join(directory, 'summary');
+  const env = { ...process.env, GITHUB_REPOSITORY: 'example/app', GITHUB_RUN_ID: '123',
+    GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_REF: 'refs/heads/main',
+    GITHUB_ENV: environmentFile, GITHUB_STEP_SUMMARY: summaryFile };
+  try {
+    fs.writeFileSync(path.join(directory, 'package.json'), JSON.stringify({ version: '1.6.2' }));
+    fs.writeFileSync(path.join(directory, 'app.json'), JSON.stringify({ expo: { version: '1.6.2', android: { versionCode: 9 } } }));
+    const select = () => spawnSync(process.execPath, [script, 'select'], { cwd: directory, env, encoding: 'utf8' });
+    assert.equal(select().status, 1);
+    assert.equal(fs.existsSync(environmentFile), false);
+    fs.mkdirSync(path.join(directory, '.github/releases'), { recursive: true });
+    fs.writeFileSync(path.join(directory, '.github/releases/v1.6.2.json'), JSON.stringify({ schema: 1, version: '1.6.2', versionCode: 9 }));
+    assert.equal(select().status, 0);
+    assert.equal(fs.readFileSync(environmentFile, 'utf8'), 'RELEASE_TAG=v1.6.2\n');
+    assert.match(fs.readFileSync(summaryFile, 'utf8'), /v1\.6\.2/);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
 });

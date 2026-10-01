@@ -51,6 +51,27 @@ function tagVersion(tag) {
   return tag.slice(1);
 }
 
+function automaticReleaseTag(manifest, config, record) {
+  const tag = `v${manifest.version}`;
+  tagVersion(tag);
+  assert(config.version === manifest.version && record?.schema === 1
+    && record.version === manifest.version && record.versionCode === config.android.versionCode
+    && Number.isSafeInteger(record.versionCode) && record.versionCode > 0,
+  'Merge a matching preparation PR into main before releasing.');
+  return tag;
+}
+
+function selectRelease() {
+  const manifest = read('package.json');
+  const tag = `v${manifest.version}`;
+  tagVersion(tag);
+  const file = `.github/releases/${tag}.json`;
+  assert(fs.existsSync(file), 'Merge the Prepare release PR into main before releasing.');
+  const selected = automaticReleaseTag(manifest, read('app.json').expo, read(file));
+  fs.appendFileSync(process.env.GITHUB_ENV, `RELEASE_TAG=${selected}\n`);
+  fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `Selected release: **${selected}** from this main commit.\n`);
+}
+
 function releaseNotes(text) {
   const notes = ['en-US', 'es-ES'].map(language => {
     const match = text.match(new RegExp(`<${language}>\\s*([\\s\\S]*?)\\s*</${language}>`));
@@ -290,7 +311,8 @@ async function main() {
   if (command === 'prepare') {
     const version = prepareFiles(process.env.BUMP);
     fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\ntag=v${version}\nbranch=codex/release-v${version}\n`);
-  } else if (command === 'validate-build') {
+  } else if (command === 'select') selectRelease();
+  else if (command === 'validate-build') {
     prepared(process.env.RELEASE_TAG);
     requireUnbuiltTag(process.env.RELEASE_TAG);
   }
@@ -299,7 +321,7 @@ async function main() {
   else throw new Error('Unknown release command.');
 }
 
-module.exports = { bump, tagVersion, releaseNotes, validateRun, productionRelease, prepareFiles, playClient, publish, serviceCredentials, exec, googleRequest, buildMetadata };
+module.exports = { automaticReleaseTag, bump, tagVersion, releaseNotes, validateRun, productionRelease, prepareFiles, playClient, publish, serviceCredentials, exec, googleRequest, buildMetadata };
 if (require.main === module) main().catch(error => {
   // Subprocess, credential parsing, crypto, and API errors are sanitized at their source.
   console.error(error.message);
