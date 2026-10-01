@@ -1,6 +1,6 @@
 <en-US>
-TODO: Describe this release in English.
+Patch version in EN
 </en-US>
 <es-ES>
-TODO: Describe esta versión en español.
+Path version in ES
 </es-ES>
