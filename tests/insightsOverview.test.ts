@@ -1,5 +1,5 @@
 import { describe,expect,it } from 'vitest';
-import { buildInsightsOverview } from '../src/domain/insightsOverview';
+import { buildInsightsOverview,buildRootActivitySeries } from '../src/domain/insightsOverview';
 import { Entry,Habit } from '../src/domain/types';
 
 const timestamp='2026-01-01T00:00:00Z';
@@ -7,6 +7,22 @@ const habit=(id:string,type:Habit['type']='number',parentId:string|null=null,sor
 const entry=(habitId:string,localDate:string,value:number):Entry=>({id:`${habitId}-${localDate}`,habitId,localDate,value,occurredAt:timestamp,timezone:'UTC',createdAt:timestamp,updatedAt:timestamp});
 
 describe('Insights overview',()=>{
+  it('does not promote a visible child of an archived root into the parent overview',()=>{
+    const archived={...habit('archived'),archivedAt:timestamp},child=habit('child','number','archived');
+    expect(buildInsightsOverview([archived,child],[],'2026-09-08').ranked).toEqual([]);
+  });
+  it('compares mixed root types by unique active dates including General and archived leaves',()=>{
+    const a=habit('a','boolean'),general={...habit('general','boolean','a'),isGeneral:true},child={...habit('child','boolean','a'),archivedAt:timestamp},b=habit('b','duration'),c=habit('c','number');
+    const habits=[a,general,child,b,c],entries=[entry('general','2026-09-01',1),entry('child','2026-09-01',1),entry('child','2026-09-02',1),entry('b','2026-09-01',7200),entry('c','2026-09-01',0),entry('b','2026-09-05',3600)];
+    const buckets=[{key:'elapsed',label:'',dates:new Set(['2026-09-01','2026-09-02'])},{key:'empty',label:'',dates:new Set<string>()}];
+    expect(buildRootActivitySeries([a,b,c],habits,entries,buckets).map(item=>item.values)).toEqual([[2,0],[1,0],[0,0]]);
+    expect(buildRootActivitySeries([],habits,entries,buckets)).toEqual([]);
+  });
+  it('rejects non-root, archived, General, missing and repeated comparison selections',()=>{
+    const root=habit('root'),child=habit('child','number','root'),archived={...habit('archived'),archivedAt:timestamp},general={...habit('general'),isGeneral:true};
+    const selected=[child,archived,general,habit('missing'),root,root];
+    expect(buildRootActivitySeries(selected,[root,child,archived,general],[],[]).map(item=>item.habit.id)).toEqual(['root']);
+  });
   it.each([['2026-01-01',1],['2024-03-01',61],['2024-12-31',366],['2026-12-31',365]] as const)('uses elapsed year days on %s',(today,elapsedDays)=>{
     expect(buildInsightsOverview([],[],today,'year')).toEqual({elapsedDays,ranked:[]});
   });

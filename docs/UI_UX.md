@@ -4,9 +4,9 @@ This document owns durable interaction and presentation rules. [Product](PRODUCT
 
 ## Shared presentation
 
-Use system fonts, large headings with tight tracking, neutral grouped surfaces, green accents, rounded controls, and quiet separators. Keep touch feedback immediate and motion restrained. Respect safe areas and large text; keep controls accessible and chart labels readable on narrow screens. Footer destinations each keep a distinct icon and label color in both themes. Selection uses a filled icon without changing the button background. Appearance choices have visible localized labels. Destructive confirmations identify affected habits and records.
+Use system fonts, large headings with tight tracking, cream (#F3E8D7) and beige (#BAA898) grouped surfaces with mahogany (#280003) accents, reversed for the dark theme, rounded controls, and quiet separators. Keep touch feedback immediate and motion restrained. Respect safe areas and large text; keep controls accessible and chart labels readable on narrow screens. Footer destinations each keep a distinct icon and label color in both themes. Selection uses a filled icon without changing the button background. Appearance choices have visible localized labels. Destructive confirmations identify affected habits and records.
 
-Appearance supports System, Light, and Dark. The native splash initially follows the device theme; the app applies the saved preference once loaded. Database startup failures show localized guidance and a Try again button; retries show loading and block repeated submissions. Branding assets and rebuild guidance belong in [Development](DEVELOPMENT.md#generated-android-files-and-assets).
+Appearance supports System, Light, and Dark. The native splash initially follows the device theme; the app applies the saved preference once loaded. The approved balance illustration retains its cream background and “Powered by PalFly” footer in both themes; the app loading image has rounded corners. Database startup failures show localized guidance and a Try again button; retries show loading and block repeated submissions. Branding assets and rebuild guidance belong in [Development](DEVELOPMENT.md#generated-android-files-and-assets).
 
 The persistent footer offers Home, Calendar, Insights, and Settings, including on detail and editor screens. Detail selects Insights; editing selects Home. Choosing a destination dismisses those routes, subject to the draft guard below.
 Footer destinations use a restrained horizontal shift. Detail and editor screens slide in from the right and reverse when returning.
@@ -34,11 +34,11 @@ Writes block repeated input and dismissal. Failures retain the draft. Changed so
 
 ## Habit editor
 
-Create roots with an optional emoji, name, a six-color palette, and a localized type choice with an example. Automatic resets the color to the nearest ancestor’s choice, or the default accent for roots. Children may override that color. Colors appear as subtle Home accents, Calendar markers, overview bars, and detail chart series; names and emojis remain visible alongside color.
+New roots default to Green. Create roots with an optional emoji, name, a twelve-color palette with muted, earthy swatches that complement the cream, beige and mahogany theme, and a localized type choice with an example. A compact button showing only a color circle sits on the same row as the emoji and name for roots and children. Its accessible label identifies the selected color; tapping it expands the palette below the row. Palette options show only color circles; localized accessible labels identify each choice. Selecting a color or Automatic collapses the palette; tapping the button again also closes it. Automatic resets the color to the nearest ancestor’s choice, or the default accent for roots. Children may override that color. Readable accent variants of the selected colors appear as subtle Home accents, Calendar markers, overview bars, and detail chart series; names and emojis remain visible alongside color.
 
 Emoji input allows an empty field or one complete emoji, including flags, skin tones, keycaps, and joined family sequences. Save rejects multiple emojis with localized feedback and retains the draft. Existing multiple-emoji values remain unchanged when editing other fields; changing the emoji applies the new rule. Editing a descendant opens its root's hierarchy editor. New children inherit the branch type; there is no parent selector.
 
-Back, Cancel, native back gestures, and footer navigation confirm before discarding changed drafts. Unchanged or fully reverted drafts leave immediately; successful Save does not prompt.
+Back, Cancel, native back gestures, and footer navigation confirm before discarding changed drafts. Unchanged or fully reverted drafts leave immediately; successful Save does not prompt. Cancel returns to Home, including when the editor was opened directly without a previous route.
 
 Descendant deletions are staged after impact confirmation; Save commits the hierarchy edits together. Root archive and confirmed permanent deletion are separate actions. Successful root deletion returns to Home without leaving a stale detail/editor in the Back stack.
 
@@ -58,7 +58,7 @@ Day sheets and Insight filters dismiss through the Close handle, backdrop, Andro
 
 ## Calendar tab
 
-Months scroll vertically and load older history. A Monday-first weekday row, month/year headings with only a space between the localized month and year (for example, “September 2026” / “Septiembre 2026”), Today shortcut, and highlighted current day orient navigation. Future days are disabled. Day cells show up to three distinct root emojis and an overflow count.
+Months scroll vertically and load older history. A Monday-first weekday row, month/year headings with only a space between the localized month and year (for example, “September 2026” / “Septiembre 2026”), Today shortcut, and highlighted current day orient navigation. Future days are disabled. Day cells with positive activity use the same parent color as the overview charts at 30% opacity so emojis remain readable. Days with several active parents divide the background into equal radial sectors like a pie chart, using all contributing colors. Date and overflow text use the theme foreground; zero records do not color a cell. Today retains a contrasting outline. Cells show up to three distinct active root emojis without underlines and an overflow count; accessibility names identify all contributing roots.
 
 ### Selected day
 
@@ -68,13 +68,17 @@ Boolean values toggle immediately. Number/duration editing follows the shared ru
 
 ## Insights
 
-The overview offers Week, Month, and Year, defaulting to Month. Week uses Monday through today; Month uses the first day of the month through today; Year uses January 1 through today. Rankings use active days, typed total, and stored sibling order within the selected range. Future and earlier-period records are excluded. The active-day fraction and bar use elapsed days in that range.
+The overview offers Week, Month, and Year, defaulting to Month. Week uses Monday through today; Month uses the first day of the month through today; Year uses January 1 through today. A pie chart shows the share of parent active days for each visible root, including descendants and counting each branch once per date. Mixed types use active days rather than combining quantities and seconds. Automatic series colors follow stored root order, so activity ranking and period changes do not swap colors. Below the chart, visible parent habits appear in a two-column grid in stored sibling order. Overview weekly headings and chart navigation show only the date range (5-11/10/2026), without an ISO week number or preceding year. Month names in period headings and captions start with a capital letter. A period heading uses the week date range, localized month/year, or year, followed by Active days. Each tile shows the parent emoji, name and active/elapsed-day count and opens its detail. A wrapping legend below the pie identifies each visible root by its color, emoji and name, including inactive roots. Contribution percentages appear inside their pie sectors, centered on each angular midpoint; a single 100% sector uses the center. Zero contributions have no sector or label. Current denominators grow daily; completed periods use all seven week days, calendar month days, or 365/366 year days. Inactive habits remain at 0%. An empty chart explains that the period has no activity. Previous/Next arrows move one week, month, or year. Historical periods include their full range; current periods stop at today. A caption identifies the week/date range, month/year, or year. Next stops at the current period and changing tabs resets there. Future and earlier-period records are excluded.
+
+Below the overview parent grid, Score compares independent parent strength curves using their associated colors. Its filter includes only visible root habits and supports one, several, or all (default), retaining at least one selection. A colored legend identifies each selected curve. The shared detail score chart is used without a single-habit summary. Week and Month show daily values; the overview Year tab uses the detail Quarter window of twelve monthly averages, with a month label every three months and year boundaries. All overview charts share the top Week/Month/Year selector and period navigation; changing the period resets to the current window. Category filters remain independent.
+
+The final overview chart is History, with independent root-only multi-selection (one, several, or all) and legend colors. It follows the shared Week/Month/Year selector, with Year using the twelve-month Quarter window of detail History; Month retains a bar position for every calendar day, including empty/future positions. To compare heterogeneous root types, overview History stacks independent root active-day counts rather than adding quantities to duration seconds. Each root counts once per active date; detail History retains typed units and its overlapping-branch rules.
 
 Detail sections appear in this order:
 
 | Section | Behavior |
 | --- | --- |
-| Score | Habit strength from 0–100%, rising with activity and gradually decaying on missed days, with the same period windows and navigation as History. |
+| Score | Habit strength from 0–100%, rising with activity and gradually decaying on missed days, with independent period windows and navigation. |
 | Calendar | Activity timeline whose day boxes open a larger calendar for day editing. |
 | History | One stacked bar per period. Records belong to the deepest selected habit; parents retain only contributions not assigned to selected descendants. Boolean dates count once, split equally among active selected segments. |
 | Best streaks | Up to five longest active-date ranges, with dates above full-width bars. |
@@ -82,7 +86,7 @@ Detail sections appear in this order:
 
 Score and Calendar become interactive first. Fixed-height skeleton cards preserve the remaining layout until scrolling approaches History and the lower sections, which are then mounted without changing section order.
 
-Score and History have independent multi-select filters. Both default to Week. Opening a different habit resets the detail filters and chart periods to their defaults. Both initially select only the habit whose detail view was opened; their top-right menus let users add or hide comparison habits. Calendar, streaks, and Frequency each select one habit. Legends use habit emojis and names. History includes direct entries at all depths and archived descendants without counting any record twice. Bars do not open explanatory text or record lists. History omits the active-day unit caption and comparison guidance; duration units remain visible. Month mode fits all twelve bars within the card and skips month labels as needed to avoid crowding. Frequency circles are non-interactive; their month, weekday, and active/possible counts remain available to screen readers.
+Score and History have independent multi-select filters. Both default to Week. Opening a different habit resets the detail filters and chart periods to their defaults. Both initially select only the habit whose detail view was opened; their top-right menus let users add or hide comparison habits. Calendar, streaks, and Frequency each select one habit. Legends use habit emojis and names. History includes direct entries at all depths and archived descendants without counting any record twice. Bars do not open explanatory text or record lists. History omits the active-day unit caption and comparison guidance; duration units remain visible. Month mode fits all calendar days within the card and skips day labels as needed to avoid crowding. Frequency circles are non-interactive; their month, weekday, and active/possible counts remain available to screen readers.
 
 All five habit selectors list each parent immediately followed by its complete visible subtree, with siblings in saved order. Hidden General and archived branches are omitted. Rows share Home’s depth-based light/dark background tint, with bounded indentation and constant font size; selection remains explicit through checkboxes or radio buttons. The selector sheet adds its normal bottom spacing after the device safe-area inset so the final row stays above system navigation controls.
 
@@ -90,17 +94,17 @@ All five habit selectors list each parent immediately followed by its complete v
 
 Score starts at zero. Any positive branch activity counts once per day for all habit types, including direct and archived descendant records. Daily exponential smoothing has a thirteen-day half-life: thirteen consecutive active days reach 50% from zero; thirteen missed days halve the existing score. The score carries across all history and never resets at a period boundary. No targets or schedules are implied.
 
-Score follows the shared periods below. Week shows daily scores; other modes average daily strength within each displayed bucket. Current buckets stop at today and future positions remain empty. Each selected habit keeps its own line, with dots and a fixed percentage axis. Y-axis labels use compact `N%` text in a dedicated left gutter outside the plot. Dots do not open readouts, and no habit-name legend appears below the Score heading. Values remain available to screen readers.
+Score Week shows Monday–Sunday daily scores, with only the full date range below the x-axis (for example, 5-11/10/2026), matching the overview. Month shows daily scores for one calendar month, initially the current month, with its localized name and year; arrows move one month. Quarter shows monthly averages for the latest twelve months including the selected month, with a localized month label every three months and years at year boundaries; arrows move twelve months and the caption identifies the month/year range. Year retains six annual averages and six-year navigation. Week arrows move one week. Next stops at the current range, and changing period resets to it. Current buckets stop at today and future positions remain empty. Each selected habit keeps its own line, with dots and a fixed percentage axis. Y-axis labels use compact `N%` text in a dedicated left gutter outside the plot. Dots do not open readouts, and no habit-name legend appears below the Score heading. Values remain available to screen readers.
 
 Above the plot, show the opened habit’s current strength, changes since 30 and 365 days ago, and total unique active dates through today. Changes are percentage-point differences, displayed with a sign. These summary values stay anchored to today while browsing older periods or comparing habits.
 
-### Shared Score and History periods
+### History periods
 
-Week shows Monday–Sunday, Month shows all months of the selected year, Quarter shows eight quarters across two years, and Year shows six annual buckets. Previous/Next step one week, one year, two years, or six years respectively. Next stops at the current range; changing period returns there.
+Week shows Monday–Sunday, Month shows each day of one calendar month, Quarter shows twelve monthly buckets ending with the selected month, and Year shows six annual buckets. Previous/Next step one week, one month, twelve months, or six years respectively. Next stops at the current range; changing period returns there.
 
-Week navigation shows the ISO week number and week year, such as `38 2026`. Month and Year show the selected year; Quarter shows the year range. Quarter x-axis labels use the localized starting month, with the full year on a second line at the first quarter and each year change.
+Week navigation shows only the full date range, matching Score and the overview. Month shows its localized name and year, Year shows the selected year, and Quarter shows its month/year range. Quarter x-axis labels show one localized month name every three months while retaining all twelve monthly bars, with the full year on a second line at the first month and each year change.
 
-Keep future axis positions empty. History axes start at zero and show meaningful typed units, including duration units and integer active-day counts.
+Monthly axes retain the first and last day labels and omit nearby intermediate labels to keep the final day readable. Keep future axis positions empty. History axes start at zero and show meaningful typed units, including duration units and integer active-day counts.
 
 ### Detail Calendar
 
@@ -112,7 +116,7 @@ Only the larger dialog allows day editing: Boolean days toggle direct input; num
 
 ### Frequency timeline
 
-Show fixed-width month columns with month/year labels and a fixed weekday key. Start with thirteen loaded months, scrolled to the newest; reaching the left edge loads twelve more months while retaining the visible position. Native horizontal scrolling provides momentum; accessibility actions navigate periods. Tapping a circle does nothing. The timeline ends at the current month.
+Show fixed-width month columns with abbreviated localized month names and the full year on a second line at the first month and each year boundary, matching Quarter History. Keep a fixed weekday key. Start with thirteen loaded months, scrolled to the newest; reaching the left edge loads twelve more months while retaining the visible position. Native horizontal scrolling provides momentum; accessibility actions navigate periods. Tapping a circle does nothing. The timeline ends at the current month.
 
 ## Settings
 

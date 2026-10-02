@@ -25,7 +25,7 @@ Whenever user-facing text is added or changed, update all supported translations
 
 The [test suite](../tests/) covers domain rules, real SQLite migrations/transactions, translations, and UI behavior with mocked native components.
 
-`pnpm test:release` checks release preparation, stage order, and credential handling with mocked services; it also runs in `pnpm test` and coverage checks. `pnpm test:release:signing` uses JDK tools and `zip` to sign and verify a temporary synthetic archive.
+`pnpm test:release` checks release preparation, stage order, and credential handling with mocked services; workflow text is normalized for Windows CRLF, and shell gates use Bash from the installed Git distribution on Windows (including distributions that name it sh.exe). It also runs in `pnpm test` and coverage checks. `pnpm test:release:signing` uses JDK tools and `zip` to sign and verify a temporary synthetic archive.
 
 ## Integration gaps
 
@@ -43,7 +43,7 @@ Check affected flows on Android and iOS, including persistence after restart. Be
 - **Resilience:** failed/repeated writes, retained drafts, cancellation, import rollback, large datasets, and restart.
 - **Accessibility:** English/Spanish, light/dark themes, large text, narrow screens, safe areas, Reduce Motion, TalkBack/VoiceOver, and keyboard handling.
 
-[UI and UX](UI_UX.md) defines expected interactions; [Database](DATABASE.md) defines data guarantees.
+[Database](DATABASE.md) defines data guarantees.
 
 ## CI and security
 

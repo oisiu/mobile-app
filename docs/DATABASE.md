@@ -25,10 +25,11 @@ Types are Boolean (0/1), number (non-negative decimal), and duration (non-negati
 | Version | Change |
 | --- | --- |
 | 1 | Creates habits, entries, indexes, and daily uniqueness |
-| 2 | Finds one matching numeric `Vices → Alcohol` leaf by name, emoji, and hierarchy; creates Beer/Cocktails/Wine/Shots children and moves existing Alcohol records to General atomically |
+| 2 | Expands a matching legacy numeric leaf into children and moves its existing records to General atomically |
 | 3 | Adds nullable palette color; existing habits inherit/default without changing emojis or records |
+| 4 | Expands the color constraint to twelve choices, copying existing colors while preserving habit IDs, hierarchy, order, and entries |
 
-Version 2 skips structures that no longer match its query, including already-expanded Alcohol. Matching is attribute-based, not an immutable seed identifier. Released migrations must not be edited; add a new version and document its upgrade behavior.
+Version 2 matches legacy attributes and skips already-expanded or changed structures. Released migrations must not be edited; add a new version and document its upgrade behavior.
 
 New databases start with no habits or entries. Startup runs the released migrations but does not seed sample data, including after a user deletes all habits. Existing saved habits and records (including previous sample habits) are retained; this change needs no schema migration.
 

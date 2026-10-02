@@ -21,4 +21,7 @@ export async function migrate(db:SQLiteDatabase){
     await db.execAsync("ALTER TABLE habits ADD COLUMN color TEXT CHECK(color IS NULL OR color IN ('green','blue','purple','orange','pink','teal')); INSERT INTO schema_versions VALUES(3,datetime('now'));");
   });
 
+  if((row?.version??0)<4)await db.withTransactionAsync(async()=>{
+    await db.execAsync("ALTER TABLE habits RENAME COLUMN color TO legacy_color; ALTER TABLE habits ADD COLUMN color TEXT CHECK(color IS NULL OR color IN ('red','orange','yellow','lime','green','teal','cyan','blue','purple','pink','brown','gray')); UPDATE habits SET color=legacy_color; ALTER TABLE habits DROP COLUMN legacy_color; INSERT INTO schema_versions VALUES(4,datetime('now'));");
+  });
 }

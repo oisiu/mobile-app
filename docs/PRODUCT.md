@@ -24,7 +24,7 @@ Persistence and transition details belong in [Database](DATABASE.md).
 | --- | --- |
 | Home | Record daily values, browse history, expand groups, and open habit Insights |
 | Calendar | Browse months and edit a selected day's records across the habit tree |
-| Insights | Rank active root habits for the current week, month, or year through today and explore Score, Calendar, History, streaks, and Frequency |
+| Insights | Browse weekly, monthly, or yearly category contributions, active days, Score curves, and History; open individual habits for detailed analysis |
 | Settings | Choose appearance and import/export data |
 
 Insights describes recorded patterns without causal claims. Score tracks gradually changing habit strength from daily branch activity across all types; History shows one stacked bar per period. Comparisons avoid duplicate parent/child contributions and count Boolean activity by unique date. Detailed controls and chart definitions are in [UI and UX](UI_UX.md).

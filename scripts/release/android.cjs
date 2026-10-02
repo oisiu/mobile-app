@@ -116,7 +116,7 @@ function prepareFiles(kind) {
   write('app.json', config);
   fs.mkdirSync('.github/releases', { recursive: true });
   write(recordFile, { schema: 1, version, versionCode: code, prepareRunId: runId });
-  fs.writeFileSync(`store/google-play/releases/${version}.txt`, '<en-US>\nTODO: Describe this release in English.\n</en-US>\n<es-ES>\nTODO: Describe esta versión en español.\n</es-ES>\n');
+  fs.writeFileSync(`store/google-play/releases/${version}.txt`, '<en-US>\nTODO: Describe this release in English.\n</en-US>\n<es-ES>\nTODO: Describe this release in Spanish.\n</es-ES>\n');
   return version;
 }
 

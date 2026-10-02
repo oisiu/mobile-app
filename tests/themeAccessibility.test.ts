@@ -1,4 +1,4 @@
-import { habitColorPalette } from '../src/theme/habitColors';
+import { habitAccentPalette,habitColorPalette } from '../src/theme/habitColors';
 import { describe,expect,it } from 'vitest';
 import { dark,depthBackground,light } from '../src/theme';
 
@@ -25,10 +25,17 @@ describe.each([{name:'light',palette:light},{name:'dark',palette:dark}])('$name 
   });
 });
 
-it('keeps habit accents visible in both themes and calendar numerals readable',()=>{
-  for(const color of Object.values(habitColorPalette)){
+it('keeps habit chart accents visible in both themes and white pie labels readable',()=>{
+  for(const color of Object.values(habitAccentPalette)){
     expect(contrast('#FFFFFF',color)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(color,dark.bg)).toBeGreaterThanOrEqual(3);
-    expect(contrast(color,light.card)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(color,light.card)).toBeGreaterThanOrEqual(3);
+  }
+});
+
+it('uses lighter swatches for every supported accent',()=>{
+  for(const color of Object.keys(habitColorPalette) as (keyof typeof habitColorPalette)[]){
+    expect(luminance(habitColorPalette[color])).toBeGreaterThan(luminance(habitAccentPalette[color]));
+    expect(contrast(light.text,habitColorPalette[color])).toBeGreaterThanOrEqual(4.5);
   }
 });
