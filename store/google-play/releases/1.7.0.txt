@@ -1,6 +1,6 @@
 <en-US>
-TODO: Describe this release in English.
+New category activity charts, active-day summaries, and comparison filters. Browse weekly, monthly, and yearly periods with clearer chart labels. Choose from a softer habit-color palette, see category colors in the calendar, and enjoy a refreshed cream, beige, and mahogany design with a new logo. Improved habit editing and cancellation.
 </en-US>
 <es-ES>
-TODO: Describe esta versión en español.
+Nuevos gráficos de actividad por categorías, resúmenes de días activos y filtros de comparación. Explora semanas, meses y años con etiquetas más claras. Elige colores de hábitos más suaves, identifica las categorías por sus colores en el calendario y disfruta del diseño renovado en crema, beige y caoba con un nuevo logo. Mejoras al editar hábitos y cancelar cambios.
 </es-ES>
