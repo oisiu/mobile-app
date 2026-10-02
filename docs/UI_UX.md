@@ -6,7 +6,7 @@ This document owns durable interaction and presentation rules. [Product](PRODUCT
 
 Use system fonts, large headings with tight tracking, cream (#F3E8D7) and beige (#BAA898) grouped surfaces with mahogany (#280003) accents, reversed for the dark theme, rounded controls, and quiet separators. Keep touch feedback immediate and motion restrained. Respect safe areas and large text; keep controls accessible and chart labels readable on narrow screens. Footer destinations each keep a distinct icon and label color in both themes. Selection uses a filled icon without changing the button background. Appearance choices have visible localized labels. Destructive confirmations identify affected habits and records.
 
-Appearance supports System, Light, and Dark. The native splash initially follows the device theme; the app applies the saved preference once loaded. The approved balance illustration retains its cream background and “Powered by PalFly” footer in both themes; the app loading image has rounded corners. Database startup failures show localized guidance and a Try again button; retries show loading and block repeated submissions. Branding assets and rebuild guidance belong in [Development](DEVELOPMENT.md#generated-android-files-and-assets).
+Appearance supports System, Light, and Dark. Database startup failures show localized guidance and a Try again button; retries show loading and block repeated submissions. Branding assets and rebuild guidance belong in [Development](DEVELOPMENT.md#generated-android-files-and-assets).
 
 The persistent footer offers Home, Calendar, Insights, and Settings, including on detail and editor screens. Detail selects Insights; editing selects Home. Choosing a destination dismisses those routes, subject to the draft guard below.
 Footer destinations use a restrained horizontal shift. Detail and editor screens slide in from the right and reverse when returning.
@@ -76,13 +76,13 @@ The final overview chart is History, with independent root-only multi-selection 
 
 Detail sections appear in this order:
 
-| Section | Behavior |
-| --- | --- |
-| Score | Habit strength from 0–100%, rising with activity and gradually decaying on missed days, with independent period windows and navigation. |
-| Calendar | Activity timeline whose day boxes open a larger calendar for day editing. |
-| History | One stacked bar per period. Records belong to the deepest selected habit; parents retain only contributions not assigned to selected descendants. Boolean dates count once, split equally among active selected segments. |
-| Best streaks | Up to five longest active-date ranges, with dates above full-width bars. |
-| Frequency | Horizontally scrollable monthly weekday activity, initially ending at the current month and loading earlier months on demand. Circle size and shade reflect active days divided by possible weekdays in the full month. Future activity is excluded. |
+| Section      | Behavior                                                                                                                                                                                                                                             |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Score        | Habit strength from 0–100%, rising with activity and gradually decaying on missed days, with independent period windows and navigation.                                                                                                              |
+| Calendar     | Activity timeline whose day boxes open a larger calendar for day editing.                                                                                                                                                                            |
+| History      | One stacked bar per period. Records belong to the deepest selected habit; parents retain only contributions not assigned to selected descendants. Boolean dates count once, split equally among active selected segments.                            |
+| Best streaks | Up to five longest active-date ranges, with dates above full-width bars.                                                                                                                                                                             |
+| Frequency    | Horizontally scrollable monthly weekday activity, initially ending at the current month and loading earlier months on demand. Circle size and shade reflect active days divided by possible weekdays in the full month. Future activity is excluded. |
 
 Score and Calendar become interactive first. Fixed-height skeleton cards preserve the remaining layout until scrolling approaches History and the lower sections, which are then mounted without changing section order.
 

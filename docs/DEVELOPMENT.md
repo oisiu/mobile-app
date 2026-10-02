@@ -6,13 +6,13 @@ Use the [root setup instructions](../README.md#development). The root [package.j
 
 The [package manifest](../package.json) defines all scripts:
 
-| Command | Purpose |
-| --- | --- |
-| `pnpm start` | Start Expo |
-| `pnpm android` / `pnpm ios` | Build and install the native debug app and start Metro; these do not generate release builds |
-| `pnpm build` | Export production Android and iOS JavaScript bundles |
-| `pnpm typecheck` / `pnpm lint` / `pnpm deadcode` | Run individual static checks |
-| `pnpm test:coverage` | Run tests with enforced coverage |
+| Command                                          | Purpose                                                                                      |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `pnpm start`                                     | Start Expo                                                                                   |
+| `pnpm android` / `pnpm ios`                      | Build and install the native debug app and start Metro; these do not generate release builds |
+| `pnpm build`                                     | Export production Android and iOS JavaScript bundles                                         |
+| `pnpm typecheck` / `pnpm lint` / `pnpm deadcode` | Run individual static checks                                                                 |
+| `pnpm test:coverage`                             | Run tests with enforced coverage                                                             |
 
 Use Android Studio/emulator for Android and Xcode on macOS for iOS. In Expo, `a` opens Android and `i` opens iOS. Fast Refresh handles ordinary source edits; use `pnpm start --clear` from the repository root if the Metro cache is stale. The `deadcode` script runs Knip. Web is unsupported and has no launch script.
 
@@ -24,7 +24,7 @@ After an Expo SDK version change (upgrade or downgrade), regenerate Android with
 
 Android `app/build/`, `app/.cxx/`, `build/`, `.gradle/`, and `.kotlin/` are disposable output/cache directories. Remove them only when builds are stopped; the next build recreates them and takes longer. Preserve release bundles and signing files until their release lifecycle is complete.
 
-`assets/app/icon.png` is the launcher icon. `assets/app/logo.png` is the approved cream-background balance illustration with “Powered by PalFly”; both themes use this same image, with rounded corners in the app's loading view. Expo also uses it for the native splash. Rebuild the native app after changing these assets; Fast Refresh cannot update an installed launcher icon or native splash. Store exports have different dimensions and purposes; maintain them separately according to the [listing guide](../store/google-play/README.md). Do not retain temporary captures or superseded design references.
+`assets/app/icon.png` is the launcher icon. `assets/app/logo.png` is the approved cream-background balance illustration; both themes use this same image, with rounded corners in the app's loading view. Expo also uses it for the native splash.
 
 ## Android connection troubleshooting
 
@@ -55,11 +55,11 @@ No version input is needed. Each stage uses the prepared version on its selected
 
 Create these environments under **Repository Settings → Environments** and add the listed **environment secrets**. Secret names are configuration; their values must never be committed.
 
-| Environment | Secrets |
-| --- | --- |
-| `google-play-build` | `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` |
-| `google-play-testing` | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` |
-| `google-play-production` | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` |
+| Environment              | Secrets                                                                                             |
+| ------------------------ | --------------------------------------------------------------------------------------------------- |
+| `google-play-build`      | `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` |
+| `google-play-testing`    | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`                                                                  |
+| `google-play-production` | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`                                                                  |
 
 - Restrict every environment to **Selected branches and tags → branch `main`**. Add production reviewers if available. Remove repository-level copies of these secrets after migration.
 - Set the repository Actions variable `CLOSED_TESTING_TRACK` to the closed track API identifier, usually `alpha`.
