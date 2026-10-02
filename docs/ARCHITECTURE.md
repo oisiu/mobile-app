@@ -19,8 +19,6 @@ Current flow: **screens/components → AppProvider or HabitRepository → Expo S
 
 `HabitRepository` is the persistence and application-operation boundary; a separate use-case layer and repository interface are not yet implemented. SQL stays in `src/data/`. Domain code imports no React, Expo, SQLite, or Drizzle modules.
 
-For the current single application, this concrete boundary keeps the codebase small. Before adding another UI client, alternative persistence, or complex cross-repository workflows, introduce an application/use-case layer and depend on repository interfaces rather than allowing screens to acquire new data-layer dependencies.
-
 `AppProvider` opens and migrates the database without seeding habits, exposes habit/entry snapshots, and publishes both together after refresh reads complete. Startup becomes ready only after migrations and the initial complete snapshot succeed. Failed opens, migrations, or initial reads close the failed connection and expose a guarded retry. Failed appearance reads fall back to System. It centralizes daily-entry changes and transient success messages. Habit editors call repository operations and publish success after refresh.
 
 The provider also resolves System/Light/Dark once for the app. The preference uses Expo SQLite key-value storage, separate from the product schema. Screens consume the resolved palette. The root holds the native splash until this preference has loaded, then applies the palette to its loading view and native root background. Expo SplashScreen configures device-themed launch colors; Expo SystemUI enables Android automatic appearance.
@@ -37,7 +35,7 @@ Home uses a horizontal `Animated.ScrollView` only for the date header. Its nativ
 
 The Calendar tab virtualizes month grids in a native vertical list. The Insight activity calendar uses native horizontal scrolling with history prepending. Their interaction rules belong in [UI and UX](UI_UX.md).
 
-`domain/aggregation.ts` builds a weakly cached hierarchy/entry index for each immutable provider snapshot. Repeated Home, Calendar, and Insights calculations reuse leaf, habit/date value, activity, and record-presence lookups without persisting derived data. `domain/insightsOverview.ts` computes week/month/year root rankings and elapsed-day denominators.
+`domain/aggregation.ts` builds a weakly cached hierarchy/entry index for each immutable provider snapshot. Repeated Home, Calendar, and Insights calculations reuse leaf, habit/date value, activity, and record-presence lookups without persisting derived data. `domain/insightsOverview.ts` computes week/month/year root rankings, elapsed-day denominators, and root active-day comparison series through the shared aggregation index. Visible children of archived roots are not promoted into overview categories. Comparison windows, selections and series are memoized so opening a filter does not rebuild them.
 
 Main screens prefetch reachable routes. Insight detail defers chart rendering until its opening transition ends, with a fallback for direct launches. Score and Calendar render first; lower sections load as scrolling approaches them. Reveals respect Reduce Motion. Dialog drafts and pending-write state stay local to avoid re-rendering background charts; committed data refreshes still update them. Score comparison inputs are memoized. Calendar grids, day-sheet rows, and Insight calendar weeks use virtualized lists; the larger calendar starts at the selected week.
 

@@ -1,5 +1,5 @@
-export const light={bg:'#F2F2F7',card:'#FFFFFF',text:'#1C1C1E',muted:'#63666B',accent:'#356B50',onAccent:'#FFFFFF',soft:'#DDE9E2',line:'#E1E3E6',danger:'#9A504B',navigation:{home:'#356B50',calendar:'#2867A8',insights:'#7951A8',settings:'#8A621B'}};
-export const dark={bg:'#101112',card:'#1C1E20',text:'#F0F4F1',muted:'#9EAAA4',accent:'#80B89E',onAccent:'#101112',soft:'#263B31',line:'#343638',danger:'#E49A93',navigation:{home:'#80B89E',calendar:'#82B6EB',insights:'#BA9AE0',settings:'#DABB79'}};
+export const light={bg:'#F3E8D7',card:'#F9F1E6',text:'#280003',muted:'#50372F',accent:'#280003',onAccent:'#F3E8D7',soft:'#BAA898',line:'#CDBDAC',danger:'#9A504B',navigation:{home:'#280003',calendar:'#513336',insights:'#624347',settings:'#705043'}};
+export const dark={bg:'#280003',card:'#3A1518',text:'#F3E8D7',muted:'#BAA898',accent:'#F3E8D7',onAccent:'#280003',soft:'#4C292B',line:'#6C4B48',danger:'#E49A93',navigation:{home:'#F3E8D7',calendar:'#DFCCB5',insights:'#D0BAA4',settings:'#BAA898'}};
 
 export const mainTitle={fontSize:32,lineHeight:38,fontWeight:'700',letterSpacing:-0.8,flexShrink:1} as const;
 

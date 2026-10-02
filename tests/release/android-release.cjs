@@ -62,7 +62,7 @@ test('production prevents downgrades and overwriting an active staged rollout', 
 
 test('all release workflows are manual and share a non-cancelling concurrency group', () => {
   for (const name of ['prepare-release', 'build-android-release', 'release-closed-testing', 'publish-production']) {
-    const text = fs.readFileSync(`.github/workflows/${name}.yml`, 'utf8');
+    const text = fs.readFileSync(`.github/workflows/${name}.yml`, 'utf8').replace(/\r\n/g, '\n');
     assert.match(text, /\n  workflow_dispatch:/);
     assert.doesNotMatch(text, /\n  (push|pull_request|workflow_run|schedule):/);
     assert.match(text, /group: android-release\n  cancel-in-progress: false/);
@@ -304,15 +304,23 @@ test('subprocess environments isolate signing credentials, service account JSON,
 });
 
 test('actual workflow shell gates reject branches, tags, PRs and automatic events', () => {
-  const { spawnSync } = require('node:child_process');
+  const { spawnSync, execFileSync } = require('node:child_process');
+  // Windows does not put Git Bash on PATH; run the installed Git distribution.
+  let bash = 'bash';
+  if (process.platform === 'win32') {
+    const gitRoot = path.resolve(execFileSync('git', ['--exec-path'], { encoding: 'utf8' }).trim(), '../../..');
+    bash = ['bin/bash.exe', 'usr/bin/bash.exe', 'usr/bin/sh.exe']
+      .map(file => path.join(gitRoot, file)).find(file => fs.existsSync(file)) || bash;
+  }
   for (const name of ['prepare-release', 'build-android-release', 'release-closed-testing', 'publish-production']) {
-    const text = fs.readFileSync(`.github/workflows/${name}.yml`, 'utf8');
+    const text = fs.readFileSync(`.github/workflows/${name}.yml`, 'utf8').replace(/\r\n/g, '\n');
     const gate = text.match(/      - name: Reject branches, tags, and pull requests\n        run: \|\n([\s\S]*?)\n\n/)[1]
       .split('\n').map(line => line.slice(10)).join('\n');
     for (const [event, ref, status] of [['workflow_dispatch', 'refs/heads/main', 0],
       ['workflow_dispatch', 'refs/heads/feature', 1], ['workflow_dispatch', 'refs/tags/v1.6.1', 1],
       ['pull_request', 'refs/pull/12/merge', 1], ['push', 'refs/heads/main', 1]]) {
-      const result = spawnSync('bash', ['-c', gate], { env: { ...process.env, GITHUB_EVENT_NAME: event, GITHUB_REF: ref } });
+      const result = spawnSync(bash, ['-c', gate], { env: { ...process.env, GITHUB_EVENT_NAME: event, GITHUB_REF: ref } });
+      assert.ifError(result.error);
       assert.equal(result.status, status, `${name}: ${event} ${ref}`);
     }
   }

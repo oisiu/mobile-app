@@ -1,11 +1,13 @@
 import React from 'react';
 import { act,create,ReactTestRenderer } from 'react-test-renderer';
 import { afterEach,expect,it,vi } from 'vitest';
+import { t } from '../src/i18n';
 import RootLayout from '../app/_layout';
 import { light,dark } from '../src/theme';
+import logo from '../assets/app/logo.png';
 const mocks=vi.hoisted(()=>({state:{} as Record<string,unknown>,retry:vi.fn(),hide:vi.fn()}));
 vi.mock('react-native',()=>({ActivityIndicator:'Spinner',Image:'Image',Pressable:'Pressable',Text:'Text',View:'View',StyleSheet:{create:(value:unknown)=>value}}));
-vi.mock('react-native-safe-area-context',()=>({useSafeAreaInsets:()=>({top:0,bottom:0,left:0,right:0})}));
+vi.mock('react-native-safe-area-context',()=>({useSafeAreaInsets:()=>({top:0,bottom:32,left:0,right:0})}));
 vi.mock('react-native-gesture-handler',()=>({}));
 vi.mock('expo-router',()=>({Stack:'Stack'}));
 vi.mock('expo-status-bar',()=>({StatusBar:'StatusBar'}));
@@ -15,11 +17,22 @@ vi.mock('../src/features/AppBar',()=>({AppBar:()=>null}));
 vi.mock('../src/features/AppProvider',()=>({AppProvider:({children}:{children:React.ReactNode})=>children,SuccessToast:()=>null,useApp:()=>mocks.state}));
 let renderer:ReactTestRenderer;
 afterEach(async()=>{if(renderer)await act(async()=>renderer.unmount());vi.restoreAllMocks();vi.resetModules()});
+it.each([{palette:light,resolvedTheme:'light'},{palette:dark,resolvedTheme:'dark'}])('uses the same rounded approved logo in $resolvedTheme mode',async({palette,resolvedTheme})=>{
+  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+  mocks.state={ready:false,themeReady:true,error:null,retryStartup:mocks.retry,palette,resolvedTheme};
+  await act(async()=>{renderer=create(<RootLayout/>)});
+  const image=renderer.root.find(node=>node.type as unknown==='Image');
+  expect(image.props.source).toBe(logo);
+  expect(image.props.style.borderRadius).toBe(28);
+  expect(renderer.root.findAll(node=>node.type as unknown==='Spinner')).toHaveLength(1);
+  mocks.state={...mocks.state,ready:true};await act(async()=>renderer.update(<RootLayout/>));
+  expect(renderer.root.findAll(node=>node.type as unknown==='Image')).toHaveLength(0);
+});
 it.each([light,dark])('shows a readable retry screen and hides the splash after a startup failure',async palette=>{
   Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});mocks.retry.mockReset();mocks.hide.mockReset();
   mocks.state={ready:false,themeReady:true,error:'raw platform error',retryStartup:mocks.retry,palette,resolvedTheme:'light'};
   await act(async()=>{renderer=create(<RootLayout/>)});
-  expect(JSON.stringify(renderer.toJSON())).toContain('Could not open your habits');
+  expect(JSON.stringify(renderer.toJSON())).toContain(t('startupFailed'));
   expect(JSON.stringify(renderer.toJSON())).not.toContain('raw platform error');
   expect(renderer.root.findAll(node=>node.type as unknown==='Spinner')).toHaveLength(0);
   const retry=renderer.root.find(node=>node.type as unknown==='Pressable');expect(retry.props.accessibilityRole).toBe('button');

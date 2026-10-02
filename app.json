@@ -14,13 +14,13 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/app/logo-light.png",
+          "image": "./assets/app/logo.png",
           "imageWidth": 210,
           "resizeMode": "contain",
-          "backgroundColor": "#F6F7F2",
+          "backgroundColor": "#F3E8D7",
           "dark": {
-            "image": "./assets/app/logo-dark.png",
-            "backgroundColor": "#111714"
+            "image": "./assets/app/logo.png",
+            "backgroundColor": "#280003"
           }
         }
       ],
@@ -44,6 +44,6 @@
         "android.permission.WRITE_EXTERNAL_STORAGE"
       ]
     },
-    "backgroundColor": "#F6F7F2"
+    "backgroundColor": "#F3E8D7"
   }
 }

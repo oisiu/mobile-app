@@ -9,6 +9,7 @@ import { ActivityIndicator,Image,Pressable,StyleSheet,Text,View } from 'react-na
 import { t } from '@/i18n';
 import { AppBar } from '@/features/AppBar';
 import { AppProvider,SuccessToast,useApp } from '@/features/AppProvider';
+import logo from '../assets/app/logo.png';
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -19,8 +20,8 @@ function Shell(){
   if(!themeReady)return null;
   return <View style={[s.root,{backgroundColor:c.bg,paddingTop:insets.top,paddingLeft:insets.left,paddingRight:insets.right}]} onLayout={()=>SplashScreen.hide()}>
     <StatusBar style={resolvedTheme==='dark'?'light':'dark'}/>
-    {error?<View style={s.loading}><Text accessibilityRole="alert" style={[s.errorTitle,{color:c.text}]}>{t('startupFailed')}</Text><Text style={[s.errorHelp,{color:c.text}]}>{t('startupFailedHelp')}</Text><Pressable accessibilityRole="button" onPress={()=>void retryStartup()} style={[s.retry,{backgroundColor:c.accent}]}><Text style={[s.retryText,{color:c.onAccent}]}>{t('retry')}</Text></Pressable></View>:ready?<><Stack screenOptions={{headerShown:false,animation:'slide_from_right',contentStyle:{backgroundColor:c.bg}}}/><AppBar/><SuccessToast/></>:<View style={s.loading}><Image source={resolvedTheme==='dark'?require('../assets/app/logo-dark.png'):require('../assets/app/logo-light.png')} resizeMode="contain" style={s.logo}/><ActivityIndicator color={c.accent}/></View>}
+    {error?<View style={s.loading}><Text accessibilityRole="alert" style={[s.errorTitle,{color:c.text}]}>{t('startupFailed')}</Text><Text style={[s.errorHelp,{color:c.text}]}>{t('startupFailedHelp')}</Text><Pressable accessibilityRole="button" onPress={()=>void retryStartup()} style={[s.retry,{backgroundColor:c.accent}]}><Text style={[s.retryText,{color:c.onAccent}]}>{t('retry')}</Text></Pressable></View>:ready?<><Stack screenOptions={{headerShown:false,animation:'slide_from_right',contentStyle:{backgroundColor:c.bg}}}/><AppBar/><SuccessToast/></>:<View style={s.loading}><Image source={logo} resizeMode="contain" style={s.logo}/><ActivityIndicator color={c.accent}/></View>}
   </View>;
 }
 export default function RootLayout(){return <AppProvider><Shell/></AppProvider>}
-const s=StyleSheet.create({root:{flex:1},loading:{flex:1,alignItems:'center',justifyContent:'center',gap:24},errorTitle:{fontSize:22,fontWeight:'700',textAlign:'center'},errorHelp:{fontSize:16,textAlign:'center',paddingHorizontal:24},retry:{paddingHorizontal:24,paddingVertical:14,borderRadius:16},retryText:{fontSize:16,fontWeight:'600'},logo:{width:210,height:210}});
+const s=StyleSheet.create({root:{flex:1},loading:{flex:1,alignItems:'center',justifyContent:'center',gap:24},errorTitle:{fontSize:22,fontWeight:'700',textAlign:'center'},errorHelp:{fontSize:16,textAlign:'center',paddingHorizontal:24},retry:{paddingHorizontal:24,paddingVertical:14,borderRadius:16},retryText:{fontSize:16,fontWeight:'600'},logo:{width:250,height:250,borderRadius:28}});

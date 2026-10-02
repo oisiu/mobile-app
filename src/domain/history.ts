@@ -15,33 +15,37 @@ export function historyWeekLabel(start:string):string{
 }
 
 export function buildHistoryWindow(period:InsightPeriod,anchor:string,today:string):InsightWindow{
-  if(period==='week')return buildScoreWindow('week',anchor,today);
-  if(period==='month')return buildScoreWindow('year',anchor,today);
-  const year=Number(anchor.slice(0,4)),buckets:TimeBucket[]=[];
+  if(period==='week'||period==='month')return buildScoreWindow(period,anchor,today);
+  const buckets:TimeBucket[]=[],year=Number(anchor.slice(0,4));
   const append=(key:string,label:string,start:string,end:string)=>{
     const dates=new Set<string>();
     for(let date=start;date<=end&&date<=today;date=addDays(date,1))dates.add(date);
     buckets.push({key,label,dates});
   };
   if(period==='quarter'){
-    for(let offset=-1;offset<=0;offset++)for(let quarter=0;quarter<4;quarter++){
-      const bucketYear=year+offset,first=`${bucketYear}-${String(quarter*3+1).padStart(2,'0')}`;
-      const label=(month:string)=>new Intl.DateTimeFormat(undefined,{month:'short'}).format(new Date(`${month}-01T12:00:00`)).replace('.','');
-      append(`${bucketYear}-Q${quarter+1}`,label(first),`${first}-01`,addDays(`${addMonths(first,3)}-01`,-1));
+    const last=anchor.slice(0,7),first=addMonths(last,-11);
+    for(let index=0;index<12;index++){
+      const month=addMonths(first,index),start=`${month}-01`;
+      append(month,new Intl.DateTimeFormat(undefined,{month:'short'}).format(new Date(`${start}T12:00:00`)),start,addDays(`${addMonths(month,1)}-01`,-1));
     }
-  }else{
-    for(let item=year-5;item<=year;item++)append(String(item),String(item),`${item}-01-01`,`${item}-12-31`);
+    const end=addDays(`${addMonths(last,1)}-01`,-1);
+    return {start:`${first}-01`,end:end>today?today:end,buckets};
   }
-  return {start:period==='quarter'?`${year-1}-01-01`:`${year-5}-01-01`,end:`${year}-12-31`>today?today:`${year}-12-31`,buckets};
+  for(let item=year-5;item<=year;item++)append(String(item),String(item),`${item}-01-01`,`${item}-12-31`);
+  const end=`${year}-12-31`;
+  return {start:`${year-5}-01-01`,end:end>today?today:end,buckets};
 }
-
 export function shiftHistoryAnchor(anchor:string,period:InsightPeriod,amount:number,today:string):string{
   if(period==='week'){
     const monday=(date:string)=>addDays(date,-((new Date(`${date}T12:00:00`).getDay()+6)%7));
     const next=addDays(monday(anchor),amount*7),current=monday(today);
     return next>current?current:next;
   }
-  const year=Number(anchor.slice(0,4))+amount*(period==='year'?6:period==='quarter'?2:1);
+  if(period==='month'||period==='quarter'){
+    const month=addMonths(anchor.slice(0,7),amount*(period==='quarter'?12:1));
+    return `${month>today.slice(0,7)?today.slice(0,7):month}-01`;
+  }
+  const year=Number(anchor.slice(0,4))+amount*6;
   return `${Math.min(year,Number(today.slice(0,4)))}-01-01`;
 }
 

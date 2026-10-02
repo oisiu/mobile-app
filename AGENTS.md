@@ -4,6 +4,7 @@ Read the relevant document from the [README index](README.md#documentation) befo
 
 ## Rules
 
+- Use English for technical documentation, code identifiers, comments, test descriptions, and tooling messages. Keep supported translations and localization fixtures in their target languages.
 - Preserve local-first privacy: no backend, accounts, telemetry, or required network access.
 - Update English and Spanish whenever user-facing text, accessibility labels, or dialogs change.
 - Keep domain rules independent from React, Expo, SQLite, and Drizzle.

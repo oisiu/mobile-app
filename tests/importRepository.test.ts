@@ -71,7 +71,7 @@ describe('Safe import integrity',()=>{
 describe('Appearance persistence and upgrade',()=>{
   it('upgrades version 2 without changing legacy emojis or entries and is idempotent',async()=>{
     const {repo,sqlite,db}=await setup();await repo.import(doc([{...h('old'),emoji:'✨✨'}],[e('record','old')]));
-    sqlite.exec('ALTER TABLE habits DROP COLUMN color; DELETE FROM schema_versions WHERE version=3;');
+    sqlite.exec('ALTER TABLE habits DROP COLUMN color; DELETE FROM schema_versions WHERE version>=3;');
     await migrate(db as unknown as SQLiteDatabase);await migrate(db as unknown as SQLiteDatabase);
     expect(sqlite.prepare('SELECT color FROM habits').get()).toEqual({color:null});
     expect((await repo.habits())[0].emoji).toBe('✨✨');expect(await repo.entries()).toEqual([e('record','old')]);
@@ -109,4 +109,36 @@ describe('Appearance persistence and upgrade',()=>{
     expect(()=>validateImport(doc([{...h('bad'),color:'#fff' as Habit['color']}]))).toThrow(/habit/);
     await repo.import(doc([h('old')]));expect((await repo.habits()).find(h=>h.id==='old')?.color).toBeUndefined();
   });
+});
+
+it('upgrades the six-color constraint without changing trees or entries',async()=>{
+  const {repo,sqlite,db}=await setup();
+  await repo.import(doc([{...h('root'),color:'blue'},h('general','root',-1,true),{...h('child','root'),color:'pink'}],[e('record','child')]));
+  sqlite.exec("ALTER TABLE habits RENAME COLUMN color TO expanded_color; ALTER TABLE habits ADD COLUMN color TEXT CHECK(color IS NULL OR color IN ('green','blue','purple','orange','pink','teal')); UPDATE habits SET color=expanded_color; ALTER TABLE habits DROP COLUMN expanded_color; DELETE FROM schema_versions WHERE version=4;");
+  const before=await repo.export();
+  expect(()=>sqlite.prepare("UPDATE habits SET color='yellow' WHERE id='root'").run()).toThrow();
+  await migrate(db as unknown as SQLiteDatabase);await migrate(db as unknown as SQLiteDatabase);
+  const after=await repo.export();expect(after.habits).toEqual(before.habits);expect(after.entries).toEqual(before.entries);
+  expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([]);
+  expect(sqlite.prepare('SELECT COUNT(*) n FROM schema_versions WHERE version=4').get()).toEqual({n:1});
+  await repo.update('root',{color:'yellow'});expect((await repo.habits()).find(habit=>habit.id==='root')?.color).toBe('yellow');
+  for(const color of ['red','yellow','lime','cyan','brown','gray'] as const){
+    const id=await repo.create({name:color,emoji:'',color,type:'number',parentId:null});
+    expect((await repo.export()).habits.find(habit=>habit.id===id)?.color).toBe(color);
+  }
+  const exported=await repo.export();expect(()=>validateImport(exported)).not.toThrow();await repo.import(exported);
+});
+
+it('rolls back a failed palette upgrade before retrying',async()=>{
+  const {repo,sqlite,db}=await setup();await repo.import(doc([{...h('root'),color:'green'}],[e('record','root')]));
+  sqlite.exec('DELETE FROM schema_versions WHERE version=4;');
+  const before=await repo.export(),original=db.execAsync;
+  const failure=vi.spyOn(db,'execAsync').mockImplementation(async sql=>{
+    if(sql.startsWith('ALTER TABLE habits RENAME COLUMN color')){sqlite.exec('ALTER TABLE habits RENAME COLUMN color TO legacy_color;');throw new Error('injected palette failure')}
+    await original(sql);
+  });
+  await expect(migrate(db as unknown as SQLiteDatabase)).rejects.toThrow('injected palette failure');failure.mockRestore();
+  expect((await repo.export()).habits).toEqual(before.habits);expect(await repo.entries()).toEqual(before.entries);
+  expect(sqlite.prepare('SELECT MAX(version) version FROM schema_versions').get()).toEqual({version:3});
+  await migrate(db as unknown as SQLiteDatabase);expect((await repo.export()).habits).toEqual(before.habits);
 });
