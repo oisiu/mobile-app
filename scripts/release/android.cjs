@@ -131,7 +131,9 @@ function releaseNotes(text) {
 function validateRun(run, expectedPath, commit) {
   assert(
     run.path === expectedPath &&
-      run.event === "workflow_dispatch" &&
+      (run.event === "workflow_dispatch" ||
+        (expectedPath === ".github/workflows/build-android-release.yml" &&
+          run.event === "push")) &&
       run.head_branch === "main" &&
       run.conclusion === "success" &&
       run.head_sha === commit,
@@ -156,17 +158,30 @@ function productionRelease(track, code) {
   );
 }
 
-function manualMain() {
+function requireReleaseTrigger(command) {
+  const event = process.env.GITHUB_EVENT_NAME;
+  const automatic =
+    event === "push" && ["select", "validate-build", "sign"].includes(command);
   assert(
     repository &&
       runId &&
-      process.env.GITHUB_EVENT_NAME === "workflow_dispatch" &&
+      (event === "workflow_dispatch" || automatic) &&
       process.env.GITHUB_REF === "refs/heads/main",
-    "Run manually from the main branch.",
+    "Run from main using an authorized release trigger.",
   );
 }
 
-function prepareFiles(kind) {
+function prepareFiles(kind, options = {}) {
+  assert(
+    (options.platform || "Android") === "Android",
+    "iOS/TestFlight is coming soon; Apple setup is required.",
+  );
+  const notesText = `<en-US>\n${options.english?.trim() || "General updates and improvements."}\n</en-US>\n<es-ES>\n${options.spanish?.trim() || "Actualizaciones y mejoras generales."}\n</es-ES>\n`;
+  assert(
+    !/[<>]/.test(options.english || "") && !/[<>]/.test(options.spanish || ""),
+    "Enter plain release notes without language tags.",
+  );
+  releaseNotes(notesText);
   const manifest = read("package.json");
   const config = read("app.json");
   assert(
@@ -194,7 +209,7 @@ function prepareFiles(kind) {
   });
   fs.writeFileSync(
     `store/google-play/releases/${version}.txt`,
-    "<en-US>\nTODO: Describe this release in English.\n</en-US>\n<es-ES>\nTODO: Describe esta versión en español.\n</es-ES>\n",
+    notesText,
   );
   return version;
 }
@@ -263,7 +278,7 @@ function buildMetadata() {
   const commit = exec("git", ["rev-parse", "HEAD"]);
   assert(
     commit === process.env.GITHUB_SHA,
-    "Build source must be the manually selected main commit.",
+    "Build source must be the selected main commit.",
   );
   const bundle = "android/app/build/outputs/bundle/release/app-release.aab";
   const entries = exec("unzip", ["-Z1", bundle]);
@@ -478,6 +493,13 @@ async function publish(mode) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "oisiu-publish-"));
   try {
     const { record, assets } = releaseRecord(tag, directory);
+    if (process.env.SOURCE_BUILD_RUN_ID) {
+      assert(
+        String(record.buildRunId) === process.env.SOURCE_BUILD_RUN_ID &&
+          record.commit === exec("git", ["rev-parse", "HEAD"]),
+        "Testing must use the build record from the triggering successful run.",
+      );
+    }
     if (mode === "production") {
       assert(
         process.env.TESTED === "true",
@@ -594,16 +616,27 @@ async function publish(mode) {
 }
 
 async function main() {
-  manualMain();
   const command = process.argv[2];
+  if (command !== "validate-notes") requireReleaseTrigger(command);
   if (command === "prepare") {
-    const version = prepareFiles(process.env.BUMP);
+    const version = prepareFiles(process.env.BUMP, {
+      platform: process.env.RELEASE_PLATFORM,
+      english: process.env.RELEASE_NOTES_EN,
+      spanish: process.env.RELEASE_NOTES_ES,
+    });
     fs.appendFileSync(
       process.env.GITHUB_OUTPUT,
       `version=${version}\ntag=v${version}\nbranch=codex/release-v${version}\n`,
     );
   } else if (command === "select") selectRelease();
-  else if (command === "validate-build") {
+  else if (command === "validate-notes") {
+    releaseNotes(
+      fs.readFileSync(
+        `store/google-play/releases/${read("package.json").version}.txt`,
+        "utf8",
+      ),
+    );
+  } else if (command === "validate-build") {
     prepared(process.env.RELEASE_TAG);
     requireUnbuiltTag(process.env.RELEASE_TAG);
   } else if (command === "sign") buildMetadata();
@@ -613,6 +646,7 @@ async function main() {
 }
 
 module.exports = {
+  requireReleaseTrigger,
   automaticReleaseTag,
   bump,
   tagVersion,

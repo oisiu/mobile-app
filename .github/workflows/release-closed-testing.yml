@@ -1,8 +1,13 @@
-# Release stages are manual only. Run from main; no push/tag/workflow_run triggers.
+# Successful Android builds start testing; manual dispatch supports upload retries.
 name: Release to closed testing
 
 on:
   workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: Automatic build run ID (leave blank for manual retry)
+        required: false
+        type: string
 
 permissions: {}
 
@@ -13,15 +18,35 @@ concurrency:
 jobs:
   main-only:
     name: Require manual dispatch from main
+    outputs:
+      commit: ${{ steps.source.outputs.commit }}
     runs-on: ubuntu-24.04
     timeout-minutes: 1
-    permissions: {}
+    permissions:
+      actions: read
     steps:
       - name: Reject branches, tags, and pull requests
         run: |
           if [ "$GITHUB_EVENT_NAME" != workflow_dispatch ] || [ "$GITHUB_REF" != refs/heads/main ]; then
-            echo '::error::Release workflows can only run manually from main.'
+            echo '::error::Testing requires a successful main build or manual dispatch from main.'
             exit 1
+          fi
+
+      - name: Verify dispatched build and select its commit
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+        run: |
+          if [ -z "$BUILD_RUN_ID" ]; then
+            echo "commit=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          else
+            [[ "$BUILD_RUN_ID" =~ ^[0-9]+$ ]]
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID" > "$RUNNER_TEMP/build-run.json"
+            jq -e '.path == ".github/workflows/build-android-release.yml" and .head_branch == "main" and .conclusion == "success" and (.event == "push" or .event == "workflow_dispatch")' "$RUNNER_TEMP/build-run.json"
+            COMMIT=$(jq -r '.head_sha' "$RUNNER_TEMP/build-run.json")
+            [[ "$COMMIT" =~ ^[a-f0-9]{40}$ ]]
+            echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
           fi
 
   publish:
@@ -38,6 +63,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ needs.main-only.outputs.commit }}
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
@@ -49,5 +75,6 @@ jobs:
         run: node scripts/release/android.cjs closed
         env:
           GH_TOKEN: ${{ github.token }}
+          SOURCE_BUILD_RUN_ID: ${{ inputs.build_run_id }}
           CLOSED_TESTING_TRACK: ${{ vars.CLOSED_TESTING_TRACK }}
           GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}

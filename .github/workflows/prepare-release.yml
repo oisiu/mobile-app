@@ -1,4 +1,4 @@
-# Release stages are manual only. Run from main; no push/tag/workflow_run triggers.
+# Preparation is manual; merging its PR starts the Android testing pipeline.
 name: Prepare release
 
 on:
@@ -9,6 +9,21 @@ on:
         required: true
         type: choice
         options: [patch, minor, major]
+      platform:
+        description: Platform (iOS/TestFlight coming soon)
+        required: true
+        type: choice
+        options: [Android]
+      notes_en:
+        description: English release notes (maximum 500 characters)
+        required: false
+        type: string
+        default: General updates and improvements.
+      notes_es:
+        description: Spanish release notes (maximum 500 characters)
+        required: false
+        type: string
+        default: Actualizaciones y mejoras generales.
 
 permissions: {}
 
@@ -50,6 +65,9 @@ jobs:
         run: node scripts/release/android.cjs prepare
         env:
           BUMP: ${{ inputs.bump }}
+          RELEASE_PLATFORM: ${{ inputs.platform }}
+          RELEASE_NOTES_EN: ${{ inputs.notes_en }}
+          RELEASE_NOTES_ES: ${{ inputs.notes_es }}
       - name: Push preparation branch and show manual PR link
         env:
           GH_TOKEN: ${{ github.token }}
@@ -70,9 +88,9 @@ jobs:
           [Create the release PR]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$RELEASE_BRANCH?expand=1)
 
           1. Open the link and create a PR with base main and compare $RELEASE_BRANCH.
-          2. Replace the English and Spanish TODO notes in store/google-play/releases/$RELEASE_VERSION.txt on that branch.
+          2. Review or edit the English and Spanish release notes in store/google-play/releases/$RELEASE_VERSION.txt on that branch.
           3. Wait for CI to pass, then merge the PR.
-          4. Manually run Build Android release from main; the version is selected automatically.
+          4. Merging starts Build Android release automatically; a successful build starts closed testing.
 
           If CI does not start, run Actions → CI → Run workflow on $RELEASE_BRANCH.
           EOF
