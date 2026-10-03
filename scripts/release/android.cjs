@@ -133,9 +133,7 @@ function validateRun(run, expectedPath, commit) {
     run.path === expectedPath &&
       (run.event === "workflow_dispatch" ||
         (expectedPath === ".github/workflows/build-android-release.yml" &&
-          run.event === "push") ||
-        (expectedPath === ".github/workflows/release-closed-testing.yml" &&
-          run.event === "workflow_run")) &&
+          run.event === "push")) &&
       run.head_branch === "main" &&
       run.conclusion === "success" &&
       run.head_sha === commit,
@@ -162,21 +160,8 @@ function productionRelease(track, code) {
 
 function requireReleaseTrigger(command) {
   const event = process.env.GITHUB_EVENT_NAME;
-  let automatic =
+  const automatic =
     event === "push" && ["select", "validate-build", "sign"].includes(command);
-  if (event === "workflow_run" && ["select", "closed"].includes(command)) {
-    const upstream = read(process.env.GITHUB_EVENT_PATH).workflow_run;
-    validateRun(
-      upstream,
-      ".github/workflows/build-android-release.yml",
-      upstream.head_sha,
-    );
-    assert(
-      exec("git", ["rev-parse", "HEAD"]) === upstream.head_sha,
-      "Testing must use the successful build commit.",
-    );
-    automatic = true;
-  }
   assert(
     repository &&
       runId &&
@@ -508,11 +493,10 @@ async function publish(mode) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "oisiu-publish-"));
   try {
     const { record, assets } = releaseRecord(tag, directory);
-    if (process.env.GITHUB_EVENT_NAME === "workflow_run") {
-      const upstream = read(process.env.GITHUB_EVENT_PATH).workflow_run;
+    if (process.env.SOURCE_BUILD_RUN_ID) {
       assert(
-        String(record.buildRunId) === String(upstream.id) &&
-          record.commit === upstream.head_sha,
+        String(record.buildRunId) === process.env.SOURCE_BUILD_RUN_ID &&
+          record.commit === exec("git", ["rev-parse", "HEAD"]),
         "Testing must use the build record from the triggering successful run.",
       );
     }

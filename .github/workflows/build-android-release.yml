@@ -33,7 +33,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     permissions:
       contents: write
-      actions: read
+      actions: write
       pull-requests: read
 
     runs-on: ubuntu-24.04
@@ -107,3 +107,8 @@ jobs:
           gh release create "$RELEASE_TAG" release-output/oisiu.aab release-output/build.json \
             --verify-tag --draft --title "Android $RELEASE_TAG" \
             --notes "Signed Android bundle. Closed testing starts automatically after this build succeeds."
+      - name: Dispatch closed testing for this build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run release-closed-testing.yml --repo "$GITHUB_REPOSITORY" --ref main -f "build_run_id=$GITHUB_RUN_ID"

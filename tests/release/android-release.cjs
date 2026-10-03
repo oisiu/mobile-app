@@ -47,7 +47,7 @@ test('stages accept designated automatic triggers and reject failed or mismatche
     head_branch: 'main', head_sha: 'abc', conclusion: 'success' };
   validateRun(run, run.path, 'abc');
   validateRun({ ...run, event: 'push' }, run.path, 'abc');
-  validateRun({ ...run, event: 'workflow_run', path: '.github/workflows/release-closed-testing.yml' }, '.github/workflows/release-closed-testing.yml', 'abc');
+  assert.throws(() => validateRun({ ...run, event: 'workflow_run' }, '.github/workflows/release-closed-testing.yml', 'abc'));
   assert.throws(() => validateRun({ ...run, event: 'workflow_run' }, run.path, 'abc'));
   for (const change of [{ conclusion: 'failure' }, { conclusion: null }, { event: 'pull_request' },
     { head_branch: 'other' }, { head_sha: 'def' }, { path: '.github/workflows/ci.yml' }]) {
@@ -123,6 +123,7 @@ function publishingFixture(overrides = {}) {
       GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: JSON.stringify({ client_email: 'test@example.invalid',
         private_key: privateKey.export({ type: 'pkcs8', format: 'pem' }) }), ...overrides.env } },
     require: name => name === 'node:child_process' ? { execFileSync: (command, args) => {
+      if (command === 'git') return commit;
       assert.equal(command, 'gh');
       if (args[0] === 'api') {
         if (args[1].includes('actions/runs/100')) return JSON.stringify(run('build-android-release', overrides.buildRun));
@@ -408,10 +409,10 @@ test('automatic deployment uses main preparation changes and successful build so
   const build = fs.readFileSync('.github/workflows/build-android-release.yml', 'utf8');
   assert.match(build, /push:\n    branches: \[main\]\n    paths: \['.github\/releases\/\*\.json'\]/);
   const closed = fs.readFileSync('.github/workflows/release-closed-testing.yml', 'utf8');
-  assert.match(closed, /workflows: \[Build Android release\]/);
-  assert.match(closed, /workflow_run.conclusion == 'success'/);
-  assert.match(closed, /workflow_run.repository.id == github.repository_id/);
-  assert.match(closed, /ref: \$\{\{ github.event.workflow_run.head_sha \|\| github.sha \}\}/);
+  assert.doesNotMatch(closed, /\n  workflow_run:/);
+  assert.match(closed, /conclusion == "success"/);
+  assert.match(closed, /ref: \$\{\{ needs.main-only.outputs.commit \}\}/);
+  assert.match(build, /gh workflow run release-closed-testing.yml/);
   const prepare = fs.readFileSync('.github/workflows/prepare-release.yml', 'utf8');
   assert.match(prepare, /default: General updates and improvements\./);
   assert.match(prepare, /default: Actualizaciones y mejoras generales\./);
@@ -420,21 +421,16 @@ test('automatic deployment uses main preparation changes and successful build so
 
 
 test('automatic closed submission requires the exact triggering build record', async () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'oisiu-event-test-'));
-  const eventFile = path.join(directory, 'event.json');
-  try {
-    for (const id of ['100', '999']) {
-      fs.writeFileSync(eventFile, JSON.stringify({ workflow_run: { id, head_sha: 'a'.repeat(40) } }));
-      const fixture = publishingFixture({ env: { GITHUB_EVENT_NAME: 'workflow_run', GITHUB_EVENT_PATH: eventFile }, buildRun: { event: 'push' } });
-      if (id === '100') {
-        await fixture.publish('closed');
-        assert(fixture.calls.some(call => call.url?.endsWith(':commit')));
-      } else {
-        await assert.rejects(fixture.publish('closed'), /triggering successful run/);
-        assert.equal(fixture.calls.length, 0);
-      }
+  for (const id of ['100', '999']) {
+    const fixture = publishingFixture({ env: { SOURCE_BUILD_RUN_ID: id }, buildRun: { event: 'push' } });
+    if (id === '100') {
+      await fixture.publish('closed');
+      assert(fixture.calls.some(call => call.url?.endsWith(':commit')));
+    } else {
+      await assert.rejects(fixture.publish('closed'), /triggering successful run/);
+      assert.equal(fixture.calls.length, 0);
     }
-  } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+  }
 });
 
 test('automatic triggers cannot prepare versions or publish production', () => {
