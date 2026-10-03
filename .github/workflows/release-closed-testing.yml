@@ -1,8 +1,12 @@
-# Release stages are manual only. Run from main; no push/tag/workflow_run triggers.
+# Successful Android builds start testing; manual dispatch supports upload retries.
 name: Release to closed testing
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: [Build Android release]
+    types: [completed]
+    branches: [main]
 
 permissions: {}
 
@@ -12,15 +16,21 @@ concurrency:
 
 jobs:
   main-only:
-    name: Require manual dispatch from main
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.repository.id == github.repository_id &&
+       (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch'))
+    name: Require trusted main release trigger
     runs-on: ubuntu-24.04
     timeout-minutes: 1
     permissions: {}
     steps:
       - name: Reject branches, tags, and pull requests
         run: |
-          if [ "$GITHUB_EVENT_NAME" != workflow_dispatch ] || [ "$GITHUB_REF" != refs/heads/main ]; then
-            echo '::error::Release workflows can only run manually from main.'
+          if { [ "$GITHUB_EVENT_NAME" != workflow_dispatch ] && [ "$GITHUB_EVENT_NAME" != workflow_run ]; } || [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo '::error::Testing requires a successful main build or manual dispatch from main.'
             exit 1
           fi
 
@@ -38,6 +48,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22

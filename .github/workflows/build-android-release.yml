@@ -1,8 +1,11 @@
-# Release stages are manual only. Run from main; no push/tag/workflow_run triggers.
+# Build preparation merges automatically; manual dispatch supports build retries.
 name: Build Android release
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/releases/*.json']
 
 permissions: {}
 
@@ -12,15 +15,15 @@ concurrency:
 
 jobs:
   main-only:
-    name: Require manual dispatch from main
+    name: Require trusted main release trigger
     runs-on: ubuntu-24.04
     timeout-minutes: 1
     permissions: {}
     steps:
       - name: Reject branches, tags, and pull requests
         run: |
-          if [ "$GITHUB_EVENT_NAME" != workflow_dispatch ] || [ "$GITHUB_REF" != refs/heads/main ]; then
-            echo '::error::Release workflows can only run manually from main.'
+          if { [ "$GITHUB_EVENT_NAME" != workflow_dispatch ] && [ "$GITHUB_EVENT_NAME" != push ]; } || [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo '::error::Builds require a preparation merge or manual dispatch from main.'
             exit 1
           fi
 
@@ -103,4 +106,4 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/git/refs" -f "ref=refs/tags/$RELEASE_TAG" -f "sha=$GITHUB_SHA"
           gh release create "$RELEASE_TAG" release-output/oisiu.aab release-output/build.json \
             --verify-tag --draft --title "Android $RELEASE_TAG" \
-            --notes "Signed Android bundle. Use the manual closed testing workflow before production."
+            --notes "Signed Android bundle. Closed testing starts automatically after this build succeeds."

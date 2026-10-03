@@ -28,7 +28,7 @@ test('release preparation updates both versions and independent Android code', (
     assert.equal(config.version, '2.0.0');
     assert.equal(config.android.versionCode, 8);
     assert.equal(JSON.parse(fs.readFileSync('.github/releases/v2.0.0.json')).versionCode, 8);
-    assert.throws(() => releaseNotes(fs.readFileSync('store/google-play/releases/2.0.0.txt', 'utf8')));
+    assert.deepEqual(releaseNotes(fs.readFileSync('store/google-play/releases/2.0.0.txt', 'utf8')).map(note => note.text), ['General updates and improvements.', 'Actualizaciones y mejoras generales.']);
   } finally {
     process.chdir(original);
     fs.rmSync(directory, { recursive: true, force: true });
@@ -42,11 +42,14 @@ test('both translated release notes must be complete and within Play limits', ()
   assert.throws(() => releaseNotes(`<en-US>${'x'.repeat(501)}</en-US><es-ES>Listo.</es-ES>`));
 });
 
-test('stages reject failed, automatic, wrong-branch, wrong-workflow, and wrong-commit runs', () => {
+test('stages accept designated automatic triggers and reject failed or mismatched runs', () => {
   const run = { path: '.github/workflows/build-android-release.yml', event: 'workflow_dispatch',
     head_branch: 'main', head_sha: 'abc', conclusion: 'success' };
   validateRun(run, run.path, 'abc');
-  for (const change of [{ conclusion: 'failure' }, { conclusion: null }, { event: 'push' },
+  validateRun({ ...run, event: 'push' }, run.path, 'abc');
+  validateRun({ ...run, event: 'workflow_run', path: '.github/workflows/release-closed-testing.yml' }, '.github/workflows/release-closed-testing.yml', 'abc');
+  assert.throws(() => validateRun({ ...run, event: 'workflow_run' }, run.path, 'abc'));
+  for (const change of [{ conclusion: 'failure' }, { conclusion: null }, { event: 'pull_request' },
     { head_branch: 'other' }, { head_sha: 'def' }, { path: '.github/workflows/ci.yml' }]) {
     assert.throws(() => validateRun({ ...run, ...change }, run.path, 'abc'));
   }
@@ -60,14 +63,14 @@ test('production prevents downgrades and overwriting an active staged rollout', 
   }
 });
 
-test('all release workflows are manual and share a non-cancelling concurrency group', () => {
+test('release workflows retain manual recovery and share a non-cancelling concurrency group', () => {
   for (const name of ['prepare-release', 'build-android-release', 'release-closed-testing', 'publish-production']) {
     const text = fs.readFileSync(`.github/workflows/${name}.yml`, 'utf8').replace(/\r\n/g, '\n');
     assert.match(text, /\n  workflow_dispatch:/);
-    assert.doesNotMatch(text, /\n  (push|pull_request|workflow_run|schedule):/);
+    if (['prepare-release', 'publish-production'].includes(name)) assert.doesNotMatch(text, /\n  (push|pull_request|workflow_run|schedule):/);
     assert.match(text, /group: android-release\n  cancel-in-progress: false/);
     assert.match(text, /needs: main-only/);
-    assert.match(text, /name: Require manual dispatch from main/);
+    assert.match(text, /name: Require (manual dispatch|trusted main release trigger)/);
     assert.match(text, /\[ \"\$GITHUB_REF\" != refs\/heads\/main \]/);
     assert.match(text, /if: github.ref == 'refs\/heads\/main'/);
   }
@@ -303,7 +306,7 @@ test('subprocess environments isolate signing credentials, service account JSON,
   }
 });
 
-test('actual workflow shell gates reject branches, tags, PRs and automatic events', () => {
+test('actual workflow shell gates restrict automatic events to their designated main stage', () => {
   const { spawnSync, execFileSync } = require('node:child_process');
   // Windows does not put Git Bash on PATH; run the installed Git distribution.
   let bash = 'bash';
@@ -321,7 +324,8 @@ test('actual workflow shell gates reject branches, tags, PRs and automatic event
       ['pull_request', 'refs/pull/12/merge', 1], ['push', 'refs/heads/main', 1]]) {
       const result = spawnSync(bash, ['-c', gate], { env: { ...process.env, GITHUB_EVENT_NAME: event, GITHUB_REF: ref } });
       assert.ifError(result.error);
-      assert.equal(result.status, status, `${name}: ${event} ${ref}`);
+      const expected = name === 'build-android-release' && event === 'push' && ref === 'refs/heads/main' ? 0 : status;
+      assert.equal(result.status, expected, `${name}: ${event} ${ref}`);
     }
   }
 });
@@ -375,5 +379,71 @@ test('selection writes the validated version for later workflow steps and reject
     assert.match(fs.readFileSync(summaryFile, 'utf8'), /v1\.6\.2/);
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+
+test('preparation validates custom notes and unsupported platforms before any file mutation', () => {
+  for (const options of [{ platform: 'iOS' }, { platform: 'both' }, { english: 'x'.repeat(501) },
+    { spanish: 'TODO' }, { english: '<en-US>Injected</en-US>' }]) {
+    assert.throws(() => prepareFiles('patch', options));
+  }
+  const original = process.cwd();
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'oisiu-notes-test-'));
+  try {
+    process.chdir(directory);
+    fs.mkdirSync('store/google-play/releases', { recursive: true });
+    fs.writeFileSync('package.json', JSON.stringify({ version: '1.0.0' }));
+    fs.writeFileSync('app.json', JSON.stringify({ expo: { version: '1.0.0', android: { versionCode: 1 } } }));
+    prepareFiles('patch', { english: 'Fixed startup.\nImproved calendar.', spanish: 'Inicio corregido.' });
+    assert.deepEqual(releaseNotes(fs.readFileSync('store/google-play/releases/1.0.1.txt', 'utf8')).map(note => note.text),
+      ['Fixed startup.\nImproved calendar.', 'Inicio corregido.']);
+  } finally {
+    process.chdir(original);
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('automatic deployment uses main preparation changes and successful build source', () => {
+  const build = fs.readFileSync('.github/workflows/build-android-release.yml', 'utf8');
+  assert.match(build, /push:\n    branches: \[main\]\n    paths: \['.github\/releases\/\*\.json'\]/);
+  const closed = fs.readFileSync('.github/workflows/release-closed-testing.yml', 'utf8');
+  assert.match(closed, /workflows: \[Build Android release\]/);
+  assert.match(closed, /workflow_run.conclusion == 'success'/);
+  assert.match(closed, /workflow_run.repository.id == github.repository_id/);
+  assert.match(closed, /ref: \$\{\{ github.event.workflow_run.head_sha \|\| github.sha \}\}/);
+  const prepare = fs.readFileSync('.github/workflows/prepare-release.yml', 'utf8');
+  assert.match(prepare, /default: General updates and improvements\./);
+  assert.match(prepare, /default: Actualizaciones y mejoras generales\./);
+  assert.match(prepare, /RELEASE_NOTES_EN: \$\{\{ inputs.notes_en \}\}/);
+});
+
+
+test('automatic closed submission requires the exact triggering build record', async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'oisiu-event-test-'));
+  const eventFile = path.join(directory, 'event.json');
+  try {
+    for (const id of ['100', '999']) {
+      fs.writeFileSync(eventFile, JSON.stringify({ workflow_run: { id, head_sha: 'a'.repeat(40) } }));
+      const fixture = publishingFixture({ env: { GITHUB_EVENT_NAME: 'workflow_run', GITHUB_EVENT_PATH: eventFile }, buildRun: { event: 'push' } });
+      if (id === '100') {
+        await fixture.publish('closed');
+        assert(fixture.calls.some(call => call.url?.endsWith(':commit')));
+      } else {
+        await assert.rejects(fixture.publish('closed'), /triggering successful run/);
+        assert.equal(fixture.calls.length, 0);
+      }
+    }
+  } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+});
+
+test('automatic triggers cannot prepare versions or publish production', () => {
+  const vm = require('node:vm');
+  for (const event of ['push', 'workflow_run', 'pull_request']) {
+    const context = { module: { exports: {} }, require,
+      process: { env: { GITHUB_REPOSITORY: 'example/app', GITHUB_RUN_ID: '123',
+        GITHUB_EVENT_NAME: event, GITHUB_REF: 'refs/heads/main' } } };
+    vm.runInNewContext(fs.readFileSync('scripts/release/android.cjs', 'utf8'), context);
+    for (const command of ['prepare', 'production']) assert.throws(() => context.module.exports.requireReleaseTrigger(command));
   }
 });

@@ -31,6 +31,11 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Validate prepared release notes
+        run: |
+          if [ -f ".github/releases/v$(node -p 'require("./package.json").version').json" ]; then
+            node scripts/release/android.cjs validate-notes
+          fi
       - name: Dependency compatibility
         run: pnpm deps:check
       - name: Expo dependency alignment

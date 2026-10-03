@@ -30,7 +30,7 @@ The feature graphic has illustrated phone screens; its [generation prompt](sourc
 
 ## Release submission
 
-Use the [manual GitHub release sequence](../../docs/DEVELOPMENT.md#manual-github-release-sequence) for version preparation, signed AAB builds, closed testing, and production promotion. Preparation creates release notes for the new version; complete both English and Spanish sections before building. Keep each section within Google Play’s 500-character limit and verify the notes against the selected bundle.
+Use the [GitHub release sequence](../../docs/DEVELOPMENT.md#github-release-sequence) for version preparation, signed AAB builds, closed testing, and production promotion. Preparation fills release notes from the English and Spanish workflow inputs, using general-update defaults when blank. Review both sections in the preparation PR before merging; merging automatically starts the build and testing submission. Keep each section within Google Play’s 500-character limit and verify the notes against the selected bundle.
 
 ## Publication checks
 

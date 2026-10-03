@@ -40,16 +40,19 @@ Repeat port forwarding after reconnecting. Release builds include their JavaScri
 
 For each new Google Play bundle, increment `expo.android.versionCode` in `app.json` above every previously uploaded code. The visible app version is separate and does not replace this integer. Before first using the release workflows, ensure the committed version code is at least the highest code already uploaded to Play; preparation increments it by one.
 
-### Manual GitHub release sequence
+### GitHub release sequence
 
-Run each workflow manually from **Actions → Run workflow** on `main`, in this order:
+1. Run **Prepare release** manually on `main`: choose `patch`, `minor`, or `major` and **Android**. English and Spanish release-note inputs default to “General updates and improvements.” and “Actualizaciones y mejoras generales.” Empty inputs use the same defaults. Enter plain text without language tags, up to 500 characters per language.
+2. Use the summary's compare link to create a PR into `main`. Review or edit the generated notes, pass CI, and merge. If CI does not start, run it manually on the release branch. CI rejects incomplete, TODO, or oversized notes.
+3. Merging the preparation record automatically starts **Build Android release**. It runs required checks, builds and signs the AAB, and saves it in a draft GitHub Release. Only preparation-record changes on `main` trigger automatic builds.
+4. A successful build automatically starts **Release to closed testing**, using the exact successful build commit and saved AAB. Install and test that version; check Play Console for review and publishing status after submission.
+5. Run **Publish to production** manually and confirm testing of the current version on `main`. It promotes the tested version as a full rollout without rebuilding.
 
-1. **Prepare release:** choose `patch`, `minor`, or `major`. Use the summary's compare link to create a PR into `main`. Complete English/Spanish release notes, pass CI, and merge. If CI does not start, run it manually on the release branch.
-2. **Build Android release:** the prepared version on `main` is selected automatically. The workflow checks, builds, signs, and saves the AAB in a draft GitHub Release.
-3. **Release to closed testing:** submit the saved AAB for that version to the configured track. Install and test that version.
-4. **Publish to production:** confirm testing of the current version on `main`. This promotes the tested version as a full rollout without rebuilding.
+No version input is needed. Each stage fails if its prerequisites are missing and never falls back to an older release. Finish the release before merging another version bump. Preserve draft releases, tags, and assets. Successful builds cannot be overwritten. After a failed build, inspect incomplete drafts/tags before retrying **Build Android release** manually. After a failed testing submission, rerun **Release to closed testing** manually from `main`; it reuses the successful build and safely resumes an already uploaded matching bundle without a version bump. A newer closed-testing release prevents promotion of the previous version.
 
-No version input is needed. Each stage uses the prepared version on its selected `main` commit and fails if its prerequisites are missing; it never falls back to an older release. Finish the release before merging another version bump. Stages cannot be skipped. Wait for each run to finish, and keep its draft release, tag, and assets unchanged. Successful builds cannot be overwritten; inspect incomplete output after a failed build before retrying, or prepare a new version. A newer closed-testing release prevents promotion of the previous version. Check Play Console for review and publishing status after submission.
+### iOS / TestFlight placeholder
+
+Android is the only enabled platform. iOS/TestFlight is coming soon and requires Apple Developer/App Store Connect configuration, signing credentials, and an iOS build/upload workflow. Unsupported platform inputs fail before preparation changes files. Future iOS and both-platform options should share the reviewed version and bilingual notes, with independent platform build numbers. App Store production submission remains a separate step after testing.
 
 ### GitHub and Play configuration
 
