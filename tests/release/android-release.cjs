@@ -332,12 +332,60 @@ test('actual workflow shell gates restrict automatic events to their designated 
 });
 
 
-test('preparation needs no automatic PR permission and provides a manual compare link', () => {
+test('preparation creates a PR and dispatches CI while retaining manual merge', () => {
   const workflow = fs.readFileSync('.github/workflows/prepare-release.yml', 'utf8');
-  assert.doesNotMatch(workflow, /pull-requests: write|gh pr create|gh pr review/);
+  assert.match(workflow, /pull-requests: write/);
+  assert.match(workflow, /actions: write/);
+  assert.doesNotMatch(workflow, /gh pr (review|merge)|--auto|pull_request_target/);
   assert.match(workflow, /git push origin "\$RELEASE_BRANCH"/);
   assert.match(workflow, /\$GITHUB_STEP_SUMMARY/);
-  assert.match(workflow, /compare\/main\.\.\.\$RELEASE_BRANCH\?expand=1/);
+  assert.match(workflow, /gh pr create --repo "\$GITHUB_REPOSITORY" --base main --head "\$RELEASE_BRANCH"/);
+  assert.match(workflow, /--body-file "\$PR_BODY"/);
+  assert.match(workflow, /gh workflow run ci.yml --repo "\$GITHUB_REPOSITORY" --ref "\$RELEASE_BRANCH"/);
+  assert.match(workflow, /manually merge the PR/);
+});
+
+test('preparation opens the PR before CI dispatch and retains its review link on dispatch failure', () => {
+  const { spawnSync,execFileSync } = require('node:child_process');
+  let bash = 'bash';
+  if (process.platform === 'win32') {
+    const gitRoot = path.resolve(execFileSync('git', ['--exec-path'], { encoding: 'utf8' }).trim(), '../../..');
+    bash = ['bin/bash.exe','usr/bin/bash.exe','usr/bin/sh.exe'].map(file => path.join(gitRoot,file)).find(file => fs.existsSync(file)) || bash;
+  }
+  const workflow = fs.readFileSync('.github/workflows/prepare-release.yml','utf8').replace(/\r\n/g,'\n');
+  const script = workflow.split('        run: |\n').at(-1).split('\n').map(line => line.slice(10)).join('\n');
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(),'oisiu-release-pr-'));
+  const mocks = `
+git() { printf 'git %s\\n' "$*" >> "$CALLS"; }
+gh() {
+  printf 'gh %s\\n' "$*" >> "$CALLS"
+  if [ "$1 $2" = 'pr create' ]; then
+    while [ "$1" != '--body-file' ]; do shift; done
+    cat "$2" > "$CAPTURED_BODY"
+    printf 'https://github.com/example/app/pull/42\\n'
+  elif [ "$1 $2" = 'workflow run' ]; then
+    return "$DISPATCH_EXIT"
+  fi
+}
+`;
+  try {
+    for (const exit of [0,1]) {
+      const calls = path.join(directory,`calls-${exit}`),summary = path.join(directory,`summary-${exit}`),body = path.join(directory,`body-${exit}`);
+      const result = spawnSync(bash,['-euo','pipefail','-c',mocks+script],{ encoding:'utf8',env:{ ...process.env,
+        CALLS:calls,CAPTURED_BODY:body,DISPATCH_EXIT:String(exit),GITHUB_STEP_SUMMARY:summary,
+        GITHUB_REPOSITORY:'example/app',RELEASE_BRANCH:'codex/release-v1.2.4',RELEASE_TAG:'v1.2.4',RELEASE_VERSION:'1.2.4' } });
+      assert.equal(result.status,exit,result.stderr);
+      const commands = fs.readFileSync(calls,'utf8');
+      assert(commands.indexOf('git push origin') < commands.indexOf('gh pr create'));
+      assert(commands.indexOf('gh pr create') < commands.indexOf('gh workflow run'));
+      assert.match(commands,/gh workflow run ci.yml --repo example\/app --ref codex\/release-v1.2.4/);
+      assert.doesNotMatch(commands,/gh pr (merge|review)/);
+      assert.match(fs.readFileSync(summary,'utf8'),/https:\/\/github.com\/example\/app\/pull\/42/);
+      assert.match(fs.readFileSync(body,'utf8'),/store\/google-play\/releases\/1.2.4.txt/);
+    }
+  } finally {
+    fs.rmSync(directory,{ recursive:true,force:true });
+  }
 });
 
 

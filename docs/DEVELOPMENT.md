@@ -43,7 +43,7 @@ For each new Google Play bundle, increment `expo.android.versionCode` in `app.js
 ### GitHub release sequence
 
 1. Run **Prepare release** manually on `main`: choose `patch`, `minor`, or `major` and **Android**. English and Spanish release-note inputs default to “General updates and improvements.” and “Actualizaciones y mejoras generales.” Empty inputs use the same defaults. Enter plain text without language tags, up to 500 characters per language.
-2. Use the summary's compare link to create a PR into `main`. Review or edit the generated notes, pass CI, and merge. If CI does not start, run it manually on the release branch. CI rejects incomplete, TODO, or oversized notes.
+2. Preparation pushes its release branch, creates a PR into `main`, and dispatches **CI** on that branch. Open the PR from the workflow summary, review or edit the generated notes, wait for checks on the latest commit, and manually merge. Auto-merge and automatic approval are not enabled. If CI dispatch fails, run it manually on the release branch; if GitHub shows approval-required PR workflows, select **Approve workflows to run**. CI rejects incomplete, TODO, or oversized notes. If PR creation fails, enable the Actions setting below and create the PR from the pushed release branch.
 3. Merging the preparation record automatically starts **Build Android release**. It runs required checks, builds and signs the AAB, and saves it in a draft GitHub Release. Only preparation-record changes on `main` trigger automatic builds.
 4. The build dispatches **Release to closed testing** with its run ID. The testing workflow waits in the shared release queue, verifies that the build succeeded on `main`, and uses its exact commit and saved AAB. Install and test that version; check Play Console for review and publishing status after submission.
 5. Run **Publish to production** manually and confirm testing of the current version on `main`. It promotes the tested version as a full rollout without rebuilding.
@@ -66,7 +66,7 @@ Create these environments under **Repository Settings → Environments** and add
 
 - Restrict every environment to **Selected branches and tags → branch `main`**. Add production reviewers if available. Remove repository-level copies of these secrets after migration.
 - Set the repository Actions variable `CLOSED_TESTING_TRACK` to the closed track API identifier, usually `alpha`.
-- Keep default token permissions read-only. **Allow GitHub Actions to create and approve pull requests** can stay disabled; PR creation is manual.
+- Keep default token permissions read-only. Under **Repository Settings → Actions → General → Workflow permissions**, enable **Allow GitHub Actions to create and approve pull requests** (organization policy must permit it). Only the preparation job requests contents, pull-request, and Actions write access to push its branch, create the PR, and dispatch CI. It never approves or merges the PR. No additional token secret is required.
 - Enable the Google Play Android Developer API, create a service account, and invite it in Play Console **Users and permissions** with app-scoped read, testing release, and production release access. Configure the track, testers, listing, and policy declarations before submitting.
 - Back up credentials outside Git and rotate them if exposed.
 
