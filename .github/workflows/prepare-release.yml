@@ -50,6 +50,8 @@ jobs:
     if: github.ref == 'refs/heads/main'
     permissions:
       contents: write
+      pull-requests: write
+      actions: write
 
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -68,7 +70,7 @@ jobs:
           RELEASE_PLATFORM: ${{ inputs.platform }}
           RELEASE_NOTES_EN: ${{ inputs.notes_en }}
           RELEASE_NOTES_ES: ${{ inputs.notes_es }}
-      - name: Push preparation branch and show manual PR link
+      - name: Push preparation branch, create PR, and start CI
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_BRANCH: ${{ steps.release.outputs.branch }}
@@ -82,15 +84,25 @@ jobs:
           git commit -m "Prepare Android release $RELEASE_TAG"
           gh auth setup-git
           git push origin "$RELEASE_BRANCH"
+          PR_BODY=$(mktemp)
+          trap 'rm -f "$PR_BODY"' EXIT
+          cat > "$PR_BODY" <<EOF
+          Prepare Android release $RELEASE_TAG with an incremented version code and bilingual release notes.
+
+          Review the English and Spanish notes in store/google-play/releases/$RELEASE_VERSION.txt and wait for CI before merging into main.
+
+          Merging starts Build Android release; a successful build submits the saved bundle to closed testing. Production publishing remains manual.
+          EOF
+          PR_URL=$(gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$RELEASE_BRANCH" --title "Prepare Android release $RELEASE_TAG" --body-file "$PR_BODY")
           cat >> "$GITHUB_STEP_SUMMARY" <<EOF
           ## Prepare $RELEASE_TAG
 
-          [Create the release PR]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$RELEASE_BRANCH?expand=1)
+          [Review the release PR]($PR_URL)
 
-          1. Open the link and create a PR with base main and compare $RELEASE_BRANCH.
-          2. Review or edit the English and Spanish release notes in store/google-play/releases/$RELEASE_VERSION.txt on that branch.
-          3. Wait for CI to pass, then merge the PR.
-          4. Merging starts Build Android release automatically; a successful build starts closed testing.
+          1. Review or edit the English and Spanish release notes in store/google-play/releases/$RELEASE_VERSION.txt on that branch.
+          2. Wait for CI to pass, then manually merge the PR. Auto-merge is not enabled.
+          3. Merging starts Build Android release automatically; a successful build starts closed testing.
 
-          If CI does not start, run Actions → CI → Run workflow on $RELEASE_BRANCH.
+          CI is dispatched on $RELEASE_BRANCH. If dispatch fails, run Actions → CI → Run workflow on that branch. If GitHub shows approval-required PR workflows, use Approve workflows to run. After editing the branch, wait for checks on its latest commit.
           EOF
+          gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$RELEASE_BRANCH"
