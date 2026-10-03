@@ -24,4 +24,4 @@ function Shell(){
   </View>;
 }
 export default function RootLayout(){return <AppProvider><Shell/></AppProvider>}
-const s=StyleSheet.create({root:{flex:1},loading:{flex:1,alignItems:'center',justifyContent:'center',gap:24},errorTitle:{fontSize:22,fontWeight:'700',textAlign:'center'},errorHelp:{fontSize:16,textAlign:'center',paddingHorizontal:24},retry:{paddingHorizontal:24,paddingVertical:14,borderRadius:16},retryText:{fontSize:16,fontWeight:'600'},logo:{width:250,height:250,borderRadius:28}});
+const s=StyleSheet.create({root:{flex:1},loading:{flex:1,alignItems:'center',justifyContent:'center',gap:24},errorTitle:{fontSize:22,fontWeight:'700',textAlign:'center'},errorHelp:{fontSize:16,textAlign:'center',paddingHorizontal:24},retry:{paddingHorizontal:24,paddingVertical:14,borderRadius:16},retryText:{fontSize:16,fontWeight:'600'},logo:{width:'80%',maxWidth:300,aspectRatio:1,borderRadius:28}});

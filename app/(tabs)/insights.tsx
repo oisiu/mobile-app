@@ -33,7 +33,7 @@ export default function Insights(){
         <Text accessibilityLiveRegion="polite" style={{flex:1,textAlign:'center',color:c.text,fontSize:13}}>{strengthWindowLabel(period,anchor,window.start,false)}</Text>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('nextPeriod')} disabled={current} accessibilityState={{disabled:current}} onPress={()=>move(1)} style={{width:44,height:44,alignItems:'center',justifyContent:'center',opacity:current?.3:1}}><Ionicons name="chevron-forward" size={20} color={c.text}/></TouchableOpacity>
       </View>
-      <View style={{alignItems:'center',paddingVertical:20}}><Svg width={240} height={240} viewBox="0 0 240 240" accessible accessibilityLabel={t('habitContribution')+'. '+ranked.map(item=>item.habit.name+': '+percentage(item.active)).join('; ')}>
+      <View style={{alignItems:'center',paddingVertical:20}}><Svg width={240} height={240} viewBox="0 0 240 240" accessible accessibilityLabel={t('habitContribution')+'. '+ranked.filter(item=>item.active>0).map(item=>item.habit.name+': '+percentage(item.active)).join('; ')}>
         {!total&&<Circle cx={120} cy={120} r={60} fill="none" stroke={c.soft} strokeWidth={120}/>}
         {ranked.map((item,index)=>{const fraction=total?item.active/total:0,start=total?ranked.slice(0,index).reduce((sum,previous)=>sum+previous.active,0)/total:0;return fraction>0&&<Circle key={item.habit.id} cx={120} cy={120} r={60} fill="none" stroke={color(index)} strokeWidth={120} strokeDasharray={[fraction*2*Math.PI*60,2*Math.PI*60]} strokeDashoffset={-start*2*Math.PI*60} rotation={-90} origin="120, 120"/>})}
         {ranked.map((item,index)=>{
@@ -43,7 +43,7 @@ export default function Insights(){
         })}
       </Svg></View>
       <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'center',gap:12,paddingBottom:20}}>
-        {[...ranked].sort((a,b)=>a.habit.sortOrder-b.habit.sortOrder).map(item=><View key={item.habit.id} style={{flexDirection:'row',alignItems:'center',gap:6,maxWidth:'100%'}}>
+        {ranked.filter(item=>item.active>0).sort((a,b)=>a.habit.sortOrder-b.habit.sortOrder).map(item=><View key={item.habit.id} style={{flexDirection:'row',alignItems:'center',gap:6,maxWidth:'100%'}}>
           <View accessible={false} style={{width:10,height:10,borderRadius:5,backgroundColor:color(ranked.indexOf(item))}}/>
           <Text style={{color:c.text,fontSize:13,flexShrink:1}}>{item.habit.emoji} {item.habit.name}</Text>
         </View>)}

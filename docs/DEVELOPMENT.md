@@ -24,7 +24,7 @@ After an Expo SDK version change (upgrade or downgrade), regenerate Android with
 
 Android `app/build/`, `app/.cxx/`, `build/`, `.gradle/`, and `.kotlin/` are disposable output/cache directories. Remove them only when builds are stopped; the next build recreates them and takes longer. Preserve release bundles and signing files until their release lifecycle is complete.
 
-`assets/app/icon.png` is the launcher icon. `assets/app/logo.png` is the approved cream-background balance illustration; both themes use this same image, with rounded corners in the app's loading view. Expo also uses it for the native splash.
+`assets/app/icon.png` is the launcher icon. `assets/app/logo.png` is the approved cream-background balance illustration; both themes use this same image, with rounded corners in the app's loading view. The loading logo scales with the available width up to the limit in `app/_layout.tsx`. Expo also uses it for the native splash, whose size is configured in `app.json`. Native splash configuration changes require regenerating the native project and rebuilding the app to appear on a device.
 
 ## Android connection troubleshooting
 

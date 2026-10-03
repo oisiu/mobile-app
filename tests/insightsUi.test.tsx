@@ -217,6 +217,9 @@ it('shows parent contribution slices and navigates historical months',async()=>{
   state.app={...state.app,habits:[habit,second,child],entries:[record('habit','2026-09-01'),record('child','2026-09-01'),record('child','2026-09-02'),record('second','2026-09-01'),record('second','2026-08-01')]};
   const root=await render(<Insights/>);
   const chart=()=>root.findAllByType('Svg' as React.ElementType)[0];
+  const legend=()=>root.findAll(node=>node.type===('View' as React.ElementType)&&node.props.style?.justifyContent==='center'&&node.props.style?.flexWrap==='wrap')[0];
+  const legendNames=()=>legend().findAllByType('Text' as React.ElementType).map(node=>node.props.children[2]);
+  expect(legendNames()).toEqual(['Reading','Walking']);
   expect(chart().props.accessibilityLabel).toContain(new Intl.NumberFormat(undefined,{style:'percent',maximumFractionDigits:1}).format(2/3));
   expect(chart().findAllByType('Circle' as React.ElementType)).toHaveLength(2);
   expect(chart().findAllByType('SvgText' as React.ElementType)).toHaveLength(2);
@@ -227,10 +230,18 @@ it('shows parent contribution slices and navigates historical months',async()=>{
   expect(button(root,t('nextPeriod')).props.disabled).toBe(false);
   expect(chart().props.accessibilityLabel).toContain('Walking: '+new Intl.NumberFormat(undefined,{style:'percent',maximumFractionDigits:1}).format(1));
   expect(chart().findAllByType('Circle' as React.ElementType)).toHaveLength(1);
+  expect(legendNames()).toEqual(['Walking']);
+  expect(chart().props.accessibilityLabel).not.toContain('Reading:');
   await press(button(root,t('nextPeriod')));
   expect(chart().findAllByType('Circle' as React.ElementType)).toHaveLength(2);
   expect(chart().findAllByType('SvgText' as React.ElementType)).toHaveLength(2);
   expect(root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.style?.width==='50%').every(node=>!JSON.stringify(node.props.accessibilityLabel).includes('%'))).toBe(true);
+  expect(legendNames()).toEqual(['Reading','Walking']);
+  await press(button(root,t('previousPeriod')));
+  await press(button(root,t('previousPeriod')));
+  expect(legendNames()).toEqual([]);
+  expect(root.findAll(node=>node.type===('Text' as React.ElementType)&&node.props.children===t('noActivityPeriod'))).toHaveLength(1);
+  expect(root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.style?.width==='50%')).toHaveLength(2);
 });
 
 it('groups parent icons in two columns with active days over elapsed period days',async()=>{
