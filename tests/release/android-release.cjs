@@ -380,7 +380,7 @@ gh() {
       assert(commands.indexOf('gh pr create') < commands.indexOf('gh workflow run'));
       assert.match(commands,/gh workflow run ci.yml --repo example\/app --ref codex\/release-v1.2.4/);
       assert.doesNotMatch(commands,/gh pr (merge|review)/);
-      assert.match(fs.readFileSync(summary,'utf8'),/https:\/\/github.com\/example\/app\/pull\/42/);
+      assert(fs.readFileSync(summary,'utf8').includes('[Review the release PR](https://github.com/example/app/pull/42)'));
       assert.match(fs.readFileSync(body,'utf8'),/store\/google-play\/releases\/1.2.4.txt/);
     }
   } finally {
