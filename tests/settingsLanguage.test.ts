@@ -1,14 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { habitColors } from '../src/domain/habitAppearance';
 
 afterEach(() => { vi.restoreAllMocks(); vi.resetModules(); });
 
-describe('Settings language', () => {
-  it.each(['es-ES', 'es-MX', 'es-AR'])('uses Spanish throughout Settings for %s', async locale => {
+describe('More language', () => {
+  it.each(['es-ES', 'es-MX', 'es-AR'])('uses Spanish throughout More for %s', async locale => {
     const options = new Intl.DateTimeFormat().resolvedOptions();
     vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockReturnValue({ ...options, locale });
     const { t } = await import('../src/i18n');
     const { AI_IMPORT_PROMPT } = await import('../src/features/import/aiImportPrompt');
-    expect(t('settings')).toBe('Ajustes');
+    expect(t('settings')).toBe('Más');
     expect(t('red')).toBe('Rojo');expect(t('yellow')).toBe('Amarillo');expect(t('cyan')).toBe('Celeste');expect(t('lime')).toBe('Verde lima');expect(t('brown')).toBe('Marrón');expect(t('gray')).toBe('Gris');
     expect(t('habitColor')).toBe('Color del hábito');expect(t('automaticColor')).toBe('Automático');expect(t('habitEmoji')).toBe('Emoji del hábito');expect(t('invalidEmoji')).toContain('emoji completo');
     for(const key of ['green','blue','purple','orange','pink','teal','red','yellow','cyan','lime','brown','gray','invalidColor','emojiHelp'] as const)expect(t(key)).toBeTruthy();
@@ -22,6 +23,8 @@ describe('Settings language', () => {
     expect(t('copyPrompt')).toBe('Copiar instrucciones');
     expect(t('system')).toBe('Sistema');
     expect(AI_IMPORT_PROMPT).toContain('Reglas de conversión:');
+    for(const color of habitColors)expect(AI_IMPORT_PROMPT).toContain(`"${color}"`);
+    expect(AI_IMPORT_PROMPT).toContain('No inventes');expect(t('deleteDataFinalHelp',{habits:2,entries:3})).toContain('2 hábitos y 3 registros');
     const example = JSON.parse(AI_IMPORT_PROMPT.slice(AI_IMPORT_PROMPT.indexOf('{'), AI_IMPORT_PROMPT.lastIndexOf('}') + 1));
     expect(example.version).toBe(1);
     expect(example.habits[0].type).toBe('boolean');
@@ -41,6 +44,8 @@ describe('Settings language', () => {
     expect(t('calendarEditHelp')).toContain('Swipe');
     expect(t('importSummary', { habits: 2, entries: 3 })).toContain('Habits: 2. Records: 3.');
     expect(AI_IMPORT_PROMPT).toContain('Conversion rules:');
+    expect(t('settings')).toBe('More');for(const color of habitColors)expect(AI_IMPORT_PROMPT).toContain(`"${color}"`);
+    expect(AI_IMPORT_PROMPT).toContain('Do not invent');expect(t('deleteDataFinalHelp',{habits:2,entries:3})).toContain('2 habits and 3 records');
     expect(t('habitCreated', { name: '$& {entries}' })).toBe('$& {entries} added');
   });
 });

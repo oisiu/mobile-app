@@ -8,7 +8,7 @@ Use system fonts, large headings with tight tracking, cream (#F3E8D7) and beige 
 
 Appearance supports System, Light, and Dark. Database startup failures show localized guidance and a Try again button; retries show loading and block repeated submissions. Branding assets and rebuild guidance belong in [Development](DEVELOPMENT.md#generated-android-files-and-assets).
 
-The persistent footer offers Home, Calendar, Insights, and Settings, including on detail and editor screens. Detail selects Insights; editing selects Home. Choosing a destination dismisses those routes, subject to the draft guard below.
+The persistent footer offers Home, Calendar, Insights, and More, including on detail and editor screens. Detail selects Insights; editing selects Home. Choosing a destination dismisses those routes, subject to the draft guard below.
 Footer destinations use a restrained horizontal shift. Detail and editor screens slide in from the right and reverse when returning.
 
 ## Home
@@ -118,11 +118,13 @@ Only the larger dialog allows day editing: Boolean days toggle direct input; num
 
 Show fixed-width month columns with abbreviated localized month names and the full year on a second line at the first month and each year boundary, matching Quarter History. Keep a fixed weekday key. Start with thirteen loaded months, scrolled to the newest; reaching the left edge loads twelve more months while retaining the visible position. Native horizontal scrolling provides momentum; accessibility actions navigate periods. Tapping a circle does nothing. The timeline ends at the current month.
 
-## Settings
+## More
 
-Offer persisted appearance choices, JSON/CSV export, safe JSON import, an external AI conversion guide, and the public privacy policy. The conversion guide explains privacy and supports copying instructions; conversion happens outside the app. [Database](DATABASE.md#import-and-export) owns the transfer format.
+Offer persisted appearance choices, JSON/CSV export, safe JSON import, an external AI conversion guide, and the public privacy policy. The conversion guide keeps its copy and close actions outside the scrolling prompt, avoids the keyboard, and includes bottom safe-area padding. It explains privacy and supports copying instructions; conversion happens outside the app. [Database](DATABASE.md#import-and-export) owns the transfer format.
 
-Settings copy, action labels, dialogs, and the displayed/copied AI instructions follow the device locale: Spanish for Spanish locales, English otherwise. JSON keys and technical enum values remain unchanged for import compatibility. File/import failures show localized guidance instead of raw platform or validation errors.
+More copy, action labels, dialogs, and the displayed/copied AI instructions follow the device locale: Spanish for Spanish locales, English otherwise. JSON keys and technical enum values remain unchanged for import compatibility. File/import failures show localized guidance instead of raw platform or validation errors.
+
+A bottom Delete all data button requires three cancelable confirmation dialogs before removing all habits (including archived habits) and records. The final dialog shows counts excluding hidden General habits. Deletion blocks repeated taps; failures show localized guidance. Appearance preferences and externally exported copies remain.
 
 ## Success messages
 

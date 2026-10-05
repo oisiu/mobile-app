@@ -21,7 +21,7 @@ import { CalendarDayBackground } from '../src/features/CalendarDayBackground';
 const state=vi.hoisted(()=>({app:{} as Record<string,unknown>,alert:vi.fn(),path:'/',pending:null as string|null,push:vi.fn(),today:'2026-09-08',navigate:vi.fn(),dismissTo:vi.fn()}));
 vi.mock('react-native',()=>({
   View:'View',Text:'Text',Pressable:'Pressable',TouchableOpacity:'TouchableOpacity',ScrollView:'ScrollView',Modal:'Modal',TextInput:'TextInput',KeyboardAvoidingView:'KeyboardAvoidingView',ActivityIndicator:'ActivityIndicator',
-  Platform:{OS:'ios'},Alert:{alert:state.alert},AccessibilityInfo:{isReduceMotionEnabled:async()=>true},
+  Keyboard:{dismiss:vi.fn()},Platform:{OS:'ios'},Alert:{alert:state.alert},AccessibilityInfo:{isReduceMotionEnabled:async()=>true},
   StyleSheet:{create:(styles:unknown)=>styles,hairlineWidth:0.5},
   Animated:{View:'AnimatedView',Value:class{setValue(){} stopAnimation(){}},timing:()=>({start(){}})},
   FlatList:({data,renderItem,initialScrollIndex=0,...props}:{data:unknown[];renderItem:(item:unknown)=>React.ReactNode;initialScrollIndex?:number})=>React.createElement('List',props,data.slice(Math.max(0,initialScrollIndex-2),initialScrollIndex+8).map((item,index)=><React.Fragment key={index}>{renderItem({item,index})}</React.Fragment>)),
@@ -190,6 +190,43 @@ describe('Shared presentation interactions',()=>{
       expect(option.props.accessibilityState.selected).toBe(mode==='system');
     }
     await press(button(root,t('dark')));expect(state.app.setThemeMode).toHaveBeenCalledWith('dark');
+  });
+  it.each([{name:'light',palette:light},{name:'dark',palette:dark}])('keeps the smaller More grid accessible in $name mode',async({palette})=>{
+    state.app={...state.app,palette};state.path='/';const root=await render(<AppBar/>);
+    const more=button(root,t('settings'));
+    expect(more.findByType('Icon' as React.ElementType).props).toMatchObject({name:'grid-outline',size:19,color:palette.navigation.settings});
+    expect(more.props.accessibilityState.selected).toBe(false);expect(more.props.style({pressed:false})[0].minHeight).toBeGreaterThanOrEqual(44);
+    for(const key of ['home','calendar','insights'] as const)expect(button(root,t(key)).findByType('Icon' as React.ElementType).props.size).toBe(23);
+    await press(more);expect(state.navigate).toHaveBeenCalledWith('/(tabs)/settings');
+    state.path='/settings';await act(async()=>renderer.update(<AppBar/>));
+    const selected=button(renderer.root,t('settings'));expect(selected.findByType('Icon' as React.ElementType).props).toMatchObject({name:'grid',size:19});expect(selected.props.accessibilityState.selected).toBe(true);
+  });
+  it.each([0,1,2])('allows canceling deletion at confirmation %s',async stage=>{
+    const erase=vi.fn();state.app={...state.app,repo:{deleteAllData:erase},refresh:vi.fn()};const root=await render(<Settings/>);
+    await press(button(root,t('deleteAllData')));
+    for(let i=0;i<stage;i++)await act(async()=>{state.alert.mock.calls.at(-1)![2][1].onPress()});
+    await act(async()=>{state.alert.mock.calls.at(-1)![2][0].onPress()});expect(erase).not.toHaveBeenCalled();
+    expect(button(root,t('deleteAllData')).props.disabled).toBe(false);
+  });
+  it('requires three confirmations and refreshes only after deletion',async()=>{
+    const erase=vi.fn().mockResolvedValue(undefined),refresh=vi.fn();state.app={...state.app,repo:{deleteAllData:erase},refresh};const root=await render(<Settings/>);
+    await press(button(root,t('deleteAllData')));await press(button(root,t('deleteAllData')));expect(state.alert).toHaveBeenCalledTimes(1);
+    for(let i=0;i<2;i++){await act(async()=>{state.alert.mock.calls.at(-1)![2][1].onPress()});expect(erase).not.toHaveBeenCalled()}
+    await act(async()=>{await state.alert.mock.calls.at(-1)![2][1].onPress()});expect(erase).toHaveBeenCalledOnce();expect(refresh).toHaveBeenCalledOnce();
+    expect(state.alert.mock.calls.at(-1)![0]).toBe(t('deleteDataSuccess'));
+  });
+  it('keeps prompt actions outside the scrolling text in a keyboard avoiding view',async()=>{
+    const root=await render(<Settings/>),modal=root.findByType('Modal' as React.ElementType),avoid=modal.findByType('KeyboardAvoidingView' as React.ElementType);
+    expect(avoid.props.behavior).toBe('padding');
+    const scroll=avoid.findByType('ScrollView' as React.ElementType);expect(scroll.props.keyboardShouldPersistTaps).toBe('handled');
+    expect(scroll.findAllByType('TouchableOpacity' as React.ElementType)).toHaveLength(0);
+    expect(avoid.findAllByType('TouchableOpacity' as React.ElementType)).toHaveLength(2);
+  });
+  it('shows a localized deletion error and allows retry without refreshing',async()=>{
+    const erase=vi.fn().mockRejectedValue(new Error('Synthetic private error')),refresh=vi.fn();state.app={...state.app,repo:{deleteAllData:erase},refresh};const root=await render(<Settings/>);
+    await press(button(root,t('deleteAllData')));for(let i=0;i<3;i++)await act(async()=>{await state.alert.mock.calls.at(-1)![2][1].onPress()});
+    expect(refresh).not.toHaveBeenCalled();expect(state.alert.mock.calls.at(-1)![0]).toBe(t('deleteDataFailed'));
+    expect(button(root,t('deleteAllData')).props.disabled).toBe(false);
   });
   it('exposes an accessible close handle and disables it while saving',async()=>{
     const close=vi.fn();const root=await render(<SheetHandle onClose={close}/>);
