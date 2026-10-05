@@ -20,6 +20,8 @@ Types are Boolean (0/1), number (non-negative decimal), and duration (non-negati
 - A hierarchy save batches renames, preorder insertions, staged subtree deletions, order normalization, and required General transitions. Temporary parent keys are resolved before insertion; new descendants use the root type.
 - Archive/restore applies to the subtree and preserves stored order. Delete cascades through descendants/entries and normalizes the remaining siblings.
 
+Deleting all habit data removes entries and habits in one transaction, retaining migration history and appearance preferences. Failure rolls back both deletes; refreshed snapshots become empty after success.
+
 ## Migrations and initial data
 
 | Version | Change |
@@ -41,4 +43,4 @@ The file reader rejects imports above 5 MiB before parsing. Validation checks ID
 
 Merge compares identity fields independent of JSON key order, preserving existing sibling positions and appending new siblings in incoming order. Existing habit identity comparisons exclude sibling order so repeated imports remain safe after appending. Conflicting identities, daily keys, or combined General structures abort the import. When an existing leaf gains children, its records move to General with IDs and metadata preserved; destination daily conflicts reject the entire merge. The combined result is validated inside the same transaction as inserts and transfers. File arrays need not place parents before children; persistence resolves parent order. No recorded values are overwritten or deleted. The UI's AI conversion prompt is guidance, not a replacement for validation.
 
-CSV contains entry ID, local date, timezone, type, value, and the current full habit path. Export creation and system sharing live in Settings.
+CSV contains entry ID, local date, timezone, type, value, and the current full habit path. Export creation and system sharing live in More.

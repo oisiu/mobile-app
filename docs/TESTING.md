@@ -25,7 +25,9 @@ Whenever user-facing text is added or changed, update all supported translations
 
 The [test suite](../tests/) covers domain rules, real SQLite migrations/transactions, translations, and UI behavior with mocked native components.
 
-`pnpm test:release` checks release preparation, stage order, and credential handling with mocked services; workflow text is normalized for Windows CRLF, and shell gates use Bash from the installed Git distribution on Windows (including distributions that name it sh.exe). It also runs in `pnpm test` and coverage checks. `pnpm test:release:signing` uses JDK tools and `zip` to sign and verify a temporary synthetic archive.
+More tests cover navigation accessibility in both themes, data transfer, clipboard failures, and deletion safeguards. Repository tests verify deletion rollback and retained migration history.
+
+`pnpm test:release` checks release preparation, stage order, and credential handling with mocked services. Shell gates use Bash from the installed Git distribution on Windows. It also runs in `pnpm test` and coverage checks. `pnpm test:release:signing` uses JDK tools and `zip` to sign and verify a temporary synthetic archive.
 
 ## Integration gaps
 
@@ -39,7 +41,7 @@ Check affected flows on Android and iOS, including persistence after restart. Be
 - **Home and habits:** date scrolling, fixed labels, hierarchy expansion, entry editing, date moves/conflicts, draft guards, archive, and deletion.
 - **Calendars:** history loading, Today, selected-day positioning, future-date restrictions, direct parent entries, editing, and Back behavior.
 - **Insights:** period navigation, filters, typed totals, accessible chart values, horizontal scrolling, and deferred rendering.
-- **Settings:** appearance, JSON/CSV export, safe import, conversion guide, and localized errors.
+- **More:** appearance, JSON/CSV export, safe import, conversion guide, and localized errors.
 - **Resilience:** failed/repeated writes, retained drafts, cancellation, import rollback, large datasets, and restart.
 - **Accessibility:** English/Spanish, light/dark themes, large text, narrow screens, safe areas, Reduce Motion, TalkBack/VoiceOver, and keyboard handling.
 

@@ -9,7 +9,7 @@ const destinations=[
   {key:'home',href:'/(tabs)',icon:'checkmark-circle-outline',activeIcon:'checkmark-circle'},
   {key:'calendar',href:'/(tabs)/calendar',icon:'calendar-outline',activeIcon:'calendar'},
   {key:'insights',href:'/(tabs)/insights',icon:'stats-chart-outline',activeIcon:'stats-chart'},
-  {key:'settings',href:'/(tabs)/settings',icon:'settings-outline',activeIcon:'settings'},
+  {key:'settings',href:'/(tabs)/settings',icon:'grid-outline',activeIcon:'grid'},
 ] as const;
 
 export function AppBar(){
@@ -17,7 +17,7 @@ export function AppBar(){
   const active=path.startsWith('/insight')?'insights':path.startsWith('/calendar')?'calendar':path.startsWith('/settings')?'settings':'home';
   return <View style={[s.bar,{backgroundColor:c.card,borderTopColor:c.line,paddingBottom:Math.max(insets.bottom,8)}]}>
     {destinations.map(item=>{const selected=active===item.key,color=c.navigation[item.key];return <Pressable key={item.key} accessibilityRole="tab" accessibilityLabel={t(item.key)} accessibilityState={{selected}} onPress={()=>path.startsWith('/insight/')||path.startsWith('/habit/')?router.dismissTo(item.href):router.navigate(item.href)} style={({pressed})=>[s.tab,{opacity:pressed?0.55:1}]}>
-      <View style={s.icon}><Ionicons name={selected?item.activeIcon:item.icon} size={23} color={color}/></View>
+      <View style={s.icon}><Ionicons name={selected?item.activeIcon:item.icon} size={item.key==='settings'?19:23} color={color}/></View>
       <Text style={[s.label,{color}]}>{t(item.key)}</Text>
     </Pressable>})}
   </View>;

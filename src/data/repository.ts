@@ -10,6 +10,7 @@ export interface TreeDraftCreate { key:string; parentKey:string; name:string; em
 export interface TreeDraftUpdate { id:string; name:string; emoji:string; color?:Habit['color'] }
 export class HabitRepository {
   constructor(private db:SQLiteDatabase){}
+  async deleteAllData(){await this.db.withTransactionAsync(async()=>{await this.db.runAsync('DELETE FROM entries');await this.db.runAsync('DELETE FROM habits')})}
   async habits(){ return (await this.db.getAllAsync<any>('SELECT * FROM habits ORDER BY parent_id,sort_order')).map(toHabit); }
   async entries(from?:string,to?:string){ const rows=from&&to?await this.db.getAllAsync<any>('SELECT * FROM entries WHERE local_date BETWEEN ? AND ?',[from,to]):await this.db.getAllAsync<any>('SELECT * FROM entries'); return rows.map(toEntry); }
   private async normalize(parentId:string|null){ const rows=await this.db.getAllAsync<{id:string}>('SELECT id FROM habits WHERE parent_id IS ? AND is_general=0 ORDER BY sort_order,id',[parentId]); for(let i=0;i<rows.length;i++) await this.db.runAsync('UPDATE habits SET sort_order=? WHERE id=?',[i,rows[i].id]); }

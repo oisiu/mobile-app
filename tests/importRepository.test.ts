@@ -20,6 +20,17 @@ async function setup(){
   return {repo:new HabitRepository(db as unknown as SQLiteDatabase),sqlite,db};
 }
 describe('Safe import integrity',()=>{
+  it('deletes all archived and visible habits and records without removing migration history',async()=>{
+    const {repo,sqlite}=await setup();await repo.import(doc([h('root'),h('general','root',-1,true),{...h('child','root'),archivedAt:now}],[e('record','child')]));
+    await repo.deleteAllData();expect(await repo.habits()).toEqual([]);expect(await repo.entries()).toEqual([]);
+    expect(sqlite.prepare('SELECT COUNT(*) n FROM schema_versions').get()?.n).toBeGreaterThan(0);
+    await repo.deleteAllData();await repo.import(doc([h('fresh')],[e('fresh-record','fresh')]));expect(await repo.habits()).toHaveLength(1);
+  });
+  it('rolls back record deletion when deleting habits fails',async()=>{
+    const {repo,db}=await setup();await repo.import(doc([h('root')],[e('record','root')]));
+    const run=db.runAsync;vi.spyOn(db,'runAsync').mockImplementation(async(sql,params)=>{if(sql==='DELETE FROM habits')throw new Error('Synthetic write failure');return run(sql,params)});
+    await expect(repo.deleteAllData()).rejects.toThrow('Synthetic write failure');expect(await repo.entries()).toHaveLength(1);expect(await repo.habits()).toHaveLength(1);
+  });
   it('appends new siblings in incoming order and supports repeated imports',async()=>{
     const {repo}=await setup();await repo.import(doc([h('existing')]));
     const incoming=doc([h('last',null,1),h('first')]);

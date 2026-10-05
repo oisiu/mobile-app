@@ -7,6 +7,8 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: [
+        'app/(tabs)/settings.tsx',
+        'src/features/import/aiImportPrompt.ts',
         'src/domain/**/*.ts',
         'src/features/insights/calendarScroll.ts',
         'src/features/insights/calendarTimeline.ts',
