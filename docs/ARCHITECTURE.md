@@ -31,7 +31,7 @@ The root shell renders one shared `AppBar` below its route stack; the nested Tab
 
 Home uses a horizontal `Animated.ScrollView` only for the date header. Its native-driven offset translates clipped value tracks in a separate virtualized vertical habit list; labels stay outside the horizontal scroller. A bounded date window and spacers preserve the scroll extent. The visible date/value matrix is recomputed when scrolling settles rather than for every scroll event; display values are memoized and never persisted.
 
-`domain/calendarExpansion.ts` selects the recorded branches to expand when a day sheet opens, including their ancestors and hidden General records.
+Calendar day-sheet expansion is local UI state, reset to collapsed roots each time a day opens. Arrows reveal one hierarchy level at a time; totals continue to use the shared aggregation rules.
 
 The Calendar tab virtualizes month grids in a native vertical list. The Insight activity calendar uses native horizontal scrolling with history prepending. Their interaction rules belong in [UI and UX](UI_UX.md).
 
@@ -41,4 +41,10 @@ Main screens prefetch reachable routes. Insight detail defers chart rendering un
 
 `domain/habitAppearance.ts` owns emoji validation and nearest-ancestor color inheritance. Palette values and display accents live in `theme/habitColors.ts`; only explicit color choices are persisted.
 
+`domain/booleanAnalysis.ts` derives an immutable Boolean habit/entry snapshot for individual quantity/duration analysis. Every detail chart uses that snapshot; calendar mutations retain original stored types and values. No derived activity is persisted.
+
 `domain/analytics.ts` owns common calendar periods and streaks. `domain/habitStrength.ts` computes daily exponential habit strength and calendar-bucket averages without persisted aggregates. `domain/history.ts` computes History ranges, totals, and rounded axes; `domain/frequency.ts` computes full-month weekday frequencies. Feature components coordinate filters and render the results with native views and `react-native-svg`.
+
+Overview visibility is persisted as a root-only preference. `domain/insightsOverview.ts` excludes hidden roots from general rankings and comparisons; tree construction and individual analytics retain them.
+
+`domain/habitVisibility.ts` derives a display snapshot without completely hidden branches or their entries for Calendar and Insights. The provider and repository retain the complete snapshot for persistence, export, hierarchy editing and the Home hidden-category drawer. Home exposes recovery through `HabitRepository.setHidden`, followed by a refresh; the root preference applies to descendants without storing inherited flags or aggregates.

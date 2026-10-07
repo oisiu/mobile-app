@@ -8,7 +8,7 @@ export type OverviewPeriod='week'|'month'|'year';
 export function buildInsightsOverview(habits:Habit[],entries:Entry[],today:string,period:OverviewPeriod='month',anchor=today){
   const dates=buildInsightWindow(period,anchor,today).buckets.flatMap(bucket=>[...bucket.dates]);
   const dateSet=new Set(dates);
-  const ranked=buildTree(habits).filter(habit=>habit.parentId===null).map(habit=>({
+  const ranked=buildTree(habits).filter(habit=>habit.parentId===null&&!habit.hideFromOverview&&!habit.isHidden).map(habit=>({
     habit,
     active:dates.filter(date=>aggregate(habits,entries,habit.id,new Set([date]))>0).length,
     total:aggregate(habits,entries,habit.id,dateSet),
@@ -20,7 +20,7 @@ export function buildRootActivitySeries(selected:Habit[],habits:Habit[],entries:
   const index=aggregationIndex(habits,entries),seen=new Set<string>();
   return selected.filter(habit=>{
     const current=index.habitById.get(habit.id);
-    if(!current||current.parentId!==null||current.isGeneral||current.archivedAt||seen.has(current.id))return false;
+    if(!current||current.parentId!==null||current.isGeneral||current.archivedAt||current.hideFromOverview||current.isHidden||seen.has(current.id))return false;
     seen.add(current.id);return true;
   }).map(habit=>{
     const leaves=index.leafIds(habit.id);

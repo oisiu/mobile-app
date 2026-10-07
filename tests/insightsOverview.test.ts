@@ -1,3 +1,4 @@
+import { buildTree } from '../src/domain/tree';
 import { describe,expect,it } from 'vitest';
 import { buildInsightsOverview,buildRootActivitySeries } from '../src/domain/insightsOverview';
 import { Entry,Habit } from '../src/domain/types';
@@ -77,4 +78,12 @@ describe('Insights overview',()=>{
   it('returns an empty ranking with a valid denominator when no habits exist',()=>{
     expect(buildInsightsOverview([],[],'2026-01-01')).toEqual({elapsedDays:1,ranked:[]});
   });
+});
+
+it('excludes hidden roots from overview and comparison while preserving the Today tree',()=>{
+  const hidden={...habit('hidden'),hideFromOverview:true},visible=habit('visible','number',null,1),child=habit('child','number','hidden');
+  const habits=[hidden,visible,child],entries=[entry('child','2026-01-01',7),entry('visible','2026-01-01',1)];
+  expect(buildInsightsOverview(habits,entries,'2026-01-01').ranked.map(item=>item.habit.id)).toEqual(['visible']);
+  expect(buildRootActivitySeries([hidden,visible],habits,entries,[{key:'day',label:'day',dates:new Set(['2026-01-01'])}]).map(item=>item.habit.id)).toEqual(['visible']);
+  expect(buildTree(habits).map(item=>item.id)).toEqual(['hidden','visible']);
 });

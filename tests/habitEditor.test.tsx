@@ -77,3 +77,37 @@ it('cancel returns to Home without saving or bypassing the draft guard',async()=
   expect(mocks.dismissTo).toHaveBeenCalledWith('/(tabs)');expect(mocks.back).not.toHaveBeenCalled();
   expect(mocks.create).not.toHaveBeenCalled();expect(mocks.editTree).not.toHaveBeenCalled();expect(mocks.leave).not.toHaveBeenCalled();
 });
+
+it('creates a hidden root and guards unsaved visibility changes',async()=>{
+  await act(async()=>{renderer=create(<HabitEditor/>)});
+  expect(button(t('hideFromOverview')).props.accessibilityState.checked).toBe(false);
+  await act(async()=>button(t('hideFromOverview')).props.onPress());expect(mocks.guard).toHaveBeenLastCalledWith(true);
+  await act(async()=>button(t('hideFromOverview')).props.onPress());expect(mocks.guard).toHaveBeenLastCalledWith(false);
+  await act(async()=>{input(1).props.onChangeText('Private category');button(t('hideFromOverview')).props.onPress()});
+  await act(async()=>button(t('save')).props.onPress());
+  expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({parentId:null,hideFromOverview:true}));
+});
+it('offers visibility only for the root and can restore it to overview',async()=>{
+  const root:Habit={id:'root',parentId:null,name:'Root',emoji:'✨',type:'boolean',sortOrder:0,isGeneral:false,archivedAt:null,createdAt:'',updatedAt:'',hideFromOverview:true};
+  mocks.id='child';mocks.habits=[root,{...root,id:'child',parentId:'root',hideFromOverview:undefined}];
+  await act(async()=>{renderer=create(<HabitEditor/>)});
+  expect(renderer.root.findAll(node=>node.type as unknown==='Button'&&node.props.accessibilityRole==='switch')).toHaveLength(2);
+  expect(button(t('hideFromOverview')).props.accessibilityState.checked).toBe(true);
+  await act(async()=>button(t('hideFromOverview')).props.onPress());expect(mocks.guard).toHaveBeenLastCalledWith(true);
+  await act(async()=>button(t('save')).props.onPress());
+  expect(mocks.editTree.mock.calls[0][1][0]).toEqual(expect.objectContaining({id:'root',hideFromOverview:false}));
+  expect(mocks.editTree.mock.calls[0][1][1].hideFromOverview).toBeUndefined();
+});
+
+it('creates and edits complete hiding without changing the separate overview preference',async()=>{
+  await act(async()=>{renderer=create(<HabitEditor/>)});
+  await act(async()=>{input(1).props.onChangeText('Hidden');button(t('hideCompletely')).props.onPress()});
+  expect(button(t('hideCompletely')).props.accessibilityState.checked).toBe(true);
+  await act(async()=>button(t('save')).props.onPress());expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({isHidden:true}));
+  expect(mocks.create.mock.calls[0][0].hideFromOverview).toBeUndefined();
+  const root:Habit={id:'root',parentId:null,name:'Root',emoji:'✨',type:'boolean',sortOrder:0,isGeneral:false,archivedAt:null,createdAt:'',updatedAt:'',isHidden:true};
+  mocks.id='root';mocks.habits=[root];await act(async()=>renderer.update(<HabitEditor/>));
+  expect(button(t('hideCompletely')).props.accessibilityState.checked).toBe(true);
+  await act(async()=>button(t('hideCompletely')).props.onPress());await act(async()=>button(t('save')).props.onPress());
+  expect(mocks.editTree.mock.calls[0][1][0]).toEqual(expect.objectContaining({id:'root',isHidden:false}));
+});

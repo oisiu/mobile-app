@@ -24,4 +24,11 @@ export async function migrate(db:SQLiteDatabase){
   if((row?.version??0)<4)await db.withTransactionAsync(async()=>{
     await db.execAsync("ALTER TABLE habits RENAME COLUMN color TO legacy_color; ALTER TABLE habits ADD COLUMN color TEXT CHECK(color IS NULL OR color IN ('red','orange','yellow','lime','green','teal','cyan','blue','purple','pink','brown','gray')); UPDATE habits SET color=legacy_color; ALTER TABLE habits DROP COLUMN legacy_color; INSERT INTO schema_versions VALUES(4,datetime('now'));");
   });
+  if((row?.version??0)<5)await db.withTransactionAsync(async()=>{
+    await db.execAsync("ALTER TABLE habits ADD COLUMN hide_from_overview INTEGER NOT NULL DEFAULT 0 CHECK(hide_from_overview IN (0,1) AND (hide_from_overview=0 OR (parent_id IS NULL AND is_general=0))); INSERT INTO schema_versions VALUES(5,datetime('now'));");
+  });
+  if((row?.version??0)<6)await db.withTransactionAsync(async()=>{
+    await db.execAsync("ALTER TABLE habits ADD COLUMN is_hidden INTEGER NOT NULL DEFAULT 0 CHECK(is_hidden IN (0,1) AND (is_hidden=0 OR (parent_id IS NULL AND is_general=0))); INSERT INTO schema_versions VALUES(6,datetime('now'));");
+  });
+
 }
