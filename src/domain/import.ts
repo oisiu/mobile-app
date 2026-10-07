@@ -7,7 +7,7 @@ export function validateImport(raw:unknown):ExportData {
   if(!raw||typeof raw!=='object') throw new Error('Import must be an object'); const d=raw as Partial<ExportData>;
   if(d.version!==1||!Array.isArray(d.habits)||!Array.isArray(d.entries)) throw new Error('Unsupported or malformed export');
   const habits=d.habits as Habit[],entries=d.entries as Entry[]; const ids=new Set<string>();
-  for(const h of habits){ if(!h.id||!h.name||typeof h.emoji!=='string'||(h.color!==undefined&&h.color!==null&&!isHabitColor(h.color))||!['boolean','number','duration'].includes(h.type)||!Number.isInteger(h.sortOrder)) throw new Error('Invalid habit'); if(ids.has(h.id)) throw new Error('Duplicate habit ID'); ids.add(h.id); }
+  for(const h of habits){ if(!h.id||!h.name||typeof h.emoji!=='string'||(h.color!==undefined&&h.color!==null&&!isHabitColor(h.color))||!['boolean','number','duration'].includes(h.type)||!Number.isInteger(h.sortOrder)||(h.isHidden!==undefined&&(typeof h.isHidden!=='boolean'||(h.isHidden&&(h.parentId!==null||h.isGeneral))))||(h.hideFromOverview!==undefined&&(typeof h.hideFromOverview!=='boolean'||(h.hideFromOverview&&(h.parentId!==null||h.isGeneral))))) throw new Error('Invalid habit'); if(ids.has(h.id)) throw new Error('Duplicate habit ID'); ids.add(h.id); }
   assertHomogeneousAcyclic(habits);
   const order=new Set<string>(); for(const h of habits.filter(x=>!x.isGeneral)){ const k=`${h.parentId}:${h.sortOrder}`; if(h.sortOrder<0||order.has(k)) throw new Error('Invalid sibling ordering'); order.add(k); }
   const children=new Map<string,Habit[]>();
@@ -20,7 +20,7 @@ export function validateImport(raw:unknown):ExportData {
   const habitById=new Map(habits.map(h=>[h.id,h])),entryIds=new Set<string>(),days=new Set<string>(); for(const e of entries){ const h=habitById.get(e.habitId); if(!e.id||!h||children.has(e.habitId)||entryIds.has(e.id)||!isLocalDate(e.localDate)||validateEntry(h.type,e.value,e.localDate)) throw new Error('Invalid entry'); const k=`${e.habitId}:${e.localDate}`; if(days.has(k)) throw new Error('Duplicate daily entry'); entryIds.add(e.id); days.add(k); }
   return d as ExportData;
 }
-const habitPayload=(h:Habit)=>JSON.stringify([h.id,h.parentId,h.name,h.emoji,h.color??null,h.type,h.isGeneral,h.archivedAt,h.createdAt,h.updatedAt]);
+const habitPayload=(h:Habit)=>JSON.stringify([h.id,h.parentId,h.name,h.emoji,h.color??null,h.hideFromOverview??false,h.isHidden??false,h.type,h.isGeneral,h.archivedAt,h.createdAt,h.updatedAt]);
 const entryPayload=(e:Entry)=>JSON.stringify([e.id,e.habitId,e.value,e.occurredAt,e.localDate,e.timezone,e.createdAt,e.updatedAt]);
 export function assertMergeSafe(existing:ExportData,incoming:ExportData){
   const hs=new Map(existing.habits.map(h=>[h.id,habitPayload(h)]));

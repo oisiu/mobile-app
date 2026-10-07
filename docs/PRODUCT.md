@@ -8,12 +8,16 @@ Oisiu targets Android and iOS. It excludes web, cloud sync, timers, event stream
 
 ## Habit rules
 
+New root categories default to Boolean (Yes/No); quantity and duration are explicit alternatives. Individual quantity/duration analysis can switch to a derived Boolean view, where any stored record (including zero) counts as activity once per date across a branch. Original values remain unchanged.
+
 New installations start empty. Users add their own habits from Home or import their data from More.
 
 - Habits may have one optional emoji and a palette color. Children inherit the nearest ancestor’s color unless overridden. Legacy emoji strings remain intact until the emoji is changed.
-- Habits form a tree with stable stored sibling order, arbitrary depth, and one value type per branch. The UI does not expose reordering.
+- Habits form a tree with stable stored sibling order, arbitrary depth, and one value type per branch. Home supports dragging root categories into a new saved order.
 - Each leaf has at most one effective value per day. Past dates are editable; future dates are rejected. Number/duration saves replace the daily total; Boolean input toggles activity. Home supports reviewing branch records and moving them to another past/current day; destination conflicts block the move without overwriting.
 - Parent totals use the current hierarchy: Boolean OR, number SUM, and duration-seconds SUM. Direct parent input belongs to its hidden General child, separate from descendant records.
+- Complete root-category hiding preserves entries while excluding the branch from main Home, Calendar, and all Insights. The Hidden categories drawer in Home supports recording, editing, and immediate recovery; hiding is configured in the root editor.
+- Root categories can be hidden from general Analysis without archiving them. They remain in Today with their records and individual analysis; children cannot be hidden independently.
 - Editing a descendant opens its root's hierarchy editor. New descendants inherit the root type. Archive preserves history; confirmed deletion removes the subtree and its records.
 
 Persistence and transition details belong in [Database](DATABASE.md).

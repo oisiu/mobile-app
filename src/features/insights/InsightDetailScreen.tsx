@@ -1,3 +1,5 @@
+import { visibleHabitSnapshot } from '@/domain/habitVisibility';
+import { booleanAnalysis } from '@/domain/booleanAnalysis';
 import { HistoryChart } from './HistoryChart';
 import { buildStrengthWindow,shiftStrengthAnchor,strengthWindowLabel } from '@/domain/strengthWindow';
 import { habitAccent } from '@/theme/habitColors';
@@ -41,7 +43,10 @@ const calendarMonthLabel=(date:string,today:string)=>{
 };
 
 export default function InsightDetailScreen(){
-  const {id}=useLocalSearchParams<{id:string}>(),{habits,entries,palette:c}=useApp(),root=habits.find(h=>h.id===id),today=todayLocal();
+  const {id}=useLocalSearchParams<{id:string}>(),{habits:allHabits,entries:allEntries,palette:c}=useApp(),{habits:storedHabits,entries:storedEntries}=useMemo(()=>visibleHabitSnapshot(allHabits,allEntries),[allHabits,allEntries]),storedRoot=storedHabits.find(h=>h.id===id),today=todayLocal();
+  const [analysisMode,setAnalysisMode]=useState<{id:string;boolean:boolean}>({id,boolean:false}),booleanView=analysisMode.id===id&&analysisMode.boolean&&storedRoot?.type!=='boolean';
+  useEffect(()=>setAnalysisMode({id,boolean:false}),[id]);
+  const {habits,entries}=useMemo(()=>booleanView?booleanAnalysis(storedHabits,storedEntries):{habits:storedHabits,entries:storedEntries},[booleanView,storedHabits,storedEntries]),root=habits.find(h=>h.id===id);
   const contentReady=useChartEntrance(id);
   usePrefetchRoutes(contentReady?[`/habit/${id}`]:[]);
   const candidates=useMemo(()=>root&&contentReady?orderedCandidates(habits,root):[],[habits,root,contentReady]);
@@ -69,18 +74,20 @@ export default function InsightDetailScreen(){
   const editHref=`/habit/${root.id}`,editing=navigation.pending===editHref;
   return <><ScrollView style={[s.page,{backgroundColor:c.bg}]} contentContainerStyle={s.content} scrollEventThrottle={64} onScroll={event=>{const y=event.nativeEvent.contentOffset.y;if(!contentReady)return;if(y>220&&!historyReady)setHistoryReady(true);if(y>700&&!tailReady)setTailReady(true)}}>
     <View style={s.detailTop}><Pressable accessibilityRole="button" accessibilityLabel={t('back')} hitSlop={{left:12,right:4}} onPress={()=>router.back()} style={({pressed})=>[s.back,{backgroundColor:pressed?c.soft:'transparent'}]}>{({pressed})=><Ionicons name="chevron-back" size={16} color={pressed?c.text:c.muted}/>}</Pressable><Text accessibilityRole="header" style={[s.title,{color:c.text}]}>{root.emoji} {root.name}</Text><Pressable disabled={navigation.pending!==null} accessibilityRole="button" accessibilityLabel={`${t('edit')} ${root.name}`} accessibilityState={{busy:editing,disabled:navigation.pending!==null}} onPress={()=>navigation.push(editHref)} style={({pressed})=>[s.editButton,{backgroundColor:pressed?c.soft:'transparent'}]}>{({pressed})=>editing?<ActivityIndicator size="small" color={c.accent}/>:<Ionicons name="pencil-outline" size={16} color={pressed?c.text:c.muted}/>}</Pressable></View><Text style={[s.subtitle,{color:c.muted}]}>{t('detailIntro')}</Text>
+    {storedRoot&&storedRoot.type!=='boolean'&&<View accessibilityRole="radiogroup" accessibilityLabel={t('analysisView')} style={[s.periodControls,{backgroundColor:c.soft,marginTop:0,marginBottom:16}]}>{[false,true].map(boolean=>{const selected=boolean===booleanView,label=boolean?t('boolean'):t(storedRoot.type);return <TouchableOpacity key={String(boolean)} accessibilityRole="radio" accessibilityLabel={label} accessibilityState={{selected}} onPress={()=>setAnalysisMode({id,boolean})} style={[s.periodButton,selected&&{backgroundColor:c.accent}]}><Text style={{color:selected?c.onAccent:c.text,fontWeight:'700'}}>{label}</Text></TouchableOpacity>})}</View>}
     {!contentReady?<InsightSkeleton c={c}/>:<>
     <FadeIn><ChartCard title={t('score')} label={selectionLabel(scoreIds,candidates)} onFilter={()=>setFilter('score')} c={c}><StrengthChart habit={root} buckets={scoreWindow.buckets} period={scorePeriod} selected={scoreSelection} habits={habits} entries={entries} today={today} c={c}/><HistoryNavigation includeWeekNumber={false} period={scorePeriod} anchor={scoreAnchor} today={today} window={scoreWindow} onMove={amount=>setScoreAnchor(anchor=>shiftStrengthAnchor(anchor,scorePeriod,amount,today))} c={c}/><PeriodControls options={periods} value={scorePeriod} onChange={period=>{setScorePeriod(period);setScoreAnchor(today)}} c={c}/></ChartCard></FadeIn>
     {calendarReady?<FadeIn><ActivityCalendar habit={calendarHabit} habits={habits} entries={entries} today={today} onEdit={setCalendarZoom} color={colorFor(calendarId)} onFilter={()=>setFilter('calendar')} c={c}/></FadeIn>:<DeferredCardSkeleton c={c}/>}
     {historyReady?<ChartCard title={t('history')} label={selectionLabel(historyIds,candidates)} onFilter={()=>setFilter('history')} c={c}><HistoryChart key={`${historyPeriod}-${historyAnchor}`} series={historySeries} buckets={historyWindow.buckets} period={historyPeriod} type={root.type} c={c}/><HistoryNavigation period={historyPeriod} anchor={historyAnchor} today={today} window={historyWindow} onMove={amount=>setHistoryAnchor(anchor=>shiftHistoryAnchor(anchor,historyPeriod,amount,today))} c={c}/><PeriodControls options={periods} value={historyPeriod} onChange={chooseHistoryPeriod} c={c}/></ChartCard>:<DeferredCardSkeleton c={c}/>}
     {tailReady?<><Streaks habit={candidate(streakId)} habits={habits} entries={entries} today={today} color={colorFor(streakId)} onFilter={()=>setFilter('streaks')} c={c}/><Frequency habit={candidate(frequencyId)} habits={habits} entries={entries} today={today} color={colorFor(frequencyId)} onFilter={()=>setFilter('frequency')} c={c}/></>:<><DeferredCardSkeleton c={c}/><DeferredCardSkeleton c={c}/></>}
     </>}
-  </ScrollView><FilterModal filter={filter} setFilter={setFilter} candidates={candidates} scoreIds={scoreIds} historyIds={historyIds} currentSingle={currentSingle} toggleMulti={toggleMulti} setSingle={setSingle} c={c}/>{calendarZoom!==null&&<CalendarDialog initialDate={calendarZoom} calendarHabit={calendarHabit} color={colorFor(calendarId)} onClose={()=>setCalendarZoom(null)}/>}</>;
+  </ScrollView><FilterModal filter={filter} setFilter={setFilter} candidates={candidates} scoreIds={scoreIds} historyIds={historyIds} currentSingle={currentSingle} toggleMulti={toggleMulti} setSingle={setSingle} c={c}/>{calendarZoom!==null&&<CalendarDialog initialDate={calendarZoom} calendarHabit={storedHabits.find(habit=>habit.id===calendarId)??storedRoot!} booleanView={booleanView} color={colorFor(calendarId)} onClose={()=>setCalendarZoom(null)}/>}</>;
 }
 
 // Keep draft and pending-write renders inside the dialog, away from the charts.
-function CalendarDialog({initialDate,calendarHabit,color,onClose}:{initialDate:string;calendarHabit:Habit;color:string;onClose:()=>void}){
+function CalendarDialog({initialDate,calendarHabit,color,onClose,booleanView=false}:{initialDate:string;calendarHabit:Habit;color:string;onClose:()=>void;booleanView?:boolean}){
   const {habits,entries,changeEntry,palette:c}=useApp(),today=todayLocal();
+  const analysis=useMemo(()=>booleanView?booleanAnalysis(habits,entries):{habits,entries},[booleanView,habits,entries]),displayHabit=analysis.habits.find(habit=>habit.id===calendarHabit.id)??calendarHabit;
   const [calendarEditor,setCalendarEditor]=useState<CalendarEditor|null>(null);
   const calendarSavingRef=useRef(false),[savingDate,setSavingDate]=useState<string|null>(null),[calendarZoomReady,setCalendarZoomReady]=useState(false);
   const calendarSaving=savingDate!==null;
@@ -118,7 +125,7 @@ function CalendarDialog({initialDate,calendarHabit,color,onClose}:{initialDate:s
             <Text style={{color:c.text,marginTop:8,fontWeight:'600'}}>{dateLabel(initialDate)}</Text>
             {!calendarZoomReady
               ?<CalendarSkeleton c={c}/>
-              :<CalendarTimeline initialDate={initialDate} cellSize={44} habit={calendarHabit} habits={habits} entries={entries} today={today} onSelectDate={openCalendarEditor} saving={calendarSaving} savingDate={savingDate} color={color} c={c}/>
+              :<CalendarTimeline initialDate={initialDate} cellSize={44} habit={displayHabit} habits={analysis.habits} entries={analysis.entries} today={today} onSelectDate={openCalendarEditor} saving={calendarSaving} savingDate={savingDate} color={color} c={c}/>
             }
           </Pressable>
         </ScrollView>

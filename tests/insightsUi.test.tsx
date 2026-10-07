@@ -1,5 +1,9 @@
+import Home from '../app/(tabs)/index';
+import { OverviewLegend } from '../src/features/insights/OverviewLegend';
 import { buildRootActivitySeries } from '../src/domain/insightsOverview';
 import { HistoryChart } from '../src/features/insights/HistoryChart';
+import { PieCategoryFilter } from '../src/features/insights/PieCategoryFilter';
+import { CalendarEntryModal } from '../src/features/insights/CalendarEntryModal';
 import { habitAccentPalette } from '../src/theme/habitColors';
 import React from 'react';
 import { act,create,ReactTestRenderer,ReactTestInstance } from 'react-test-renderer';
@@ -19,12 +23,14 @@ import Calendar from '../app/(tabs)/calendar';
 import { CalendarDayBackground } from '../src/features/CalendarDayBackground';
 
 const state=vi.hoisted(()=>({app:{} as Record<string,unknown>,alert:vi.fn(),path:'/',pending:null as string|null,push:vi.fn(),today:'2026-09-08',navigate:vi.fn(),dismissTo:vi.fn()}));
+vi.mock('expo-haptics',()=>({impactAsync:vi.fn().mockResolvedValue(undefined),ImpactFeedbackStyle:{Light:'Light'}}));
+vi.mock('../src/features/home/CategoryDragHandle',()=>({CategoryDragHandle:'DragHandle'}));
 vi.mock('react-native',()=>({
   View:'View',Text:'Text',Pressable:'Pressable',TouchableOpacity:'TouchableOpacity',ScrollView:'ScrollView',Modal:'Modal',TextInput:'TextInput',KeyboardAvoidingView:'KeyboardAvoidingView',ActivityIndicator:'ActivityIndicator',
   Keyboard:{dismiss:vi.fn()},Platform:{OS:'ios'},Alert:{alert:state.alert},AccessibilityInfo:{isReduceMotionEnabled:async()=>true},
   StyleSheet:{create:(styles:unknown)=>styles,hairlineWidth:0.5},
-  Animated:{View:'AnimatedView',Value:class{setValue(){} stopAnimation(){}},timing:()=>({start(){}})},
-  FlatList:({data,renderItem,initialScrollIndex=0,...props}:{data:unknown[];renderItem:(item:unknown)=>React.ReactNode;initialScrollIndex?:number})=>React.createElement('List',props,data.slice(Math.max(0,initialScrollIndex-2),initialScrollIndex+8).map((item,index)=><React.Fragment key={index}>{renderItem({item,index})}</React.Fragment>)),
+  Animated:{View:'AnimatedView',ScrollView:'ScrollView',multiply:()=>0,event:()=>vi.fn(),Value:class{setValue(){} stopAnimation(){}},timing:()=>({start(){}})},
+  FlatList:({data,renderItem,initialScrollIndex=0,...props}:{data:unknown[];renderItem:(item:unknown)=>React.ReactNode;initialScrollIndex?:number;ListFooterComponent?:React.ReactNode})=>React.createElement('List',props,data.slice(Math.max(0,initialScrollIndex-2),initialScrollIndex+8).map((item,index)=><React.Fragment key={index}>{renderItem({item,index})}</React.Fragment>),props.ListFooterComponent),
 }));
 vi.mock('react-native-svg',()=>({default:'Svg',Circle:'Circle',Line:'Line',Polyline:'Polyline',Text:'SvgText',Rect:'Rect',Defs:'Defs',Pattern:'Pattern',Path:'Path'}));
 vi.mock('@expo/vector-icons',()=>({Ionicons:'Icon'}));
@@ -69,6 +75,53 @@ beforeEach(()=>{
 afterEach(async()=>{if(renderer)await act(async()=>renderer.unmount());vi.unstubAllGlobals()});
 
 describe('Score axis',()=>{
+  it('recalculates pie percentages from selected roots while leaving other charts and the grid unchanged',async()=>{
+    const second={...habit,id:'second',name:'Walking',sortOrder:1},third={...habit,id:'third',name:'Yoga',sortOrder:2},inactive={...habit,id:'inactive',name:'Inactive',sortOrder:3};
+    const record=(habitId:string,localDate:string)=>({id:habitId+localDate,habitId,localDate,value:1,occurredAt:localDate,timezone:'UTC',createdAt:localDate,updatedAt:localDate});
+    state.app={...state.app,habits:[habit,second,third,inactive],entries:[record(habit.id,'2026-09-08'),record(habit.id,'2026-09-07'),record(second.id,'2026-09-08'),record(third.id,'2026-09-08')]};
+    const root=await render(<Insights/>),pie=()=>root.findAllByType('Svg' as React.ElementType)[0];
+    await press(button(root,t('selectMultiple')+' '+t('habitContribution')));
+    const modal=root.findAll(node=>node.type===('Modal' as React.ElementType)&&node.props.visible)[0];
+    const choice=(name:string)=>modal.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.accessibilityRole==='checkbox'&&node.props.accessibilityLabel===name)[0];
+    await press(choice('Yoga'));await press(choice('Inactive'));
+    expect(pie().props.accessibilityLabel).toContain('Reading: '+new Intl.NumberFormat(undefined,{style:'percent',maximumFractionDigits:1}).format(2/3));
+    expect(pie().props.accessibilityLabel).not.toContain('Yoga');expect(root.findByType(PieCategoryFilter).props.selected).toHaveLength(2);
+    await press(choice('Walking'));await press(choice('Reading'));
+    expect(pie().props.accessibilityLabel).toContain('Reading: '+new Intl.NumberFormat(undefined,{style:'percent',maximumFractionDigits:1}).format(1));
+    expect(root.findByType(PieCategoryFilter).props.selected).toHaveLength(1);
+    expect(pie().findAllByType('Circle' as React.ElementType)).toHaveLength(1);
+    expect(root.findAll(node=>node.props.accessibilityLabel===t('openInsights')+' Yoga, '+t('activeDays')+': 1/8').length).toBeGreaterThan(0);
+    expect(root.findAllByType(StrengthChart)[0].props.selected).toHaveLength(4);
+    await press(button(root,t('week')));expect(root.findByType(PieCategoryFilter).props.selected.map((item:Habit)=>item.id)).toEqual([habit.id]);
+    const all=modal.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.findAll(child=>child.type===('Text' as React.ElementType)&&child.props.children===t('allCategories')).length>0)[0];
+    await press(all);expect(root.findByType(PieCategoryFilter).props.selected).toHaveLength(4);
+    await act(async()=>modal.props.onRequestClose());expect(root.findAll(node=>node.type===('Modal' as React.ElementType)&&node.props.visible)).toHaveLength(0);
+  });
+  it.each(['number','duration'] as const)('switches %s analysis to Boolean and restores original values',async type=>{
+    const typed={...habit,type},record={id:'record',habitId:habit.id,localDate:state.today,value:120,occurredAt:state.today,timezone:'UTC',createdAt:state.today,updatedAt:state.today};
+    state.app={...state.app,habits:[typed],entries:[record]};
+    const root=await render(<InsightDetailScreen/>);
+    await act(async()=>root.findAllByType('ScrollView' as React.ElementType)[0].props.onScroll({nativeEvent:{contentOffset:{y:800}}}));
+    expect(root.findByType(HistoryChart).props.type).toBe(type);
+    await press(button(root,t('boolean')));
+    expect(root.findByType(HistoryChart).props.type).toBe('boolean');expect(root.findByType(HistoryChart).props.series[0].values[1]).toBe(1);
+    expect(root.findByType(StrengthChart).props.habit.type).toBe('boolean');expect(root.findByType(StrengthChart).props.entries[0].value).toBe(1);
+    expect(button(root,t('boolean')).props.accessibilityState.selected).toBe(true);
+    await act(async()=>{await new Promise(resolve=>setTimeout(resolve,10))});
+    const compact=root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.accessibilityHint===t('openCalendarDay')&&node.props.accessibilityLabel?.startsWith(`Reading, ${state.today}:`))[0];
+    await press(compact);const modal=root.findAll(node=>node.type===('Modal' as React.ElementType)&&node.props.visible)[0];
+    await act(async()=>modal.props.onShow());await press(day(modal));
+    expect(root.findByType(CalendarEntryModal).props.habit.type).toBe(type);
+    expect(state.app.changeEntry).not.toHaveBeenCalled();
+    await act(async()=>root.findByType(CalendarEntryModal).props.setEditor(null));
+    await act(async()=>modal.props.onRequestClose());
+    await press(button(root,t(type)));
+    expect(root.findByType(HistoryChart).props.series[0].values[1]).toBe(120);expect(root.findByType(StrengthChart).props.entries[0]).toBe(record);
+    expect(state.app.changeEntry).not.toHaveBeenCalled();
+  });
+  it('omits the analysis selector for Boolean categories',async()=>{
+    const root=await render(<InsightDetailScreen/>);expect(root.findAll(node=>node.props.accessibilityLabel===t('analysisView'))).toHaveLength(0);
+  });
   it('navigates one month at a time and labels every third month in Quarter',async()=>{
     const root=await render(<InsightDetailScreen/>);
     const period=(label:string)=>root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.findAll(child=>child.type===('Text' as React.ElementType)&&child.props.children===label).length>0)[0];
@@ -255,12 +308,12 @@ it('shows parent contribution slices and navigates historical months',async()=>{
   const root=await render(<Insights/>);
   const chart=()=>root.findAllByType('Svg' as React.ElementType)[0];
   const legend=()=>root.findAll(node=>node.type===('View' as React.ElementType)&&node.props.style?.justifyContent==='center'&&node.props.style?.flexWrap==='wrap')[0];
-  const legendNames=()=>legend().findAllByType('Text' as React.ElementType).map(node=>node.props.children[2]);
+  const legendNames=()=>legend().findAllByType('Text' as React.ElementType).map(node=>node.props.children);
   expect(legendNames()).toEqual(['Reading','Walking']);
   expect(chart().props.accessibilityLabel).toContain(new Intl.NumberFormat(undefined,{style:'percent',maximumFractionDigits:1}).format(2/3));
   expect(chart().findAllByType('Circle' as React.ElementType)).toHaveLength(2);
   expect(chart().findAllByType('SvgText' as React.ElementType)).toHaveLength(2);
-  expect(root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.style?.width==='50%').every(node=>!JSON.stringify(node.props.accessibilityLabel).includes('%'))).toBe(true);
+  expect(root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.style?.width==='33.333333%').every(node=>!JSON.stringify(node.props.accessibilityLabel).includes('%'))).toBe(true);
   expect(chart().props.accessibilityLabel).not.toContain('child:');
   expect(button(root,t('nextPeriod')).props.disabled).toBe(true);
   await press(button(root,t('previousPeriod')));
@@ -272,13 +325,13 @@ it('shows parent contribution slices and navigates historical months',async()=>{
   await press(button(root,t('nextPeriod')));
   expect(chart().findAllByType('Circle' as React.ElementType)).toHaveLength(2);
   expect(chart().findAllByType('SvgText' as React.ElementType)).toHaveLength(2);
-  expect(root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.style?.width==='50%').every(node=>!JSON.stringify(node.props.accessibilityLabel).includes('%'))).toBe(true);
+  expect(root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.style?.width==='33.333333%').every(node=>!JSON.stringify(node.props.accessibilityLabel).includes('%'))).toBe(true);
   expect(legendNames()).toEqual(['Reading','Walking']);
   await press(button(root,t('previousPeriod')));
   await press(button(root,t('previousPeriod')));
   expect(legendNames()).toEqual([]);
   expect(root.findAll(node=>node.type===('Text' as React.ElementType)&&node.props.children===t('noActivityPeriod'))).toHaveLength(1);
-  expect(root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.style?.width==='50%')).toHaveLength(2);
+  expect(root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.style?.width==='33.333333%')).toHaveLength(2);
 });
 
 it('groups parent icons in two columns with active days over elapsed period days',async()=>{
@@ -289,7 +342,7 @@ it('groups parent icons in two columns with active days over elapsed period days
   const root=await render(<Insights/>);
   const periodButton=(label:string)=>root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.findAll(child=>child.type===('Text' as React.ElementType)&&child.props.children===label).length>0)[0];
   await press(periodButton(t('week')));
-  const tiles=()=>root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.style?.width==='50%');
+  const tiles=()=>root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.style?.width==='33.333333%');
   expect(tiles()).toHaveLength(3);
   expect(tiles().map(node=>node.props.accessibilityLabel.split(',')[0])).toEqual([t('openInsights')+' Reading',t('openInsights')+' Walking',t('openInsights')+' Yoga']);
   expect(tiles()[0].props.accessibilityLabel).toContain('2/4');
@@ -361,7 +414,7 @@ it('shows daily overview History bars and filters one, two or all roots independ
 it('opens each root detail from its icon and disables all tiles while navigation is pending',async()=>{
   const second={...habit,id:'second',name:'Walking',sortOrder:1};
   state.app={...state.app,habits:[habit,second]};
-  const root=await render(<Insights/>),tiles=()=>root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.style?.width==='50%');
+  const root=await render(<Insights/>),tiles=()=>root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.style?.width==='33.333333%');
   await press(tiles()[0]);expect(state.push).toHaveBeenLastCalledWith('/insight/habit');
   await press(tiles()[1]);expect(state.push).toHaveBeenLastCalledWith('/insight/second');
   state.pending='/insight/second';
@@ -435,4 +488,102 @@ it('uses the chosen habit color for overview bars and score series',async()=>{
   await act(async()=>renderer.unmount());
   const detail=await render(<InsightDetailScreen/>);
   expect(detail.findAll(node=>node.type===('Polyline' as React.ElementType)&&node.props.stroke===habitAccentPalette.purple)).not.toHaveLength(0);
+});
+
+it('removes hidden roots from every overview filter but retains their individual analysis',async()=>{
+  const hidden={...habit,hideFromOverview:true},visible={...habit,id:'visible',name:'Visible',sortOrder:1};state.app={...state.app,habits:[hidden,visible]};
+  const root=await render(<Insights/>);
+  expect(root.findByType(PieCategoryFilter).props.roots.map((item:{habit:Habit})=>item.habit.id)).toEqual(['visible']);
+  expect(root.findByType(StrengthChart).props.selected.map((item:{habit:Habit})=>item.habit.id)).toEqual(['visible']);
+  expect(root.findByType(HistoryChart).props.series.map((item:{habit:Habit})=>item.habit.id)).toEqual(['visible']);
+  expect(root.findAll(node=>typeof node.props.accessibilityLabel==='string'&&node.props.accessibilityLabel.startsWith(t('openInsights')+' '+hidden.name))).toHaveLength(0);
+  await act(async()=>renderer.update(<InsightDetailScreen/>));
+  expect(renderer.root.findByType(StrengthChart).props.habit.id).toBe(hidden.id);
+});
+
+it('highlights overview legends independently without changing values, filters or detail legends',async()=>{
+  const second={...habit,id:'second',name:'Walking',sortOrder:1};
+  const record=(habitId:string)=>({id:habitId,habitId,localDate:state.today,value:1,occurredAt:state.today,timezone:'UTC',createdAt:state.today,updatedAt:state.today});
+  state.app={...state.app,habits:[habit,second],entries:[record(habit.id),record(second.id)]};
+  const root=await render(<Insights/>),legends=()=>root.findAllByType(OverviewLegend);
+  const choice=(index:number,id:string)=>legends()[index].findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.accessibilityLabel===id)[0];
+  expect(legends()).toHaveLength(3);
+  expect(legends()[0].findAllByType('Text' as React.ElementType).map(node=>node.props.children)).toEqual(['Reading','Walking']);
+  const pie=()=>root.findAllByType('Svg' as React.ElementType)[0],label=pie().props.accessibilityLabel;
+  await press(choice(0,'Reading'));
+  expect(pie().findAllByType('Circle' as React.ElementType).map(node=>node.props.opacity)).toEqual([1,.22]);
+  expect(choice(0,'Reading').props.accessibilityState.selected).toBe(true);
+  expect(pie().props.accessibilityLabel).toBe(label);expect(root.findByType(PieCategoryFilter).props.selected).toHaveLength(2);
+  expect(root.findByType(StrengthChart).props.highlightedId).toBeNull();
+  expect(root.findByType(StrengthChart).findAllByType('Circle' as React.ElementType)).toHaveLength(0);
+  await press(choice(1,'Walking'));
+  expect(root.findByType(StrengthChart).findAllByType('Polyline' as React.ElementType).map(node=>[node.props.opacity,node.props.strokeWidth])).toEqual([[.22,2],[1,4]]);
+  await press(choice(2,'Reading'));
+  expect(root.findByType(HistoryChart).findAllByType('Rect' as React.ElementType).map(node=>node.props.opacity)).toEqual([1,.22]);
+  expect(root.findByType(StrengthChart).props.selected).toHaveLength(2);expect(root.findByType(HistoryChart).props.series).toHaveLength(2);
+  await press(choice(0,'Reading'));expect(pie().findAllByType('Circle' as React.ElementType).every(node=>node.props.opacity===1)).toBe(true);
+  await act(async()=>root.findByType(PieCategoryFilter).props.onChange(new Set(['second'])));expect(legends()[0].props.highlightedId).toBeNull();
+  await act(async()=>renderer.update(<InsightDetailScreen/>));
+  expect(renderer.root.findByType(StrengthChart).props.highlightedId).toBeUndefined();
+  await act(async()=>renderer.update(<HistoryChart series={[{habit,color:light.accent,values:[1]}]} buckets={[{key:state.today,label:'Today',dates:new Set([state.today])}]} period="week" type="boolean" c={light}/>));
+  expect(renderer.root.findAllByType('Text' as React.ElementType).some(node=>Array.isArray(node.props.children)&&node.props.children[0]===habit.emoji)).toBe(true);
+});
+
+it('keeps calendar cells free of habit icons with every active root color and expands day branches only through arrows',async()=>{
+  const roots=[habit,...Array.from({length:3},(_,index)=>({...habit,id:'root-'+index,name:'Root '+index,sortOrder:index+1,color:['blue','pink','orange'][index] as Habit['color']}))];
+  const child={...habit,id:'child',parentId:habit.id,name:'Child'},grandchild={...habit,id:'grandchild',parentId:'child',name:'Grandchild'};
+  const record=(habitId:string,value=1)=>({id:habitId,habitId,localDate:state.today,value,occurredAt:state.today,timezone:'UTC',createdAt:state.today,updatedAt:state.today});
+  state.app={...state.app,habits:[...roots,child,grandchild],entries:[record(grandchild.id),...roots.slice(1).map(item=>record(item.id))]};
+  const root=await render(<Calendar/>);
+  await act(async()=>root.findAllByType('View' as React.ElementType)[0].props.onLayout({nativeEvent:{layout:{width:360}}}));
+  const cell=()=>root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.accessibilityLabel?.startsWith(t('editDay')+' '+state.today))[0];
+  expect(cell().findAllByType('Text' as React.ElementType).map(node=>node.props.children)).toEqual([8]);
+  expect(cell().findByType(CalendarDayBackground).props.colors).toHaveLength(4);
+  expect(cell().props.accessibilityLabel).toContain('Root 2');
+  await press(cell());
+  const list=()=>root.findAll(node=>node.props.data?.[0]?.habit)[0];
+  const ids=()=>list().props.data.map((item:{habit:Habit})=>item.habit.id);
+  expect(ids()).toEqual(roots.map(item=>item.id));
+  expect(list().findAll(node=>node.type===('Pressable' as React.ElementType)&&node.props.accessibilityLabel===t('expand')+' Reading')).toHaveLength(0);
+  await press(button(root,t('expand')+' Reading'));expect(ids()).toContain('child');expect(ids()).not.toContain('grandchild');
+  await press(button(root,t('expand')+' Child'));expect(ids()).toContain('grandchild');
+  await press(button(root,t('collapse')+' Reading'));expect(ids()).toEqual(roots.map(item=>item.id));
+  await press(button(root,t('expand')+' Reading'));expect(ids()).toContain('grandchild');
+  await act(async()=>root.findAll(node=>node.type===('Modal' as React.ElementType)&&node.props.visible)[0].props.onRequestClose());
+  await press(cell());expect(ids()).toEqual(roots.map(item=>item.id));
+});
+
+it('excludes completely hidden branches from general analysis, calendar days and direct individual routes',async()=>{
+ const hidden={...habit,isHidden:true},child={...habit,id:'child',parentId:habit.id,name:'Child'},visible={...habit,id:'visible',name:'Visible',sortOrder:1};
+ state.app={...state.app,habits:[hidden,child,visible],entries:[{id:'child-record',habitId:'child',localDate:state.today,value:1}]};
+ const root=await render(<Insights/>);expect(root.findByType(PieCategoryFilter).props.roots.map((item:{habit:Habit})=>item.habit.id)).toEqual(['visible']);
+ expect(root.findByType(StrengthChart).props.habits.map((item:Habit)=>item.id)).toEqual(['visible']);expect(root.findByType(HistoryChart).props.series.map((item:{habit:Habit})=>item.habit.id)).toEqual(['visible']);
+ await act(async()=>renderer.update(<Calendar/>));await act(async()=>renderer.root.findAllByType('View' as React.ElementType)[0].props.onLayout({nativeEvent:{layout:{width:360}}}));
+ const cell=renderer.root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.accessibilityLabel?.startsWith(t('editDay')+' '+state.today))[0];
+ expect(cell.findByType(CalendarDayBackground).props.colors).toEqual([]);await press(cell);
+ const rows=renderer.root.findAll(node=>node.props.data?.[0]?.habit)[0];expect(rows.props.data.map((item:{habit:Habit})=>item.habit.id)).toEqual(['visible']);
+ await act(async()=>renderer.update(<InsightDetailScreen/>));expect(renderer.root.findAllByType(StrengthChart)).toHaveLength(0);
+ expect(renderer.root.findAllByType('Text' as React.ElementType).map(node=>node.props.children)).toContain(t('categoryNotFound'));
+});
+
+it('keeps hidden categories collapsed in Today, supports editing and recording, and restores them with the eye button',async()=>{
+ const hidden={...habit,isHidden:true},visible={...habit,id:'visible',name:'Visible',sortOrder:1};
+ const restore=vi.fn().mockResolvedValue(undefined),refresh=vi.fn().mockImplementation(async()=>{state.app={...state.app,habits:[{...hidden,isHidden:false},visible]}}),success=vi.fn();
+ state.app={...state.app,ready:true,habits:[hidden,visible],repo:{setHidden:restore},refresh,showSuccess:success};
+ const root=await render(<Home/>);await act(async()=>root.findAllByType('View' as React.ElementType)[0].props.onLayout({nativeEvent:{layout:{width:360}}}));
+ expect(button(root,t('hiddenCategories')).props.accessibilityState.expanded).toBe(false);
+ expect(button(root,t('openInsights')+' Reading')).toBeUndefined();expect(button(root,t('edit')+' Reading')).toBeUndefined();
+ await press(button(root,t('hiddenCategories')));await press(button(root,t('edit')+' Reading'));expect(state.push).toHaveBeenLastCalledWith('/habit/habit');
+ const cell=root.findAll(node=>node.type===('Pressable' as React.ElementType)&&node.props.accessibilityLabel?.startsWith('Reading, '+state.today+','))[0];
+ await press(cell);expect(state.app.changeEntry).toHaveBeenCalledWith('habit',state.today,1);
+ await press(button(root,t('restoreHiddenCategory',{name:'Reading'})));expect(restore).toHaveBeenCalledExactlyOnceWith('habit',false);expect(refresh).toHaveBeenCalledOnce();
+ await act(async()=>renderer.update(<Home/>));expect(button(root,t('openInsights')+' Reading')).toBeDefined();expect(button(root,t('hiddenCategories'))).toBeUndefined();expect(success).toHaveBeenCalledWith(t('hiddenCategoryRestored',{name:'Reading'}));
+});
+it('retains hidden categories on recovery failure and prevents duplicate recovery writes',async()=>{
+ const hidden={...habit,isHidden:true};let reject!:(error:Error)=>void;const restore=vi.fn(()=>new Promise<void>((_,fail)=>{reject=fail}));
+ state.app={...state.app,ready:true,habits:[hidden],repo:{setHidden:restore},refresh:vi.fn(),showSuccess:vi.fn()};
+ const root=await render(<Home/>);await act(async()=>root.findAllByType('View' as React.ElementType)[0].props.onLayout({nativeEvent:{layout:{width:360}}}));
+ await press(button(root,t('hiddenCategories')));const eye=button(root,t('restoreHiddenCategory',{name:'Reading'}));
+ await act(async()=>{void eye.props.onPress();void eye.props.onPress()});expect(restore).toHaveBeenCalledOnce();expect(eye.props.disabled).toBe(true);
+ await act(async()=>reject(new Error('Synthetic recovery failure')));expect(state.alert).toHaveBeenCalledWith(t('couldNotSave'),'Synthetic recovery failure');expect(eye.props.disabled).toBe(false);expect(button(root,t('edit')+' Reading')).toBeDefined();expect(state.app.refresh).not.toHaveBeenCalled();
 });

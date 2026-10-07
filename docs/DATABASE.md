@@ -7,10 +7,10 @@ Foreign keys are enabled. Native-created IDs are UUIDs; imported IDs must be uni
 | Table | Main fields and constraints |
 | --- | --- |
 | `schema_versions` | Applied migration version and timestamp |
-| `habits` | Text primary key; cascading nullable `parent_id`; name, emoji, nullable color, type, integer `sort_order`, `is_general`, `archived_at`, timestamps; index on parent/order |
+| `habits` | Text primary key; cascading nullable `parent_id`; name, emoji, nullable color, type, integer `sort_order`, `is_general`, root-only `hide_from_overview` and `is_hidden` (0/1, default 0), `archived_at`, timestamps; index on parent/order |
 | `entries` | Text primary key; cascading `habit_id`; value, occurrence/local date/timezone, timestamps; unique habit/day; date index |
 
-Types are Boolean (0/1), number (non-negative decimal), and duration (non-negative integer seconds). Aggregates are calculated, never stored. Direct parent records use a canonical hidden General child.
+Types are Boolean (0/1), number (non-negative decimal), and duration (non-negative integer seconds). Aggregates are calculated, never stored. The optional Boolean analysis of quantity/duration records is derived from record presence (including zero), with no additional rows, columns, or mutation of stored values. Direct parent records use a canonical hidden General child.
 
 ## Transactions and integrity
 
@@ -30,6 +30,8 @@ Deleting all habit data removes entries and habits in one transaction, retaining
 | 2 | Expands a matching legacy numeric leaf into children and moves its existing records to General atomically |
 | 3 | Adds nullable palette color; existing habits inherit/default without changing emojis or records |
 | 4 | Expands the color constraint to twelve choices, copying existing colors while preserving habit IDs, hierarchy, order, and entries |
+| 5 | Adds root-only overview visibility, defaulting all existing habits to visible without changing records |
+| 6 | Adds complete root-category hiding, defaulting existing categories to visible and preserving records and overview-only preferences |
 
 Version 2 matches legacy attributes and skips already-expanded or changed structures. Released migrations must not be edited; add a new version and document its upgrade behavior.
 
@@ -37,7 +39,7 @@ New databases start with no habits or entries. Startup runs the released migrati
 
 ## Import and export
 
-JSON version 1 contains `version`, `exportedAt`, `habits`, and `entries`, including `sortOrder` and optional `color` (null/absent for automatic, otherwise a supported palette key). Older version-1 files remain supported; exports preserve chosen colors. Unknown color keys and changes to existing color identities reject the merge. Legacy emoji strings remain importable. [Domain types](../src/domain/types.ts) define the fields; [import validation](../src/domain/import.ts) defines accepted input.
+JSON version 1 contains `version`, `exportedAt`, `habits`, and `entries`, including `sortOrder` and optional `isHidden` (Boolean, absent/false means visible; true requires a non-General root) and `hideFromOverview` (Boolean, absent/false means visible; true requires a non-General root) and `color` (null/absent for automatic, otherwise a supported palette key). Older version-1 files remain supported; exports preserve chosen colors, complete hiding and overview visibility. Both visibility preferences participate in import identity comparisons, with absent and false treated equally. Unknown color keys and changes to existing color identities reject the merge. Legacy emoji strings remain importable. [Domain types](../src/domain/types.ts) define the fields; [import validation](../src/domain/import.ts) defines accepted input.
 
 The file reader rejects imports above 5 MiB before parsing. Validation checks IDs/references, supported types, local dates/values, acyclic homogeneous trees, unique habit/day entries, and non-negative unique non-General sibling order. Every branch must have exactly one childless General child at order -1; General cannot be a root or the only child. Entries must belong to leaves. Metadata validation remains partial.
 
