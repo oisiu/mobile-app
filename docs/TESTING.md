@@ -49,7 +49,7 @@ Check affected flows on Android and iOS, including persistence after restart. Be
 
 ## CI and security
 
-[CI](../.github/workflows/ci.yml) runs static checks, tests/coverage, Doctor/audit, and bundle exports. Require its aggregate **Required CI gate** in branch rules. Keep dependency compatibility checks and coverage thresholds enabled.
+[CI](../.github/workflows/ci.yml) runs static checks, tests/coverage, Doctor/audit, and bundle exports. Require its aggregate **Required CI gate** in branch rules. Keep dependency compatibility checks and coverage thresholds enabled. CI and security run on pull requests and again on `main` pushes. Android release builds require successful CI on their exact `main` commit and add signing verification and the native AAB build; closed testing and production reuse that signed bundle.
 
 [Security scans](../.github/workflows/security.yml) and [dependency review](../.github/workflows/dependency-review.yml) run separately. [Dependabot auto-merge](../.github/workflows/dependabot-auto-merge.yml) covers patch/minor updates; major updates require manual review.
 
