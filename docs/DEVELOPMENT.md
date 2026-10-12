@@ -24,7 +24,7 @@ After an Expo SDK version change (upgrade or downgrade), regenerate Android with
 
 Android `app/build/`, `app/.cxx/`, `build/`, `.gradle/`, and `.kotlin/` are disposable output/cache directories. Remove them only when builds are stopped; the next build recreates them and takes longer. Preserve release bundles and signing files until their release lifecycle is complete.
 
-`assets/app/icon.png` is the launcher icon. `assets/app/logo.png` is the approved cream-background balance illustration; both themes use this same image, with rounded corners in the app's loading view. The loading logo scales with the available width up to the limit in `app/_layout.tsx`. The native splash uses `assets/app/splash.png`, with the illustration and “by PalFly” attribution grouped inside the central circular safe area to avoid Android splash masking. Both native themes use this padded image; its size is configured in `app.json`. Native splash configuration changes require regenerating the native project and rebuilding the app to appear on a device.
+`assets/app/icon.png` is the launcher icon. `assets/app/logo.png` is the approved cream-background balance illustration; both themes use this same image, with rounded corners in the app's loading view. The loading logo scales with the available width up to the limit in `app/_layout.tsx`. Both native splash themes also use `assets/app/logo.png`, including its “Powered by PalFly” attribution; its size is configured in `app.json`. Android native splash masking may clip artwork or text outside the central safe area; verify the restored image on a rebuilt device app. Native splash configuration changes require regenerating the native project and rebuilding the app to appear on a device.
 
 ## Android connection troubleshooting
 
@@ -95,3 +95,9 @@ Update the document that owns a changed fact. Replace superseded information ins
 ## Documentation privacy
 
 Use repository-relative links and synthetic examples. Never commit credentials, personal paths, private account details, real user exports, or unredacted logs/screenshots. Review artifacts before sharing; a Markdown review does not cover Git history or ignored files.
+
+## Dependency audit exceptions
+
+The audit gate checks high/critical production advisories and ignores advisories without a published fix. `pnpm-workspace.yaml` records the current unfixable exceptions: [node-forge RSA signature validation](https://github.com/advisories/GHSA-86w9-cpqp-85rv) and [braces nested-pattern stack exhaustion](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm). These packages are transitive development/server tooling dependencies of Expo and Metro; the app adds no network service or signature-verification flow using them. Exceptions do not establish that affected tooling is safe: review them when updating dependencies and remove them when compatible fixes become available.
+
+For a broader review, also inspect `pnpm audit --prod --json`; the high/critical gate does not reject moderate advisories. Avoid forcing incompatible major transitive updates merely to suppress a report.

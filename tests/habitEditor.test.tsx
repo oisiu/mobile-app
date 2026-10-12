@@ -45,7 +45,7 @@ it('preserves a legacy emoji during color editing and lets children reset to inh
   const automatic=renderer.root.findAll(node=>node.props.accessibilityRole==='radio'&&node.props.accessibilityLabel===t('automaticColor'));
   await act(async()=>{automatic[1].props.onPress();button(t('purple')).props.onPress()});
   await act(async()=>button(t('save')).props.onPress());
-  expect(mocks.editTree).toHaveBeenCalledWith('root',[{id:'root',name:'Root',emoji:'✨✨',color:'purple'},{id:'child',name:'Child',emoji:'👍🏽',color:null}],[],[]);
+  expect(mocks.editTree).toHaveBeenCalledWith('root',[{id:'root',name:'Root',emoji:'✨✨',color:'purple',calendarThreshold:null},{id:'child',name:'Child',emoji:'👍🏽',color:null,calendarThreshold:null}],[],[]);
 });
 
 it.each([['en-US','Habit color','Automatic','Blue'],['es-ES','Color del hábito','Automático','Azul']])('localizes the collapsed color button and options for %s',async(locale,label,automatic,blue)=>{
@@ -110,4 +110,35 @@ it('creates and edits complete hiding without changing the separate overview pre
   expect(button(t('hideCompletely')).props.accessibilityState.checked).toBe(true);
   await act(async()=>button(t('hideCompletely')).props.onPress());await act(async()=>button(t('save')).props.onPress());
   expect(mocks.editTree.mock.calls[0][1][0]).toEqual(expect.objectContaining({id:'root',isHidden:false}));
+});
+
+it.each(['number','duration'] as const)('creates a %s habit with an optional color threshold',async type=>{
+ await act(async()=>{renderer=create(<HabitEditor/>)});
+ await act(async()=>{input(1).props.onChangeText('Practice');button(t(type)).props.onPress()});
+ const threshold=()=>renderer.root.findAll(node=>node.type as unknown==='TextInput'&&node.props.accessibilityLabel===t('calendarThresholdFor',{name:'Practice'}))[0];
+ await act(async()=>threshold().props.onChangeText('2,5'));
+ await act(async()=>button(t('save')).props.onPress());
+ expect(mocks.create.mock.calls[0][0].calendarThreshold).toBe(type==='duration'?150:2.5);
+});
+it('preserves duration thresholds when changing units and rejects invalid drafts',async()=>{
+ await act(async()=>{renderer=create(<HabitEditor/>)});
+ await act(async()=>{input(1).props.onChangeText('Practice');button(t('duration')).props.onPress()});
+ const threshold=()=>renderer.root.findAll(node=>node.type as unknown==='TextInput'&&node.props.accessibilityLabel===t('calendarThresholdFor',{name:'Practice'}))[0];
+ await act(async()=>threshold().props.onChangeText('30'));
+ await act(async()=>button(t('hours')).props.onPress());expect(threshold().props.value).toBe('0.5');
+ await act(async()=>threshold().props.onChangeText('-1'));
+ await act(async()=>button(t('save')).props.onPress());expect(mocks.create).not.toHaveBeenCalled();expect(mocks.alert).toHaveBeenLastCalledWith(t('invalidCalendarThreshold'));
+ await act(async()=>threshold().props.onChangeText(''));
+ await act(async()=>button(t('save')).props.onPress());expect(mocks.create.mock.calls[0][0].calendarThreshold).toBeUndefined();
+});
+it('retains an invalid duration draft across unit changes and rejects non-finite values',async()=>{
+ await act(async()=>{renderer=create(<HabitEditor/>)});
+ await act(async()=>{input(1).props.onChangeText('Practice');button(t('duration')).props.onPress()});
+ const threshold=()=>renderer.root.findAll(node=>node.type as unknown==='TextInput'&&node.props.accessibilityLabel===t('calendarThresholdFor',{name:'Practice'}))[0];
+ await act(async()=>threshold().props.onChangeText('invalid'));
+ await act(async()=>button(t('hours')).props.onPress());expect(threshold().props.value).toBe('invalid');
+ await act(async()=>button(t('save')).props.onPress());expect(mocks.create).not.toHaveBeenCalled();
+ await act(async()=>threshold().props.onChangeText('1e309'));
+ await act(async()=>button(t('minutes')).props.onPress());expect(threshold().props.value).toBe('1e309');
+ await act(async()=>button(t('save')).props.onPress());expect(mocks.create).not.toHaveBeenCalled();
 });

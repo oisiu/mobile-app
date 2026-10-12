@@ -18,6 +18,8 @@ export default defineConfig({
         'src/features/insights/HistoryChart.tsx',
         'src/features/insights/OverviewComparison.tsx',
         'src/features/CalendarDayBackground.tsx',
+        'src/features/CalendarThresholdInput.tsx',
+        'src/features/settings/HiddenCategories.tsx',
         'src/features/HabitColorPicker.tsx',
         'src/theme/habitColors.ts',
         'src/features/AppBar.tsx',

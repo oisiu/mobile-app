@@ -25,7 +25,7 @@ Whenever user-facing text is added or changed, update all supported translations
 
 The [test suite](../tests/) covers domain rules, real SQLite migrations/transactions, translations, and UI behavior with mocked native components.
 
-More tests cover navigation accessibility in both themes, data transfer, clipboard failures, and deletion safeguards. Repository tests verify deletion rollback and retained migration history.
+More tests cover navigation accessibility in both themes, data transfer, clipboard failures, and deletion safeguards. Repository tests verify deletion and hierarchy-edit rollback, threshold persistence and constraints, safe import, and retained migration history. Insight tests cover shared period boundaries, elapsed weekday frequencies, typed/Boolean consistency, threshold calendar colors, and chart/legend highlighting.
 
 `pnpm test:release` checks release preparation, stage order, and credential handling with mocked services. Shell gates use Bash from the installed Git distribution on Windows. It also runs in `pnpm test` and coverage checks. `pnpm test:release:signing` uses JDK tools and `zip` to sign and verify a temporary synthetic archive.
 

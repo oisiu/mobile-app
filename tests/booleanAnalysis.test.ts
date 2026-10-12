@@ -19,7 +19,7 @@ it.each(['number','duration'] as const)('derives all Boolean charts from %s reco
   expect(aggregate(view.habits,view.entries,'boolean',new Set([date]))).toBe(0);
   expect(buildHistorySeries([projected],view.habits,view.entries,window.buckets)[0].values).toEqual([1,1,0,0,0,0,0]);
   const summary=strengthSummary(projected,view.habits,view.entries,date);expect(summary.total).toBe(2);expect(summary.current).toBeGreaterThan(0);
-  expect(buildFrequency(projected,view.habits,view.entries,date,'2026-09').rows.map(row=>row[0].count)).toEqual([1,1,0,0,0,0,0]);
+  expect(buildFrequency(projected,view.habits,view.entries,[{key:'month',label:'September',dates:new Set(['2026-09-07',date])}]).rows.map(row=>row[0].count)).toEqual([1,1,0,0,0,0,0]);
   const active=new Set(['2026-09-06','2026-09-07',date].filter(day=>aggregate(view.habits,view.entries,'root',new Set([day]))>0));expect(bestActivityStreaks(active)[0]).toMatchObject({start:'2026-09-07',end:date,length:2});
   const compared=buildHistorySeries([projected,view.habits[1]],view.habits,view.entries,window.buckets);expect(compared.reduce((sum,item)=>sum+item.values[0],0)).toBe(1);
   expect(JSON.stringify({habits,entries})).toBe(before);expect(view.habits[4]).toBe(boolean);expect(view.entries[3]).toBe(entries[3]);

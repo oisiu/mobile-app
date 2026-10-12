@@ -7,7 +7,7 @@ import { mainTitle } from '@/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React,{useMemo,useState} from 'react';
 import { ActivityIndicator,ScrollView,StyleSheet,Text,TouchableOpacity,View } from 'react-native';
-import Svg,{Circle,Text as SvgText} from 'react-native-svg';
+import Svg,{Circle,Path,Text as SvgText} from 'react-native-svg';
 import { buildInsightWindow,shiftInsightAnchor } from '@/domain/analytics';
 import { strengthWindowLabel } from '@/domain/strengthWindow';
 import { todayLocal } from '@/domain/entries';
@@ -42,11 +42,19 @@ export default function Insights(){
       </View>
       <View style={{alignItems:'center',paddingVertical:20}}><Svg width={240} height={240} viewBox="0 0 240 240" accessible accessibilityLabel={t('habitContribution')+'. '+pieRanked.filter(item=>item.active>0).map(item=>item.habit.name+': '+percentage(item.active)).join('; ')}>
         {!total&&<Circle cx={120} cy={120} r={60} fill="none" stroke={c.soft} strokeWidth={120}/>}
-        {pieRanked.map((item,index)=>{const fraction=total?item.active/total:0,start=total?pieRanked.slice(0,index).reduce((sum,previous)=>sum+previous.active,0)/total:0;return fraction>0&&<Circle key={item.habit.id} cx={120} cy={120} r={60} fill="none" stroke={habitChartColor(item.habit,allHabits)} strokeWidth={120} opacity={highlightedId&&highlightedId!==item.habit.id?.22:1} strokeDasharray={[fraction*2*Math.PI*60,2*Math.PI*60]} strokeDashoffset={-start*2*Math.PI*60} rotation={-90} origin="120, 120"/>})}
+        {pieRanked.map((item,index)=>{
+          const fraction=total?item.active/total:0;
+          if(!fraction)return null;
+          const start=pieRanked.slice(0,index).reduce((sum,previous)=>sum+previous.active,0)/total;
+          const angle=(part:number)=>part*2*Math.PI-Math.PI/2;
+          const point=(part:number)=>`${120+120*Math.cos(angle(part))} ${120+120*Math.sin(angle(part))}`;
+          const props={fill:habitChartColor(item.habit,allHabits),opacity:highlightedId&&highlightedId!==item.habit.id?.22:1,onPress:()=>setPieHighlight(highlightedId===item.habit.id?null:item.habit.id)};
+          return fraction===1?<Circle key={item.habit.id} cx={120} cy={120} r={120} {...props}/>:<Path key={item.habit.id} d={`M 120 120 L ${point(start)} A 120 120 0 ${fraction>.5?1:0} 1 ${point(start+fraction)} Z`} {...props}/>;
+        })}
         {pieRanked.map((item,index)=>{
           if(!total||!item.active)return null;
           const fraction=item.active/total,start=pieRanked.slice(0,index).reduce((sum,previous)=>sum+previous.active,0)/total,angle=(start+fraction/2)*2*Math.PI-Math.PI/2,radius=fraction===1?0:84;
-          return <SvgText key={'label-'+item.habit.id} x={120+Math.cos(angle)*radius} y={120+Math.sin(angle)*radius} textAnchor="middle" alignmentBaseline="central" fontSize={fraction<.08?9:14} fontWeight="700" fill="white" opacity={highlightedId&&highlightedId!==item.habit.id?.22:1}>{percentage(item.active)}</SvgText>;
+          return <SvgText pointerEvents="none" key={'label-'+item.habit.id} x={120+Math.cos(angle)*radius} y={120+Math.sin(angle)*radius} textAnchor="middle" alignmentBaseline="central" fontSize={fraction<.08?9:14} fontWeight="700" fill="white" opacity={highlightedId&&highlightedId!==item.habit.id?.22:1}>{percentage(item.active)}</SvgText>;
         })}
       </Svg></View>
       <OverviewLegend items={pieRanked.filter(item=>item.active>0).sort((a,b)=>a.habit.sortOrder-b.habit.sortOrder).map(item=>({habit:item.habit,color:habitChartColor(item.habit,allHabits)}))} highlightedId={highlightedId} onHighlight={setPieHighlight} c={c}/>
