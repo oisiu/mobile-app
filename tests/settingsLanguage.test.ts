@@ -10,6 +10,8 @@ describe('More language', () => {
     const { t } = await import('../src/i18n');
     const { AI_IMPORT_PROMPT } = await import('../src/features/import/aiImportPrompt');
     expect(t('settings')).toBe('Más');
+    expect(t('helpAbout')).toBe('Ayuda e información');expect(t('advancedSettings')).toBe('Ajustes avanzados');expect(t('advancedSettingsHelp')).toContain('copia de seguridad');
+    expect(t('termsConditions')).toBe('Términos y condiciones');expect(t('privacyPolicy')).toBe('Política de privacidad');expect(t('support')).toBe('Soporte');expect(t('githubRepo')).toBe('Repositorio de GitHub');expect(t('opensBrowser')).toContain('navegador');expect(t('linkFailed')).toBe('No se pudo abrir el enlace');expect(t('linkFailedHelp')).toContain('navegador');
     expect(t('red')).toBe('Rojo');expect(t('yellow')).toBe('Amarillo');expect(t('cyan')).toBe('Celeste');expect(t('lime')).toBe('Verde lima');expect(t('brown')).toBe('Marrón');expect(t('gray')).toBe('Gris');
     expect(t('habitColor')).toBe('Color del hábito');expect(t('automaticColor')).toBe('Automático');expect(t('habitEmoji')).toBe('Emoji del hábito');expect(t('invalidEmoji')).toContain('emoji completo');
     for(const key of ['green','blue','purple','orange','pink','teal','red','yellow','cyan','lime','brown','gray','invalidColor','emojiHelp'] as const)expect(t(key)).toBeTruthy();
@@ -39,6 +41,8 @@ describe('More language', () => {
     expect(t('red')).toBe('Red');expect(t('yellow')).toBe('Yellow');expect(t('cyan')).toBe('Sky blue');expect(t('lime')).toBe('Lime green');expect(t('brown')).toBe('Brown');expect(t('gray')).toBe('Gray');
     expect(t('habitColor')).toBe('Habit color');expect(t('automaticColor')).toBe('Automatic');expect(t('invalidEmoji')).toContain('complete emoji');
     expect(t('exportJson')).toBe('Export complete JSON');
+    expect(t('helpAbout')).toBe('Help & about');expect(t('advancedSettings')).toBe('Advanced settings');expect(t('advancedSettingsHelp')).toContain('backup');
+    expect(t('termsConditions')).toBe('Terms and conditions');expect(t('privacyPolicy')).toBe('Privacy policy');expect(t('support')).toBe('Support');expect(t('githubRepo')).toBe('GitHub repository');expect(t('opensBrowser')).toContain('browser');expect(t('linkFailed')).toBe('Could not open link');expect(t('linkFailedHelp')).toContain('browser');
     expect(t('openCalendarDay')).toBe('Open this day in the larger calendar');
     expect(t('editCalendar')).toBe('Edit calendar');
     expect(t('calendarEditHelp')).toContain('Swipe');

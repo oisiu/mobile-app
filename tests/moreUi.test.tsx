@@ -16,6 +16,7 @@ vi.mock('expo-file-system/legacy',()=>({cacheDirectory:'file:///cache/',readAsSt
 vi.mock('expo-sharing',()=>({shareAsync:mock.share}));
 vi.mock('expo-document-picker',()=>({getDocumentAsync:mock.pick}));
 vi.mock('expo-clipboard',()=>({setStringAsync:mock.copy}));
+vi.mock('expo-router',()=>({router:{push:vi.fn()}}));
 vi.mock('expo-linking',()=>({openURL:mock.link}));
 
 const data={version:1,exportedAt:'2026-01-01T00:00:00Z',habits:[{id:'root',parentId:null,name:'Read "books"',type:'number'},{id:'child',parentId:'root',name:'Pages',type:'number'}],entries:[{id:'entry',habitId:'child',localDate:'2026-01-01',timezone:'UTC',value:0}]};
@@ -68,7 +69,7 @@ it.each(['export','write','share'])('shows localized guidance when %s fails',asy
   const root=await render();await press(action(root,'exportJson'));expect(mock.alert).toHaveBeenLastCalledWith(t('exportFailed'),t('exportFailedHelp'));
 });
 it('does not export or delete before the repository is ready',async()=>{
-  mock.app.repo=null;const root=await render();await press(action(root,'exportJson'));await press(action(root,'deleteAllData'));
+  mock.app.repo=null;const root=await render();await press(action(root,'exportJson'));await press(action(root,'advancedSettings'));await press(action(root,'deleteAllData'));
   expect(repo.export).not.toHaveBeenCalled();expect(mock.alert).not.toHaveBeenCalled();expect(action(root,'deleteAllData').props.disabled).toBe(true);
 });
 it('leaves data unchanged when the document picker is canceled',async()=>{
@@ -93,16 +94,32 @@ it('handles empty import summaries and rejected merges',async()=>{
   await act(async()=>{await mock.alert.mock.calls.at(-1)![2][1].onPress()});expect(mock.app.refresh).not.toHaveBeenCalled();expect(mock.alert).toHaveBeenLastCalledWith(t('importRejected'),t('importFailedHelp'));
 });
 it('counts visible and archived habits without hidden General items in the final warning',async()=>{
-  mock.app.habits=[{isGeneral:false},{isGeneral:false,archivedAt:'2026-01-01'},{isGeneral:true}];mock.app.entries=[{},{}];const root=await render();await press(action(root,'deleteAllData'));
+  mock.app.habits=[{isGeneral:false},{isGeneral:false,archivedAt:'2026-01-01'},{isGeneral:true}];mock.app.entries=[{},{}];const root=await render();await press(action(root,'advancedSettings'));await press(action(root,'deleteAllData'));
   for(let step=0;step<2;step++)await act(async()=>mock.alert.mock.calls.at(-1)![2][1].onPress());
   expect(mock.alert.mock.calls.at(-1)![1]).toBe(t('deleteDataFinalHelp',{habits:2,entries:2}));expect(repo.deleteAllData).not.toHaveBeenCalled();
 });
 it('blocks repeated deletion while the database write is pending',async()=>{
-  let complete!:()=>void;repo.deleteAllData.mockReturnValue(new Promise<void>(resolve=>{complete=resolve}));const root=await render();await press(action(root,'deleteAllData'));
+  let complete!:()=>void;repo.deleteAllData.mockReturnValue(new Promise<void>(resolve=>{complete=resolve}));const root=await render();await press(action(root,'advancedSettings'));await press(action(root,'deleteAllData'));
   for(let step=0;step<3;step++)await act(async()=>mock.alert.mock.calls.at(-1)![2][1].onPress());
   await press(action(root,'deleteAllData'));expect(repo.deleteAllData).toHaveBeenCalledOnce();expect(mock.app.refresh).not.toHaveBeenCalled();expect(action(root,'deleteAllData').props.accessibilityState.busy).toBe(true);
   await act(async()=>complete());expect(mock.app.refresh).toHaveBeenCalledOnce();expect(action(root,'deleteAllData').props.disabled).toBe(false);
 });
 it('opens only the public privacy page after a tap',async()=>{
   const root=await render();expect(mock.link).not.toHaveBeenCalled();await press(action(root,'privacyPolicy'));expect(mock.link).toHaveBeenCalledWith('https://oisiu.github.io/legal/privacy.html');
+});
+it('hides deletion until advanced settings is expanded and supports collapsing it',async()=>{
+  const root=await render();expect(action(root,'deleteAllData')).toBeUndefined();expect(action(root,'advancedSettings').props.accessibilityState.expanded).toBe(false);
+  await press(action(root,'advancedSettings'));expect(action(root,'deleteAllData')).toBeDefined();expect(action(root,'advancedSettings').props.accessibilityState.expanded).toBe(true);
+  await press(action(root,'advancedSettings'));expect(action(root,'deleteAllData')).toBeUndefined();expect(mock.alert).not.toHaveBeenCalled();
+});
+it.each([
+  ['termsConditions','https://oisiu.github.io/legal/terms.html'],
+  ['support','https://oisiu.github.io/legal/support.html'],
+  ['githubRepo','https://github.com/oisiu/mobile-app'],
+] as const)('opens %s only after a tap with accessible link semantics',async(key,url)=>{
+  const root=await render();expect(mock.link).not.toHaveBeenCalled();const link=action(root,key);expect(link.props.accessibilityRole).toBe('link');expect(link.props.accessibilityHint).toBe(t('opensBrowser'));
+  await press(link);expect(mock.link).toHaveBeenCalledWith(url);
+});
+it('shows localized guidance when the browser cannot open a link',async()=>{
+  mock.link.mockRejectedValue(new Error('Private browser error'));const root=await render();await press(action(root,'support'));await flush();expect(mock.alert).toHaveBeenLastCalledWith(t('linkFailed'),t('linkFailedHelp'));
 });

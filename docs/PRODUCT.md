@@ -16,7 +16,7 @@ New installations start empty. Users add their own habits from Home or import th
 - Habits form a tree with stable stored sibling order, arbitrary depth, and one value type per branch. Home supports dragging root categories into a new saved order.
 - Each leaf has at most one effective value per day. Past dates are editable; future dates are rejected. Number/duration saves replace the daily total; Boolean input toggles activity. Home supports reviewing branch records and moving them to another past/current day; destination conflicts block the move without overwriting.
 - Parent totals use the current hierarchy: Boolean OR, number SUM, and duration-seconds SUM. Direct parent input belongs to its hidden General child, separate from descendant records.
-- Complete root-category hiding preserves entries while excluding the branch from main Home, Calendar, and all Insights. The Hidden categories drawer in Home supports recording, editing, and immediate recovery; hiding is configured in the root editor.
+- Complete root-category hiding preserves entries while excluding the branch from main Home, Calendar, and all Insights. The collapsed Hidden categories section in More supports editing and recovery; hiding is configured in the root editor.
 - Root categories can be hidden from general Analysis without archiving them. They remain in Today with their records and individual analysis; children cannot be hidden independently.
 - Editing a descendant opens its root's hierarchy editor. New descendants inherit the root type. Archive preserves history; confirmed deletion removes the subtree and its records.
 
@@ -28,10 +28,10 @@ Persistence and transition details belong in [Database](DATABASE.md).
 | --- | --- |
 | Home | Record daily values, browse history, expand groups, and open habit Insights |
 | Calendar | Browse months and edit a selected day's records across the habit tree |
-| Insights | Browse weekly, monthly, or yearly category contributions, active days, Score curves, and History; open individual habits for detailed analysis |
+| Insights | Browse weekly, monthly, or yearly category contributions, active days, Consistency curves, and History; open individual habits for detailed analysis |
 | More | Choose appearance and import/export data |
 
-Insights describes recorded patterns without causal claims. Score tracks gradually changing habit strength from daily branch activity across all types; History shows one stacked bar per period. Comparisons avoid duplicate parent/child contributions and count Boolean activity by unique date. Detailed controls and chart definitions are in [UI and UX](UI_UX.md).
+Insights describes recorded patterns without causal claims. Consistency tracks gradually changing habit strength from daily branch activity across all types; History shows one stacked bar per period. Comparisons avoid duplicate parent/child contributions and count Boolean activity by unique date. Detailed controls and chart definitions are in [UI and UX](UI_UX.md).
 
 ## Data portability
 

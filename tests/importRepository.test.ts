@@ -94,7 +94,7 @@ describe('Safe import integrity',()=>{
 describe('Appearance persistence and upgrade',()=>{
   it('upgrades version 2 without changing legacy emojis or entries and is idempotent',async()=>{
     const {repo,sqlite,db}=await setup();await repo.import(doc([{...h('old'),emoji:'✨✨'}],[e('record','old')]));
-    sqlite.exec('ALTER TABLE habits DROP COLUMN is_hidden; ALTER TABLE habits DROP COLUMN hide_from_overview; ALTER TABLE habits DROP COLUMN color; DELETE FROM schema_versions WHERE version>=3;');
+    sqlite.exec('ALTER TABLE habits DROP COLUMN calendar_threshold; ALTER TABLE habits DROP COLUMN is_hidden; ALTER TABLE habits DROP COLUMN hide_from_overview; ALTER TABLE habits DROP COLUMN color; DELETE FROM schema_versions WHERE version>=3;');
     await migrate(db as unknown as SQLiteDatabase);await migrate(db as unknown as SQLiteDatabase);
     expect(sqlite.prepare('SELECT color FROM habits').get()).toEqual({color:null});
     expect((await repo.habits())[0].emoji).toBe('✨✨');expect(await repo.entries()).toEqual([e('record','old')]);
@@ -137,7 +137,7 @@ describe('Appearance persistence and upgrade',()=>{
 it('upgrades the six-color constraint without changing trees or entries',async()=>{
   const {repo,sqlite,db}=await setup();
   await repo.import(doc([{...h('root'),color:'blue'},h('general','root',-1,true),{...h('child','root'),color:'pink'}],[e('record','child')]));
-  sqlite.exec("ALTER TABLE habits RENAME COLUMN color TO expanded_color; ALTER TABLE habits ADD COLUMN color TEXT CHECK(color IS NULL OR color IN ('green','blue','purple','orange','pink','teal')); UPDATE habits SET color=expanded_color; ALTER TABLE habits DROP COLUMN expanded_color; ALTER TABLE habits DROP COLUMN is_hidden; ALTER TABLE habits DROP COLUMN hide_from_overview; DELETE FROM schema_versions WHERE version>=4;");
+  sqlite.exec("ALTER TABLE habits RENAME COLUMN color TO expanded_color; ALTER TABLE habits ADD COLUMN color TEXT CHECK(color IS NULL OR color IN ('green','blue','purple','orange','pink','teal')); UPDATE habits SET color=expanded_color; ALTER TABLE habits DROP COLUMN expanded_color; ALTER TABLE habits DROP COLUMN calendar_threshold; ALTER TABLE habits DROP COLUMN is_hidden; ALTER TABLE habits DROP COLUMN hide_from_overview; DELETE FROM schema_versions WHERE version>=4;");
   const before=await repo.export();
   expect(()=>sqlite.prepare("UPDATE habits SET color='yellow' WHERE id='root'").run()).toThrow();
   await migrate(db as unknown as SQLiteDatabase);await migrate(db as unknown as SQLiteDatabase);
@@ -154,7 +154,7 @@ it('upgrades the six-color constraint without changing trees or entries',async()
 
 it('rolls back a failed palette upgrade before retrying',async()=>{
   const {repo,sqlite,db}=await setup();await repo.import(doc([{...h('root'),color:'green'}],[e('record','root')]));
-  sqlite.exec('ALTER TABLE habits DROP COLUMN is_hidden; ALTER TABLE habits DROP COLUMN hide_from_overview; DELETE FROM schema_versions WHERE version>=4;');
+  sqlite.exec('ALTER TABLE habits DROP COLUMN calendar_threshold; ALTER TABLE habits DROP COLUMN is_hidden; ALTER TABLE habits DROP COLUMN hide_from_overview; DELETE FROM schema_versions WHERE version>=4;');
   const before=await repo.export(),original=db.execAsync;
   const failure=vi.spyOn(db,'execAsync').mockImplementation(async sql=>{
     if(sql.startsWith('ALTER TABLE habits RENAME COLUMN color')){sqlite.exec('ALTER TABLE habits RENAME COLUMN color TO legacy_color;');throw new Error('injected palette failure')}
@@ -185,10 +185,10 @@ it('rejects hidden children and malformed visibility flags before mutations',asy
 });
 it('upgrades existing habits to visible defaults and runs visibility migration only once',async()=>{
   const {repo,db,sqlite}=await setup();await repo.import(doc([h('root')],[e('record','root')]));const before=await repo.export();
-  sqlite.exec('ALTER TABLE habits DROP COLUMN is_hidden; ALTER TABLE habits DROP COLUMN hide_from_overview; DELETE FROM schema_versions WHERE version>=5;');
+  sqlite.exec('ALTER TABLE habits DROP COLUMN calendar_threshold; ALTER TABLE habits DROP COLUMN is_hidden; ALTER TABLE habits DROP COLUMN hide_from_overview; DELETE FROM schema_versions WHERE version>=5;');
   await migrate(db as unknown as SQLiteDatabase);await migrate(db as unknown as SQLiteDatabase);
   expect((await repo.export()).habits).toEqual(before.habits);expect(await repo.entries()).toEqual(before.entries);
-  expect(sqlite.prepare('SELECT MAX(version) version FROM schema_versions').get()?.version).toBe(6);
+  expect(sqlite.prepare('SELECT MAX(version) version FROM schema_versions').get()?.version).toBe(7);
 });
 
 it('persists complete hiding and one-tap recovery while retaining branch records and overview visibility',async()=>{
@@ -207,10 +207,49 @@ it('persists complete hiding and one-tap recovery while retaining branch records
 });
 it('adds complete visibility to existing databases without touching previous visibility or entries',async()=>{
  const {repo,sqlite,db}=await setup();await repo.import(doc([{...h('root'),hideFromOverview:true}],[e('record','root')]));const before=await repo.export();
- sqlite.exec('ALTER TABLE habits DROP COLUMN is_hidden; DELETE FROM schema_versions WHERE version=6;');await migrate(db as unknown as SQLiteDatabase);await migrate(db as unknown as SQLiteDatabase);
+ sqlite.exec('ALTER TABLE habits DROP COLUMN calendar_threshold; ALTER TABLE habits DROP COLUMN is_hidden; DELETE FROM schema_versions WHERE version>=6;');await migrate(db as unknown as SQLiteDatabase);await migrate(db as unknown as SQLiteDatabase);
  expect((await repo.export()).habits).toEqual(before.habits);expect(await repo.entries()).toEqual(before.entries);
 });
 it('rejects visibility conflicts and treats absent and false hidden flags equally for import identity',()=>{
  expect(()=>planImport(doc([h('root')]),doc([{...h('root'),isHidden:false}]))).not.toThrow();
  expect(()=>planImport(doc([h('root')]),doc([{...h('root'),isHidden:true}]))).toThrow('Habit conflict');
+});
+
+it('persists, clears, exports and imports independent calendar thresholds',async()=>{
+ const {repo}=await setup();const id=await repo.create({name:'Pages',emoji:'📖',type:'number',parentId:null,calendarThreshold:10});
+ expect((await repo.habits())[0].calendarThreshold).toBe(10);
+ await repo.editTree(id,[{id,name:'Pages',emoji:'📖',calendarThreshold:20}],[{key:'child',parentKey:id,name:'Chapter',emoji:'📖',calendarThreshold:5}],[]);
+ const data=await repo.export();const {repo:other}=await setup();await other.import(data);expect(await other.habits()).toEqual(await repo.habits());
+ await repo.update(id,{calendarThreshold:null});expect((await repo.habits()).find(h=>h.id===id)?.calendarThreshold).toBeUndefined();
+ expect((await repo.habits()).find(h=>h.name==='Chapter')?.calendarThreshold).toBe(5);
+ const changed={...data,habits:data.habits.map(h=>h.id===id?{...h,calendarThreshold:30}:h)};
+ await expect(other.import(changed)).rejects.toThrow();
+});
+it('upgrades version 6 without changing records and rejects invalid thresholds before writes',async()=>{
+ const {repo,db,sqlite}=await setup();await repo.import(doc([h('numeric')],[e('record','numeric')]));
+ sqlite.exec('ALTER TABLE habits DROP COLUMN calendar_threshold; DELETE FROM schema_versions WHERE version=7;');
+ await migrate(db as unknown as SQLiteDatabase);await migrate(db as unknown as SQLiteDatabase);
+ expect(await repo.entries()).toEqual([e('record','numeric')]);expect((await repo.habits())[0].calendarThreshold).toBeUndefined();
+ await expect(repo.create({name:'Invalid',emoji:'📖',type:'boolean',parentId:null,calendarThreshold:1})).rejects.toThrow();
+ await expect(repo.update('numeric',{calendarThreshold:-1})).rejects.toThrow();
+ await expect(repo.editTree('numeric',[{id:'numeric',name:'Changed',emoji:'•',calendarThreshold:0}],[],[])).rejects.toThrow();
+ expect((await repo.habits())[0].name).toBe('numeric');
+ for(const threshold of [0,-1,Infinity])expect(()=>validateImport(doc([{...h('invalid'),calendarThreshold:threshold}]))).toThrow();
+ expect(()=>validateImport(doc([{...h('duration'),type:'duration',calendarThreshold:.5}]))).toThrow();
+ expect(sqlite.prepare('SELECT MAX(version) version FROM schema_versions').get()?.version).toBe(7);
+});
+it('rolls back thresholds, new descendants and redirected records on a hierarchy write failure',async()=>{
+ const {repo,db}=await setup();await repo.import(doc([{...h('root'),calendarThreshold:10}],[e('record','root')]));
+ const before=await repo.export(),run=db.runAsync;
+ vi.spyOn(db,'runAsync').mockImplementation(async(sql,params)=>{
+  if(sql==='UPDATE habits SET calendar_threshold=? WHERE id=?')throw new Error('Synthetic threshold failure');
+  return run(sql,params);
+ });
+ await expect(repo.editTree('root',[{id:'root',name:'Changed',emoji:'📖',calendarThreshold:20}],[{key:'child',parentKey:'root',name:'Child',emoji:'📖',calendarThreshold:5}],[])).rejects.toThrow('Synthetic threshold failure');
+ const after=await repo.export();expect(after.habits).toEqual(before.habits);expect(after.entries).toEqual(before.entries);
+});
+it('enforces threshold constraints for Boolean and General rows in SQLite',async()=>{
+ const {repo,sqlite}=await setup();await repo.import(doc([h('root'),h('general','root',-1,true),h('child','root'),{...h('boolean',null,1),type:'boolean'}]));
+ for(const id of ['general','boolean'])expect(()=>sqlite.prepare('UPDATE habits SET calendar_threshold=1 WHERE id=?').run(id)).toThrow();
+ expect((await repo.habits()).every(habit=>habit.calendarThreshold===undefined)).toBe(true);
 });

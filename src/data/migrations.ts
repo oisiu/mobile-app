@@ -31,4 +31,8 @@ export async function migrate(db:SQLiteDatabase){
     await db.execAsync("ALTER TABLE habits ADD COLUMN is_hidden INTEGER NOT NULL DEFAULT 0 CHECK(is_hidden IN (0,1) AND (is_hidden=0 OR (parent_id IS NULL AND is_general=0))); INSERT INTO schema_versions VALUES(6,datetime('now'));");
   });
 
+  if((row?.version??0)<7)await db.withTransactionAsync(async()=>{
+    await db.execAsync("ALTER TABLE habits ADD COLUMN calendar_threshold REAL CHECK(calendar_threshold IS NULL OR (type!='boolean' AND is_general=0 AND calendar_threshold>0 AND (type!='duration' OR calendar_threshold=CAST(calendar_threshold AS INTEGER)))); INSERT INTO schema_versions VALUES(7,datetime('now')); ");
+  });
+
 }

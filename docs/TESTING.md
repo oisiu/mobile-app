@@ -25,7 +25,7 @@ Whenever user-facing text is added or changed, update all supported translations
 
 The [test suite](../tests/) covers domain rules, real SQLite migrations/transactions, translations, and UI behavior with mocked native components.
 
-More tests cover navigation accessibility in both themes, data transfer, clipboard failures, and deletion safeguards. Repository tests verify deletion rollback and retained migration history.
+More tests cover navigation accessibility in both themes, data transfer, clipboard failures, and deletion safeguards. Repository tests verify deletion and hierarchy-edit rollback, threshold persistence and constraints, safe import, and retained migration history. Insight tests cover shared period boundaries, elapsed weekday frequencies, typed/Boolean consistency, threshold calendar colors, and chart/legend highlighting.
 
 `pnpm test:release` checks release preparation, stage order, and credential handling with mocked services. Shell gates use Bash from the installed Git distribution on Windows. It also runs in `pnpm test` and coverage checks. `pnpm test:release:signing` uses JDK tools and `zip` to sign and verify a temporary synthetic archive.
 
@@ -49,7 +49,7 @@ Check affected flows on Android and iOS, including persistence after restart. Be
 
 ## CI and security
 
-[CI](../.github/workflows/ci.yml) runs static checks, tests/coverage, Doctor/audit, and bundle exports. Require its aggregate **Required CI gate** in branch rules. Keep dependency compatibility checks and coverage thresholds enabled.
+[CI](../.github/workflows/ci.yml) runs static checks, tests/coverage, Doctor/audit, and bundle exports. Require its aggregate **Required CI gate** in branch rules. Keep dependency compatibility checks and coverage thresholds enabled. CI and security run on pull requests and again on `main` pushes. Android release builds require successful CI on their exact `main` commit and add signing verification and the native AAB build; closed testing and production reuse that signed bundle.
 
 [Security scans](../.github/workflows/security.yml) and [dependency review](../.github/workflows/dependency-review.yml) run separately. [Dependabot auto-merge](../.github/workflows/dependabot-auto-merge.yml) covers patch/minor updates; major updates require manual review.
 

@@ -24,7 +24,7 @@ After an Expo SDK version change (upgrade or downgrade), regenerate Android with
 
 Android `app/build/`, `app/.cxx/`, `build/`, `.gradle/`, and `.kotlin/` are disposable output/cache directories. Remove them only when builds are stopped; the next build recreates them and takes longer. Preserve release bundles and signing files until their release lifecycle is complete.
 
-`assets/app/icon.png` is the launcher icon. `assets/app/logo.png` is the approved cream-background balance illustration; both themes use this same image, with rounded corners in the app's loading view. The loading logo scales with the available width up to the limit in `app/_layout.tsx`. The native splash uses `assets/app/splash.png`, with the illustration and “by PalFly” attribution grouped inside the central circular safe area to avoid Android splash masking. Both native themes use this padded image; its size is configured in `app.json`. Native splash configuration changes require regenerating the native project and rebuilding the app to appear on a device.
+`assets/app/icon.png` is the launcher icon. `assets/app/logo.png` is the approved cream-background balance illustration; both themes use this same image, with rounded corners in the app's loading view. The loading logo scales with the available width up to the limit in `app/_layout.tsx`. Both native splash themes also use `assets/app/logo.png`, including its “Powered by PalFly” attribution; its size is configured in `app.json`. Android native splash masking may clip artwork or text outside the central safe area; verify the restored image on a rebuilt device app. Native splash configuration changes require regenerating the native project and rebuilding the app to appear on a device.
 
 ## Android connection troubleshooting
 
@@ -44,7 +44,7 @@ For each new Google Play bundle, increment `expo.android.versionCode` in `app.js
 
 1. Run **Prepare release** manually on `main`: choose `patch`, `minor`, or `major` and **Android**. English and Spanish release-note inputs default to “General updates and improvements.” and “Actualizaciones y mejoras generales.” Empty inputs use the same defaults. Enter plain text without language tags, up to 500 characters per language.
 2. Preparation pushes its release branch, creates a PR into `main`, and dispatches **CI** on that branch. Open the PR from the workflow summary, review or edit the generated notes, wait for checks on the latest commit, and manually merge. Auto-merge and automatic approval are not enabled. If CI dispatch fails, run it manually on the release branch; if GitHub shows approval-required PR workflows, select **Approve workflows to run**. CI rejects incomplete, TODO, or oversized notes. If PR creation fails, enable the Actions setting below and create the PR from the pushed release branch.
-3. Merging the preparation record automatically starts **Build Android release**. It runs required checks, builds and signs the AAB, and saves it in a draft GitHub Release. Only preparation-record changes on `main` trigger automatic builds.
+3. Merging the preparation record automatically starts **Build Android release**. It waits up to 30 minutes for successful CI on its exact `main` commit, then runs signing checks, builds and signs the AAB, and saves it in a draft GitHub Release. Only preparation-record changes on `main` trigger automatic builds. Failed, cancelled, or missing CI blocks the build; rerun CI on that commit before retrying the build. The release build reuses CI validation instead of repeating static checks, tests, Doctor/audit, and bundle exports.
 4. The build dispatches **Release to closed testing** with its run ID. The testing workflow waits in the shared release queue, verifies that the build succeeded on `main`, and uses its exact commit and saved AAB. Install and test that version; check Play Console for review and publishing status after submission.
 5. Run **Publish to production** manually and confirm testing of the current version on `main`. It promotes the tested version as a full rollout without rebuilding.
 
@@ -95,3 +95,9 @@ Update the document that owns a changed fact. Replace superseded information ins
 ## Documentation privacy
 
 Use repository-relative links and synthetic examples. Never commit credentials, personal paths, private account details, real user exports, or unredacted logs/screenshots. Review artifacts before sharing; a Markdown review does not cover Git history or ignored files.
+
+## Dependency audit exceptions
+
+The audit gate checks high/critical production advisories and ignores advisories without a published fix. `pnpm-workspace.yaml` records the current unfixable exceptions: [node-forge RSA signature validation](https://github.com/advisories/GHSA-86w9-cpqp-85rv) and [braces nested-pattern stack exhaustion](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm). These packages are transitive development/server tooling dependencies of Expo and Metro; the app adds no network service or signature-verification flow using them. Exceptions do not establish that affected tooling is safe: review them when updating dependencies and remove them when compatible fixes become available.
+
+For a broader review, also inspect `pnpm audit --prod --json`; the high/critical gate does not reject moderate advisories. Avoid forcing incompatible major transitive updates merely to suppress a report.
