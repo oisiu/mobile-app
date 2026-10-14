@@ -18,7 +18,7 @@ describe('More language', () => {
     expect(t('openCalendarDay')).toBe('Abrir este día en el calendario ampliado');
     expect(t('editCalendar')).toBe('Editar calendario');
     expect(t('calendarEditHelp')).toContain('Desliza');
-    expect(t('exportJson')).toBe('Exportar JSON completo');
+    expect(t('exportJson')).toBe('Exportar JSON');expect(t('exportScope')).toBe('Datos que exportar');expect(t('exportAllHabits')).toBe('Todos los hábitos');expect(t('exportArchived')).toBe('Archivada');expect(t('exportScopeHelp')).toContain('todo su historial');
     expect(t('importSummary', { habits: 1, entries: 12 })).toBe('Hábitos: 1. Registros: 12. Se fusionarán los datos nuevos. Los datos existentes nunca se sobrescribirán.');
     expect(t('fileReadFailed')).toBe('No se pudo leer el archivo');
     expect(t('importRejected')).toBe('Importación rechazada');
@@ -40,7 +40,7 @@ describe('More language', () => {
     const { AI_IMPORT_PROMPT } = await import('../src/features/import/aiImportPrompt');
     expect(t('red')).toBe('Red');expect(t('yellow')).toBe('Yellow');expect(t('cyan')).toBe('Sky blue');expect(t('lime')).toBe('Lime green');expect(t('brown')).toBe('Brown');expect(t('gray')).toBe('Gray');
     expect(t('habitColor')).toBe('Habit color');expect(t('automaticColor')).toBe('Automatic');expect(t('invalidEmoji')).toContain('complete emoji');
-    expect(t('exportJson')).toBe('Export complete JSON');
+    expect(t('exportJson')).toBe('Export JSON');expect(t('exportScope')).toBe('Export scope');expect(t('exportAllHabits')).toBe('All habits');expect(t('exportArchived')).toBe('Archived');expect(t('exportScopeHelp')).toContain('full history');
     expect(t('helpAbout')).toBe('Help & about');expect(t('advancedSettings')).toBe('Advanced settings');expect(t('advancedSettingsHelp')).toContain('backup');
     expect(t('termsConditions')).toBe('Terms and conditions');expect(t('privacyPolicy')).toBe('Privacy policy');expect(t('support')).toBe('Support');expect(t('githubRepo')).toBe('GitHub repository');expect(t('opensBrowser')).toContain('browser');expect(t('linkFailed')).toBe('Could not open link');expect(t('linkFailedHelp')).toContain('browser');
     expect(t('openCalendarDay')).toBe('Open this day in the larger calendar');

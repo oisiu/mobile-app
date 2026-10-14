@@ -454,7 +454,7 @@ test('preparation validates custom notes and unsupported platforms before any fi
 });
 
 test('automatic deployment uses main preparation changes and successful build source', () => {
-  const build = fs.readFileSync('.github/workflows/build-android-release.yml', 'utf8');
+  const build = fs.readFileSync('.github/workflows/build-android-release.yml', 'utf8').replace(/\r\n/g, '\n');
   assert.match(build, /push:\n    branches: \[main\]\n    paths: \['.github\/releases\/\*\.json'\]/);
   const closed = fs.readFileSync('.github/workflows/release-closed-testing.yml', 'utf8');
   assert.doesNotMatch(closed, /\n  workflow_run:/);

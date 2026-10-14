@@ -1,3 +1,4 @@
+import { descendants } from '../src/domain/tree';
 import { afterEach,describe,expect,it,vi } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
 import type { SQLiteDatabase } from 'expo-sqlite';
@@ -252,4 +253,92 @@ it('enforces threshold constraints for Boolean and General rows in SQLite',async
  const {repo,sqlite}=await setup();await repo.import(doc([h('root'),h('general','root',-1,true),h('child','root'),{...h('boolean',null,1),type:'boolean'}]));
  for(const id of ['general','boolean'])expect(()=>sqlite.prepare('UPDATE habits SET calendar_threshold=1 WHERE id=?').run(id)).toThrow();
  expect((await repo.habits()).every(habit=>habit.calendarThreshold===undefined)).toBe(true);
+});
+
+
+describe('Existing category attachments',()=>{
+  it('groups recorded roots under a new category atomically and preserves metadata',async()=>{
+    const {repo}=await setup();await repo.import(doc([{...h('reading'),isHidden:true,hideFromOverview:true,color:'blue'},h('painting',null,1),h('general','painting',-1,true),h('canvas','painting')],[e('read','reading',0),e('paint','canvas',20)]));
+    const before=await repo.entries();
+    const id=await repo.createTree({name:'Leisure',emoji:'🎨',type:'number',parentId:null},[],[],[{id:'reading',parentKey:'__new_root__',expectedParentId:null},{id:'painting',parentKey:'__new_root__',expectedParentId:null}]);
+    const saved=await repo.export();expect(saved.habits.filter(h=>h.parentId===null).map(h=>h.id)).toEqual([id]);
+    expect(saved.habits.filter(h=>h.parentId===id&&!h.isGeneral).map(h=>[h.id,h.sortOrder])).toEqual([['reading',0],['painting',1]]);
+    expect(saved.habits.find(h=>h.id==='reading')).toEqual(expect.objectContaining({parentId:id,color:'blue'}));
+    expect(saved.habits.find(h=>h.id==='reading')?.isHidden).toBeUndefined();expect(saved.habits.find(h=>h.id==='reading')?.hideFromOverview).toBeUndefined();
+    expect(saved.entries).toEqual(before);expect(aggregate(saved.habits,saved.entries,id,new Set([date]))).toBe(20);expect(()=>validateImport(saved)).not.toThrow();
+  });
+  it('moves a last child to a newly created grandchild and restores the former parent direct records',async()=>{
+    const {repo}=await setup();await repo.import(doc([h('source'),h('source-general','source',-1,true),h('child','source'),h('target',null,1)],[e('direct','source-general'),e('child-record','child'),e('target-record','target')]));
+    await repo.editTree('target',[],[{key:'new-child',parentKey:'target',name:'Arts',emoji:'🎨'}],[],[{id:'child',parentKey:'new-child',expectedParentId:'source'}]);
+    const saved=await repo.export(),middle=saved.habits.find(h=>h.name==='Arts')!;
+    expect(saved.habits.find(h=>h.id==='child')?.parentId).toBe(middle.id);expect(saved.habits.some(h=>h.id==='source-general')).toBe(false);
+    expect(saved.entries.find(e=>e.id==='direct')).toEqual({...e('direct','source-general'),habitId:'source'});
+    expect(saved.entries.find(e=>e.id==='child-record')).toEqual(e('child-record','child'));
+    expect(saved.entries.find(e=>e.id==='target-record')?.habitId).toBe(saved.habits.find(h=>h.parentId==='target'&&h.isGeneral)?.id);
+    expect(()=>validateImport(saved)).not.toThrow();
+  });
+  it('moves a nested subtree and normalizes remaining source siblings',async()=>{
+    const {repo}=await setup();await repo.import(doc([h('source'),h('g','source',-1,true),h('branch','source'),h('branch-general','branch',-1,true),h('leaf','branch'),h('sibling','source',1),h('target',null,1)],[e('nested','leaf')]));
+    await repo.editTree('target',[],[],[],[{id:'branch',parentKey:'target',expectedParentId:'source'}]);
+    const saved=await repo.export();expect(saved.habits.find(h=>h.id==='sibling')?.sortOrder).toBe(0);expect(saved.habits.find(h=>h.id==='leaf')?.parentId).toBe('branch');expect(saved.entries).toEqual([e('nested','leaf')]);expect(()=>validateImport(saved)).not.toThrow();
+  });
+  it('rejects incompatible, stale, General, overlapping and cyclic attachments without changing data',async()=>{
+    const {repo}=await setup();await repo.import(doc([h('root'),h('g','root',-1,true),h('child','root'),h('other',null,1),{...h('boolean',null,2),type:'boolean'}]));const before=await repo.export();
+    const invalid=[[{id:'boolean',parentKey:'other',expectedParentId:null}],[{id:'child',parentKey:'other',expectedParentId:null}],[{id:'g',parentKey:'other',expectedParentId:'root'}],[{id:'root',parentKey:'other',expectedParentId:null},{id:'child',parentKey:'other',expectedParentId:'root'}],[{id:'root',parentKey:'child',expectedParentId:null}]];
+    for(const moves of invalid){await expect(repo.editTree('other',[],[],[],moves)).rejects.toThrow();expect(await repo.habits()).toEqual(before.habits);expect(await repo.entries()).toEqual(before.entries)}
+  });
+  it('rolls back the new root, sibling changes and General transfers when an attachment write fails',async()=>{
+    const {repo,db}=await setup();await repo.import(doc([h('first'),h('second',null,1)],[e('record','first')]));const before=await repo.export(),run=db.runAsync;
+    vi.spyOn(db,'runAsync').mockImplementation(async(sql,params)=>{if(sql.startsWith('UPDATE habits SET parent_id=')&&params?.at(-1)==='second')throw new Error('Synthetic attachment failure');return run(sql,params)});
+    await expect(repo.createTree({name:'New',emoji:'✨',type:'number',parentId:null},[],[],[{id:'first',parentKey:'__new_root__',expectedParentId:null},{id:'second',parentKey:'__new_root__',expectedParentId:null}])).rejects.toThrow('Synthetic attachment failure');
+    expect(await repo.habits()).toEqual(before.habits);expect(await repo.entries()).toEqual(before.entries);
+  });
+});
+
+it('keeps staged attachments in the preview order among newly created siblings',async()=>{
+ const {repo}=await setup();await repo.import(doc([h('root'),h('existing',null,1)]));
+ await repo.editTree('root',[],[{key:'new',parentKey:'root',name:'New',emoji:'✨'}],[],[{id:'existing',parentKey:'root',expectedParentId:null,index:0}]);
+ const saved=await repo.export();expect(saved.habits.filter(h=>h.parentId==='root'&&!h.isGeneral).map(h=>[h.name,h.sortOrder])).toEqual([['existing',0],['New',1]]);expect(()=>validateImport(saved)).not.toThrow();
+});
+
+it('rolls back both source and destination direct-record transfers on a later attachment failure',async()=>{
+ const {repo,db}=await setup();await repo.import(doc([h('source'),h('source-general','source',-1,true),h('child','source'),h('target',null,1),h('second',null,2)],[e('source-direct','source-general'),e('target-direct','target'),e('child-entry','child')]));const before=await repo.export(),run=db.runAsync;
+ vi.spyOn(db,'runAsync').mockImplementation(async(sql,params)=>{if(sql.startsWith('UPDATE habits SET parent_id=')&&params?.at(-1)==='second')throw new Error('Synthetic later failure');return run(sql,params)});
+ await expect(repo.editTree('target',[],[],[],[{id:'child',parentKey:'target',expectedParentId:'source'},{id:'second',parentKey:'target',expectedParentId:null}])).rejects.toThrow('Synthetic later failure');
+ expect(await repo.habits()).toEqual(before.habits);expect(await repo.entries()).toEqual(before.entries);expect(()=>validateImport({...before,exportedAt:'now'})).not.toThrow();
+});
+
+async function typeChangeRequest(repo:HabitRepository,id:string,to:Habit['type'],value?:number){
+ const all=await repo.habits(),root=all.find(h=>h.id===id)!,branch=[root,...descendants(all,id)],ids=new Set(branch.map(h=>h.id));
+ return {from:root.type,to,expectedHabitIds:[...ids],expectedEntries:(await repo.entries()).filter(e=>ids.has(e.habitId)),...(root.type==='boolean'?{trueValue:value}:to!=='boolean'?{unitDurationSeconds:value}:{})};
+}
+it.each(['number','duration'] as const)('converts a complete Boolean branch to %s without losing history metadata',async to=>{
+ const {repo}=await setup();await repo.import(doc([{...h('root'),type:'boolean'},{...h('g','root',-1,true),type:'boolean'},{...h('child','root'),type:'boolean'},{...h('archived','root',1),type:'boolean',archivedAt:now},h('unrelated',null,1)],[e('direct','g',1),e('false','child',0),e('archived-record','archived',1),e('unrelated-record','unrelated',3)]));
+ const before=await repo.entries(),change=await typeChangeRequest(repo,'root',to,to==='number'?2:5400);
+ await repo.editTree('root',[],[],[],[],change);const saved=await repo.export();
+ expect(saved.habits.filter(h=>change.expectedHabitIds.includes(h.id)).every(h=>h.type===to)).toBe(true);expect(saved.entries.find(e=>e.id==='false')?.value).toBe(0);
+ for(const id of ['direct','archived-record']){const record=saved.entries.find(e=>e.id===id)!;expect(record.value).toBe(to==='number'?2:5400);expect({...record,value:before.find(e=>e.id===id)!.value,updatedAt:before.find(e=>e.id===id)!.updatedAt}).toEqual(before.find(e=>e.id===id))}
+ expect(saved.entries.find(e=>e.id==='unrelated-record')).toEqual(before.find(e=>e.id==='unrelated-record'));expect(()=>validateImport(saved)).not.toThrow();
+});
+it.each(['number','duration'] as const)('permanently converts %s records including zero to Boolean and clears thresholds',async from=>{
+ const {repo}=await setup();await repo.import(doc([{...h('root'),type:from,calendarThreshold:10},{...h('g','root',-1,true),type:from},{...h('child','root'),type:from,calendarThreshold:20}],[e('zero','g',0),e('positive','child',100)]));
+ await repo.editTree('root',[],[],[],[],await typeChangeRequest(repo,'root','boolean'));const saved=await repo.export();expect(saved.entries.map(e=>e.value)).toEqual([1,1]);expect(saved.habits.every(h=>h.type==='boolean'&&h.calendarThreshold===undefined)).toBe(true);expect(()=>validateImport(saved)).not.toThrow();
+});
+it('converts quantities and durations proportionally using the chosen seconds per unit',async()=>{
+ const {repo}=await setup();await repo.import(doc([h('root')],[e('record','root',2.5)]));await repo.editTree('root',[],[],[],[],await typeChangeRequest(repo,'root','duration',1800));expect((await repo.entries())[0].value).toBe(4500);
+ await repo.editTree('root',[],[],[],[],await typeChangeRequest(repo,'root','number',1800));expect((await repo.entries())[0].value).toBe(2.5);const saved=await repo.export();expect(()=>validateImport(saved)).not.toThrow();
+});
+it('rejects history changed after confirmation without saving other draft edits',async()=>{
+ const {repo}=await setup();await repo.import(doc([h('root')],[e('record','root',2)]));const change=await typeChangeRequest(repo,'root','boolean');await repo.saveEntry({habitId:'root',localDate:date,value:4});const before=await repo.export();
+ await expect(repo.editTree('root',[{id:'root',name:'Changed',emoji:'•'}],[],[],[],change)).rejects.toThrow('TYPE_CHANGE_STALE');expect(await repo.habits()).toEqual(before.habits);expect(await repo.entries()).toEqual(before.entries);
+});
+it('rolls back type, history, thresholds and tree edits if a later write fails',async()=>{
+ const {repo,db}=await setup();await repo.import(doc([{...h('root'),calendarThreshold:20},h('g','root',-1,true),h('child','root')],[e('record','child',2)]));const change=await typeChangeRequest(repo,'root','boolean'),before=await repo.export(),run=db.runAsync;
+ vi.spyOn(db,'runAsync').mockImplementation(async(sql,params)=>{if(sql.startsWith('UPDATE habits SET name='))throw new Error('Synthetic conversion failure');return run(sql,params)});
+ await expect(repo.editTree('root',[{id:'root',name:'Changed',emoji:'•',calendarThreshold:null}],[],[],[],change)).rejects.toThrow('Synthetic conversion failure');expect(await repo.habits()).toEqual(before.habits);expect(await repo.entries()).toEqual(before.entries);
+});
+it('converts only the original branch before adding compatible target-type categories and new children',async()=>{
+ const {repo}=await setup();await repo.import(doc([{...h('root'),type:'boolean'},h('existing',null,1)],[e('yes','root',1),e('quantity','existing',5)]));
+ await repo.editTree('root',[],[{key:'new',parentKey:'root',name:'New',emoji:'✨'}],[],[{id:'existing',parentKey:'root',expectedParentId:null}],await typeChangeRequest(repo,'root','number',2));
+ const saved=await repo.export();expect(saved.entries.find(e=>e.id==='yes')?.value).toBe(2);expect(saved.entries.find(e=>e.id==='quantity')?.value).toBe(5);expect(saved.habits.every(h=>h.type==='number')).toBe(true);expect(()=>validateImport(saved)).not.toThrow();
 });
