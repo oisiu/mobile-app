@@ -2,6 +2,10 @@
 
 This document owns durable interaction and presentation rules. [Product](PRODUCT.md) owns scope, [Database](DATABASE.md) owns data semantics, and [Architecture](ARCHITECTURE.md) owns implementation. Exact dimensions, colors, and translated strings live in the source; verification belongs in [Testing](TESTING.md).
 
+## Data export
+
+More → Data offers an expandable export scope picker, defaulting to All habits. It lists root categories in saved order, including hidden and archived categories, with archived labels. Selecting a category includes its subhabits and full history in either JSON or CSV. Scope selection and export buttons are disabled while a file is being prepared or shared.
+
 ## Shared presentation
 
 Use system fonts, large headings with tight tracking, cream (#F3E8D7) and beige (#C7B7A7) grouped surfaces with mahogany (#280003) accents, rounded controls, and quiet separators. Dark mode uses warm charcoal with a subtle mahogany tint, progressively lighter card and nested surfaces, cream text, and soft cream action accents. Keep text and secondary labels readable across all surface layers. Keep touch feedback immediate and motion restrained. Respect safe areas and large text; keep controls accessible and chart labels readable on narrow screens. Footer destinations each keep a distinct icon and label color in both themes. Selection uses a filled icon without changing the button background. Appearance choices have visible localized labels. Destructive confirmations identify affected habits and records.

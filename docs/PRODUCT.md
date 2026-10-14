@@ -37,4 +37,4 @@ Insights describes recorded patterns without causal claims. Consistency tracks g
 
 ## Data portability
 
-Complete JSON supports additive safe merge; CSV provides a flat export. More also offers a copyable guide for converting another app's export with an external AI service. The user chooses that service and shares any source data independently; oisiu does not contact it. The import contract remains the same for manually prepared and externally converted files; see [Database](DATABASE.md#import-and-export).
+JSON supports additive safe merge; CSV provides a flat export. More can export all habits or one root category with all descendants and its full recorded history, including hidden and archived habits. More also offers a copyable guide for converting another app's export with an external AI service. The user chooses that service and shares any source data independently; oisiu does not contact it. The import contract remains the same for manually prepared and externally converted files; see [Database](DATABASE.md#import-and-export).
