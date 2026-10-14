@@ -2,7 +2,7 @@ import React from 'react';
 import { act,create,ReactTestRenderer } from 'react-test-renderer';
 import { afterEach,beforeEach,expect,it,vi } from 'vitest';
 import HabitEditor from '../app/habit/[id]';
-import { t } from '../src/i18n';
+import { language,t } from '../src/i18n';
 import { light } from '../src/theme';
 import { Habit } from '../src/domain/types';
 const mocks=vi.hoisted(()=>({id:'new',habits:[] as Habit[],entries:[] as import('../src/domain/types').Entry[],create:vi.fn(),createTree:vi.fn(),editTree:vi.fn(),refresh:vi.fn(),leave:vi.fn(),back:vi.fn(),dismissTo:vi.fn(),guard:vi.fn(),alert:vi.fn()}));
@@ -201,12 +201,12 @@ const historicalRecord=(id:string,value:number,habitId='Root'):import('../src/do
 const labeledInput=(label:string)=>renderer.root.find(node=>node.type as unknown==='TextInput'&&node.props.accessibilityLabel===label);
 it.each(['number','duration'] as const)('asks before converting Boolean history to %s with the selected historical value',async type=>{
  mocks.id='Root';mocks.habits=[category('Root'),category('Child','boolean','Root')];mocks.entries=[historicalRecord('yes',1,'Child')];await act(async()=>{renderer=create(<HabitEditor/>)});
- await act(async()=>button(t(type)).props.onPress());await act(async()=>labeledInput(t(type==='number'?'historyQuantity':'historyDuration')).props.onChangeText(type==='number'?'2':'1.5'));
+ await act(async()=>button(t(type)).props.onPress());await act(async()=>labeledInput(t(type==='number'?'historyQuantity':'historyDuration')).props.onChangeText(type==='number'?'2.5':'1.5'));
  if(type==='duration')await act(async()=>button(t('hours')).props.onPress());
  let save!:Promise<void>;await act(async()=>{save=button(t('save')).props.onPress();void button(t('save')).props.onPress()});
- expect(mocks.editTree).not.toHaveBeenCalled();expect(mocks.alert).toHaveBeenCalledOnce();expect(mocks.alert.mock.calls[0][0]).toBe(t('confirmHabitTypeChange'));expect(mocks.alert.mock.calls[0][1]).toContain('2');
+ expect(mocks.editTree).not.toHaveBeenCalled();expect(mocks.alert).toHaveBeenCalledOnce();expect(mocks.alert.mock.calls[0][0]).toBe(t('confirmHabitTypeChange'));expect(mocks.alert.mock.calls[0][1]).toContain(language==='es'?(type==='number'?'2,5':'0,025 horas'):(type==='number'?'2.5':'0.025 hours'));
  await act(async()=>{mocks.alert.mock.calls[0][2][1].onPress();await save});
- expect(mocks.editTree).toHaveBeenCalledOnce();expect(mocks.editTree.mock.calls[0][5]).toEqual({from:'boolean',to:type,trueValue:type==='number'?2:90,expectedHabitIds:['Root','Child'],expectedEntries:mocks.entries});expect(mocks.back).toHaveBeenCalledOnce();
+ expect(mocks.editTree).toHaveBeenCalledOnce();expect(mocks.editTree.mock.calls[0][5]).toEqual({from:'boolean',to:type,trueValue:type==='number'?2.5:90,expectedHabitIds:['Root','Child'],expectedEntries:mocks.entries});expect(mocks.back).toHaveBeenCalledOnce();
 });
 it('uses a duration-per-unit equivalence for proportional numeric conversion',async()=>{
  mocks.id='Root';mocks.habits=[category('Root','number')];mocks.entries=[historicalRecord('record',2)];await act(async()=>{renderer=create(<HabitEditor/>)});

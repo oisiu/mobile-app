@@ -15,7 +15,7 @@ import { Entry,Habit,HabitNode,HabitType } from '@/domain/types';
 import { buildTree,descendants,topLevelAncestor } from '@/domain/tree';
 import { TreeDraftCreate,TreeDraftUpdate } from '@/data/repository';
 import { useApp } from '@/features/AppProvider';
-import { t } from '@/i18n';
+import { language,t } from '@/i18n';
 import { dark,light } from '@/theme';
 
 const types:HabitType[]=['boolean','number','duration'];
@@ -94,7 +94,8 @@ function TreeEditor({root,habits,entries,repo,refresh,showSuccess,c}:{root:Habit
         if(hasHistory&&type!=='boolean'&&!validHistoryValue(measureType,value,root.type==='boolean'))return Alert.alert(t(root.type==='boolean'?'invalidHistoryValue':'invalidUnitDuration'));
         const branch=[root,...descendants(habits,root.id)],ids=new Set(branch.map(h=>h.id));
         conversion={from:root.type,to:type,expectedHabitIds:[...ids],expectedEntries:entries.filter(entry=>ids.has(entry.habitId)),...(root.type==='boolean'?{trueValue:value??undefined}:type!=='boolean'?{unitDurationSeconds:value??undefined}:{})};
-        const valueLabel=measureType==='duration'?historyDraft.value+' '+t(historyDraft.unit):historyDraft.value;
+        const formattedValue=new Intl.NumberFormat(language,{maximumFractionDigits:20,useGrouping:false}).format(Number(historyDraft.value));
+        const valueLabel=measureType==='duration'?formattedValue+' '+t(historyDraft.unit).toLocaleLowerCase(language):formattedValue;
         const message=t(!hasHistory?'confirmEmptyHistory':type==='boolean'?'confirmBooleanConversion':root.type==='boolean'?'confirmBooleanHistory':'confirmNumericHistory',{name,habits:branch.filter(h=>!h.isGeneral).length,records:conversion.expectedEntries.length,type:t(type),value:valueLabel});
         const confirmed=await new Promise<boolean>(resolve=>Alert.alert(t('confirmHabitTypeChange'),message,[{text:t('cancel'),style:'cancel',onPress:()=>resolve(false)},{text:t('convertAndSave'),style:'destructive',onPress:()=>resolve(true)}],{cancelable:true,onDismiss:()=>resolve(false)}));
         if(!confirmed)return;
