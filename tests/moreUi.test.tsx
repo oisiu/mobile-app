@@ -3,7 +3,7 @@ import { act,create,ReactTestInstance,ReactTestRenderer } from 'react-test-rende
 import { afterEach,beforeEach,expect,it,vi } from 'vitest';
 import More from '../app/(tabs)/settings';
 import { light } from '../src/theme';
-import { t } from '../src/i18n';
+import { language,t } from '../src/i18n';
 import { AI_IMPORT_PROMPT } from '../src/features/import/aiImportPrompt';
 import { MAX_IMPORT_FILE_BYTES } from '../src/domain/import';
 
@@ -19,6 +19,7 @@ vi.mock('expo-clipboard',()=>({setStringAsync:mock.copy}));
 vi.mock('expo-router',()=>({router:{push:vi.fn()}}));
 vi.mock('expo-linking',()=>({openURL:mock.link}));
 
+const localizedLink=(url:string)=>language==='es'?url.replace('https://oisiu.github.io/legal/','https://oisiu.github.io/legal/es/'):url;
 const data={version:1,exportedAt:'2026-01-01T00:00:00Z',habits:[{id:'root',parentId:null,name:'Read "books"',type:'number'},{id:'child',parentId:'root',name:'Pages',type:'number'}],entries:[{id:'entry',habitId:'child',localDate:'2026-01-01',timezone:'UTC',value:0}]};
 let renderer:ReactTestRenderer;
 let repo:{export:ReturnType<typeof vi.fn>;import:ReturnType<typeof vi.fn>;deleteAllData:ReturnType<typeof vi.fn>};
@@ -105,7 +106,7 @@ it('blocks repeated deletion while the database write is pending',async()=>{
   await act(async()=>complete());expect(mock.app.refresh).toHaveBeenCalledOnce();expect(action(root,'deleteAllData').props.disabled).toBe(false);
 });
 it('opens only the public privacy page after a tap',async()=>{
-  const root=await render();expect(mock.link).not.toHaveBeenCalled();await press(action(root,'privacyPolicy'));expect(mock.link).toHaveBeenCalledWith('https://oisiu.github.io/legal/privacy.html');
+  const root=await render();expect(mock.link).not.toHaveBeenCalled();await press(action(root,'privacyPolicy'));expect(mock.link).toHaveBeenCalledWith(localizedLink('https://oisiu.github.io/legal/privacy.html'));
 });
 it('hides deletion until advanced settings is expanded and supports collapsing it',async()=>{
   const root=await render();expect(action(root,'deleteAllData')).toBeUndefined();expect(action(root,'advancedSettings').props.accessibilityState.expanded).toBe(false);
@@ -118,7 +119,7 @@ it.each([
   ['githubRepo','https://github.com/oisiu/mobile-app'],
 ] as const)('opens %s only after a tap with accessible link semantics',async(key,url)=>{
   const root=await render();expect(mock.link).not.toHaveBeenCalled();const link=action(root,key);expect(link.props.accessibilityRole).toBe('link');expect(link.props.accessibilityHint).toBe(t('opensBrowser'));
-  await press(link);expect(mock.link).toHaveBeenCalledWith(url);
+  await press(link);expect(mock.link).toHaveBeenCalledWith(localizedLink(url));
 });
 it('shows localized guidance when the browser cannot open a link',async()=>{
   mock.link.mockRejectedValue(new Error('Private browser error'));const root=await render();await press(action(root,'support'));await flush();expect(mock.alert).toHaveBeenLastCalledWith(t('linkFailed'),t('linkFailedHelp'));

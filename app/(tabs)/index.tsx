@@ -1,3 +1,4 @@
+import { HiddenCategories } from '@/features/settings/HiddenCategories';
 import { CategoryDragHandle } from '@/features/home/CategoryDragHandle';
 import { habitAccent } from '@/theme/habitColors';
 import { BranchDayDialog } from '@/features/home/BranchDayDialog';
@@ -11,6 +12,8 @@ import { useApp } from '@/features/AppProvider'; import { buildTree } from '@/do
 const HABIT_COLUMN_WIDTH=157;
 
 export default function Home(){const {ready,error,habits,entries,changeEntry,palette:c}=useApp(),today=todayLocal(),[firstDay,setFirstDay]=useState(0),[historyDays,setHistoryDays]=useState(60),[width,setWidth]=useState(0),[expanded,setExpanded]=useState(new Set<string>()),[dialog,setDialog]=useState<CalendarDraft & {habit:HabitNode}|null>(null),[branchDialog,setBranchDialog]=useState<{habit:HabitNode;date:string}|null>(null),allTree=useMemo(()=>buildTree(habits),[habits]),tree=useMemo(()=>allTree.filter(habit=>!habit.isHidden),[allTree]),navigation=useResponsiveNavigation();
+  const [showHiddenCategories,setShowHiddenCategories]=useState(false);
+  const toggleHiddenCategories=()=>setShowHiddenCategories(value=>!value);
   const visibleHabits=useMemo(()=>{const result:{habit:HabitNode;depth:number;groupEnd:boolean}[]=[];const visit=(habit:HabitNode,depth:number)=>{result.push({habit,depth,groupEnd:false});if(expanded.has(habit.id))habit.children.forEach(child=>visit(child,depth+1))};for(const root of tree){visit(root,0);result[result.length-1].groupEnd=true}return result},[tree,expanded]);
   const {repo,refresh}=useApp(),[drag,setDrag]=useState<{id:string;dy:number;target:number}|null>(null),dragRef=useRef<typeof drag>(null),[ordering,setOrdering]=useState(false),orderingRef=useRef(false);
   const rootId=(habit:HabitNode):string=>habit.parentId?rootId(habits.find(item=>item.id===habit.parentId)! as HabitNode):habit.id;
@@ -59,7 +62,7 @@ export default function Home(){const {ready,error,habits,entries,changeEntry,pal
   if(!ready)return <View style={[s.center,{backgroundColor:c.bg}]}><ActivityIndicator color={c.accent}/></View>; if(error)return <View style={s.center}><Text>{error}</Text></View>;
   return <View onLayout={event=>setWidth(event.nativeEvent.layout.width)} style={[s.page,{backgroundColor:c.bg}]}>
   <View style={s.header}>
-    <Text accessibilityRole="header" style={[s.brand,{color:c.text,flex:1}]}>Oi Siu</Text>{firstDay>0&&<TouchableOpacity accessibilityRole="button" onPress={()=>dateScroll.current?.scrollTo({x:0,animated:true})} style={{minHeight:44,justifyContent:"center",paddingHorizontal:12}}><Text style={{color:c.accent,fontSize:13}}>{t("today")}</Text></TouchableOpacity>}
+    <Pressable accessibilityRole="button" accessibilityLabel="Oi Siu" accessibilityHint={t('toggleHiddenCategoriesHint')} accessibilityState={{expanded:showHiddenCategories}} accessibilityActions={[{name:'activate',label:t('toggleHiddenCategories')}]} onAccessibilityAction={toggleHiddenCategories} delayLongPress={3000} onLongPress={toggleHiddenCategories} style={{flex:1,minHeight:48,justifyContent:'center'}}><Text accessibilityRole="header" style={[s.brand,{color:c.text}]}>Oi Siu</Text></Pressable>{firstDay>0&&<TouchableOpacity accessibilityRole="button" onPress={()=>dateScroll.current?.scrollTo({x:0,animated:true})} style={{minHeight:44,justifyContent:"center",paddingHorizontal:12}}><Text style={{color:c.accent,fontSize:13}}>{t("today")}</Text></TouchableOpacity>}
           <Pressable accessibilityRole="button" accessibilityLabel={t('add')} onPress={()=>router.push('/habit/new')} style={({pressed})=>[s.add,{backgroundColor:pressed?c.soft:'transparent'}]}>
             {({pressed})=><Ionicons name="add" size={20} color={pressed?c.text:c.muted}/>}
           </Pressable>
@@ -75,7 +78,7 @@ export default function Home(){const {ready,error,habits,entries,changeEntry,pal
           <View style={{width:(historyDays-window.end)*dayWidth}}/>
         </Animated.ScrollView>
       </View>
-      <FlatList scrollEnabled={!drag&&!ordering} nestedScrollEnabled directionalLockEnabled style={s.habitList} contentContainerStyle={{paddingBottom:30}} data={visibleHabits} keyExtractor={({habit})=>habit.id} initialNumToRender={12} maxToRenderPerBatch={10} windowSize={7} renderItem={({item})=><View style={[s.habitGroup,{backgroundColor:c.card,marginBottom:item.groupEnd?6:0,...(drag&&rootId(item.habit)===drag.id?{transform:[{translateY:drag.dy}],zIndex:10,elevation:4,opacity:.9}:{}),...(drag&&item.depth===0&&tree[drag.target]?.id===item.habit.id&&drag.id!==item.habit.id?{borderTopWidth:2,borderTopColor:c.accent}:{})}]}>{row(item.habit,item.depth)}</View>} ListEmptyComponent={!allTree.length?<Text style={[s.empty,{color:c.muted}]}>{t('homeEmpty')}</Text>:null}/>
+      <FlatList scrollEnabled={!drag&&!ordering} nestedScrollEnabled directionalLockEnabled style={s.habitList} contentContainerStyle={{paddingBottom:30}} data={visibleHabits} keyExtractor={({habit})=>habit.id} initialNumToRender={12} maxToRenderPerBatch={10} windowSize={7} renderItem={({item})=><View style={[s.habitGroup,{backgroundColor:c.card,marginBottom:item.groupEnd?6:0,...(drag&&rootId(item.habit)===drag.id?{transform:[{translateY:drag.dy}],zIndex:10,elevation:4,opacity:.9}:{}),...(drag&&item.depth===0&&tree[drag.target]?.id===item.habit.id&&drag.id!==item.habit.id?{borderTopWidth:2,borderTopColor:c.accent}:{})}]}>{row(item.habit,item.depth)}</View>} ListFooterComponent={showHiddenCategories?<View style={{paddingHorizontal:20}}><HiddenCategories initialOpen/></View>:null} ListEmptyComponent={!allTree.length?<Text style={[s.empty,{color:c.muted}]}>{t('homeEmpty')}</Text>:null}/>
   </View>}
 
   {branchDialog&&<BranchDayDialog habit={branchDialog.habit} date={branchDialog.date} onClose={()=>setBranchDialog(null)}/>}

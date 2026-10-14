@@ -104,10 +104,10 @@ describe('Score axis',()=>{
     const root=await render(<InsightDetailScreen/>);
     await act(async()=>root.findAllByType('ScrollView' as React.ElementType)[0].props.onScroll({nativeEvent:{contentOffset:{y:800}}}));
     expect(root.findByType(HistoryChart).props.type).toBe(type);
-    await press(button(root,t('boolean')));
+    await press(button(root,t('activity')));
     expect(root.findByType(HistoryChart).props.type).toBe('boolean');expect(root.findByType(HistoryChart).props.series[0].values[1]).toBe(1);
     expect(root.findByType(StrengthChart).props.habit.type).toBe(type);expect(root.findByType(StrengthChart).props.entries[0]).toBe(record);
-    expect(button(root,t('boolean')).props.accessibilityState.selected).toBe(true);
+    expect(button(root,t('activity')).props.accessibilityState.selected).toBe(true);
     await act(async()=>{await new Promise(resolve=>setTimeout(resolve,10))});
     const compact=root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.accessibilityHint===t('openCalendarDay')&&node.props.accessibilityLabel?.startsWith(`Reading, ${state.today}:`))[0];
     await press(compact);const modal=root.findAll(node=>node.type===('Modal' as React.ElementType)&&node.props.visible)[0];
@@ -593,6 +593,20 @@ it('retains hidden categories on recovery failure and prevents duplicate recover
  await act(async()=>reject(new Error('Synthetic recovery failure')));expect(state.alert).toHaveBeenCalledWith(t('couldNotSave'),'Synthetic recovery failure');expect(eye.props.disabled).toBe(false);expect(button(root,t('edit')+' Reading')).toBeDefined();expect(state.app.refresh).not.toHaveBeenCalled();
 });
 
+it('toggles the expanded hidden-category footer with a three-second title hold',async()=>{
+ state.app={...state.app,ready:true,habits:[{...habit,isHidden:true}]};
+ const root=await render(<Home/>);await act(async()=>root.findAllByType('View' as React.ElementType)[0].props.onLayout({nativeEvent:{layout:{width:360}}}));
+ const title=button(root,'Oi Siu');expect(title.props.delayLongPress).toBe(3000);expect(title.props.onPress).toBeUndefined();
+ expect(button(root,t('hiddenCategories'))).toBeUndefined();
+ await act(async()=>title.props.onLongPress());
+ expect(button(root,t('hiddenCategories')).props.accessibilityState.expanded).toBe(true);
+ expect(button(root,t('edit')+' Reading')).toBeDefined();
+ expect(root.findAll(node=>node.props.data).map(node=>node.props.data)).toContainEqual([]);
+ await act(async()=>title.props.onLongPress());expect(button(root,t('hiddenCategories'))).toBeUndefined();
+ await act(async()=>title.props.onAccessibilityAction({nativeEvent:{actionName:'activate'}}));
+ expect(button(root,t('hiddenCategories'))).toBeDefined();
+});
+
 it('omits hidden categories from Today including its footer',async()=>{
  state.app={...state.app,ready:true,habits:[{...habit,isHidden:true}]};
  const root=await render(<Home/>);await act(async()=>root.findAllByType('View' as React.ElementType)[0].props.onLayout({nativeEvent:{layout:{width:360}}}));
@@ -619,7 +633,7 @@ it.each(['number','duration'] as const)('keeps consistency totals and percentage
  const root=await render(<InsightDetailScreen/>);
  const summary=()=>{const props=root.findByType(StrengthChart).props;return strengthSummary(props.habit,props.habits,props.entries,state.today)};
  const original=summary();expect(original.total).toBe(2);
- await press(button(root,t('boolean')));expect(summary()).toEqual(original);
+ await press(button(root,t('activity')));expect(summary()).toEqual(original);
  await press(button(root,t(type)));expect(summary()).toEqual(original);
  expect(state.app.changeEntry).not.toHaveBeenCalled();
 });
@@ -661,8 +675,14 @@ it.each(['number','duration'] as const)('uses fixed soft calendar colors below t
  await act(async()=>{await new Promise(resolve=>setTimeout(resolve,10))});
  const cell=()=>root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.accessibilityHint===t('openCalendarDay')&&node.props.accessibilityLabel?.startsWith('Reading, '+state.today+':'))[0];
  const fill=cell().props.style.backgroundColor;expect(fill.endsWith('4D')).toBe(true);expect(cell().props.accessibilityLabel).toContain(t('calendarBelowThreshold'));
- await press(button(root,t('boolean')));expect(cell().props.style.backgroundColor).toBe(fill);
+ await press(button(root,t('activity')));expect(cell().props.style.backgroundColor).toBe(fill);
  await press(cell());const modal=root.findAll(node=>node.type===('Modal' as React.ElementType)&&node.props.visible)[0];
  await act(async()=>modal.props.onShow());expect(day(modal).props.style.backgroundColor).toBe(fill);
  expect(state.app.changeEntry).not.toHaveBeenCalled();
+});
+
+it('removes the Activity mode selector after a quantity habit is permanently converted to Boolean',async()=>{
+ state.app={...state.app,habits:[{...habit,type:'number'}],entries:[{id:'record',habitId:habit.id,localDate:state.today,value:0,occurredAt:state.today,timezone:'UTC',createdAt:state.today,updatedAt:state.today}]};
+ const root=await render(<InsightDetailScreen/>);await press(button(root,t('activity')));expect(button(root,t('activity'))).toBeDefined();
+ state.app={...state.app,habits:[habit],entries:(state.app.entries as import('../src/domain/types').Entry[]).map(e=>({...e,value:1}))};await act(async()=>renderer.update(<InsightDetailScreen/>));expect(button(root,t('activity'))).toBeUndefined();
 });

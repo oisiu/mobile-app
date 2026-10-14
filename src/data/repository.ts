@@ -1,3 +1,5 @@
+import { HabitTypeChange,planHabitTypeChange } from '@/domain/habitTypeChange';
+import { TreeAttachment,validateAttachments } from '@/domain/treeAttachments';
 import { assertCalendarThreshold } from '@/domain/calendarThreshold';
 import { assertHabitAppearance } from '@/domain/habitAppearance';
 import { BranchEdit,planBranchEdit } from '@/domain/branchDay';
@@ -19,22 +21,41 @@ export class HabitRepository {
     const now=new Date().toISOString(),id=makeId(); await this.db.withTransactionAsync(async()=>{ if(input.parentId){ const real=all.filter(h=>h.parentId===input.parentId&&!h.isGeneral); if(!real.length){ const existing=all.filter(h=>h.parentId===input.parentId&&h.isGeneral)[0]; let general=existing?.id; if(!general){ general=makeId(); await this.db.runAsync('INSERT INTO habits(id,parent_id,name,emoji,type,sort_order,is_general,archived_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[general,input.parentId,'General','•',input.type,-1,1,null,now,now]); await this.db.runAsync('UPDATE entries SET habit_id=? WHERE habit_id=?',[general,input.parentId]); } } }
       const count=await this.db.getFirstAsync<{n:number}>('SELECT COUNT(*) n FROM habits WHERE parent_id IS ? AND is_general=0',[input.parentId]); await this.db.runAsync('INSERT INTO habits(id,parent_id,name,emoji,type,sort_order,is_general,archived_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[id,input.parentId,input.name.trim(),input.emoji,input.type,count?.n??0,0,null,now,now]); if(input.calendarThreshold!=null)await this.db.runAsync('UPDATE habits SET calendar_threshold=? WHERE id=?',[input.calendarThreshold,id]);if(input.color)await this.db.runAsync('UPDATE habits SET color=? WHERE id=?',[input.color,id]);if(input.hideFromOverview)await this.db.runAsync('UPDATE habits SET hide_from_overview=1 WHERE id=?',[id]);if(input.isHidden)await this.db.runAsync('UPDATE habits SET is_hidden=1 WHERE id=?',[id]); }); return id; }
   async update(id:string,patch:Partial<Pick<Habit,'name'|'emoji'|'color'|'calendarThreshold'>>){ const previous=(await this.habits()).find(h=>h.id===id);assertHabitAppearance(patch.emoji===undefined||patch.emoji===previous?.emoji?'':patch.emoji,patch.color);assertCalendarThreshold(previous?.type??'boolean',patch.calendarThreshold);const now=new Date().toISOString(); if(patch.name!==undefined&&!patch.name.trim()) throw new Error('Name is required'); await this.db.runAsync('UPDATE habits SET name=COALESCE(?,name),emoji=COALESCE(?,emoji),color=CASE WHEN ? THEN ? ELSE color END,calendar_threshold=CASE WHEN ? THEN ? ELSE calendar_threshold END,updated_at=? WHERE id=?',[patch.name?.trim()??null,patch.emoji??null,Number(patch.color!==undefined),patch.color??null,Number(patch.calendarThreshold!==undefined),patch.calendarThreshold??null,now,id]); }
-  async editTree(rootId:string,updates:TreeDraftUpdate[],creates:TreeDraftCreate[],deletes:string[]){
-    const all=await this.habits(),root=all.find(h=>h.id===rootId&&!h.parentId&&!h.isGeneral);
-    if(!root)throw new Error('Top-level habit not found');
-    for(const item of updates)assertHabitAppearance(item.emoji===all.find(h=>h.id===item.id)?.emoji?'':item.emoji,item.color);
-    for(const item of creates){assertHabitAppearance(item.emoji,item.color);assertCalendarThreshold(root.type,item.calendarThreshold)}
-    for(const item of updates)assertCalendarThreshold(root.type,item.calendarThreshold);
-    if(updates.some(item=>!item.name.trim())||creates.some(item=>!item.name.trim()))throw new Error('Name is required');
-    const allowed=new Set([rootId,...descendants(all,rootId).filter(h=>!h.isGeneral).map(h=>h.id)]),deletedTree=new Set(deletes.flatMap(id=>[id,...descendants(all,id).map(h=>h.id)]));
-    if(deletes.some(id=>id===rootId||!allowed.has(id)))throw new Error('Invalid subtree deletion');
-    if(updates.some(item=>item.hideFromOverview!==undefined&&(typeof item.hideFromOverview!=='boolean'||(item.hideFromOverview&&item.id!==rootId))))throw new Error('Only top-level habits can be hidden from overview');
-    if(updates.some(item=>item.isHidden!==undefined&&(typeof item.isHidden!=='boolean'||(item.isHidden&&item.id!==rootId))))throw new Error('Only top-level habits can be hidden');
-    if(updates.some(item=>!allowed.has(item.id)))throw new Error('Invalid habit update');
-    const draftKeys=new Set<string>();
-    for(const item of creates){if(draftKeys.has(item.key)||(!allowed.has(item.parentKey)&&!draftKeys.has(item.parentKey))||deletedTree.has(item.parentKey))throw new Error('Invalid draft hierarchy');draftKeys.add(item.key)}
-    const now=new Date().toISOString();
+  async createTree(input:CreateHabitInput,updates:TreeDraftUpdate[],creates:TreeDraftCreate[],moves:TreeAttachment[],rootKey='__new_root__'){
+    const id=makeId(),resolve=(key:string)=>key===rootKey?id:key;
+    await this.writeTree(id,updates,creates.map(item=>({...item,parentKey:resolve(item.parentKey)})),[],moves.map(item=>({...item,parentKey:resolve(item.parentKey)})),input);
+    return id;
+  }
+  async editTree(rootId:string,updates:TreeDraftUpdate[],creates:TreeDraftCreate[],deletes:string[],moves:TreeAttachment[]=[],typeChange?:HabitTypeChange){await this.writeTree(rootId,updates,creates,deletes,moves,undefined,typeChange)}
+  private async writeTree(rootId:string,updates:TreeDraftUpdate[],creates:TreeDraftCreate[],deletes:string[],moves:TreeAttachment[],input?:CreateHabitInput,typeChange?:HabitTypeChange){
     await this.db.withTransactionAsync(async()=>{
+      if(input){
+        if(input.parentId!==null||!input.name.trim())throw new Error('Invalid root');
+        assertHabitAppearance(input.emoji,input.color);assertCalendarThreshold(input.type,input.calendarThreshold);
+        if((input.isHidden!==undefined&&typeof input.isHidden!=='boolean')||(input.hideFromOverview!==undefined&&typeof input.hideFromOverview!=='boolean'))throw new Error('Invalid visibility');
+        const now=new Date().toISOString(),count=await this.db.getFirstAsync<{n:number}>('SELECT COUNT(*) n FROM habits WHERE parent_id IS NULL AND is_general=0');
+        await this.db.runAsync('INSERT INTO habits(id,parent_id,name,emoji,type,sort_order,is_general,archived_at,created_at,updated_at,color,calendar_threshold,hide_from_overview,is_hidden) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',[rootId,null,input.name.trim(),input.emoji,input.type,count?.n??0,0,null,now,now,input.color??null,input.calendarThreshold??null,Number(input.hideFromOverview??false),Number(input.isHidden??false)]);
+      }
+      if(typeChange){
+        const plan=planHabitTypeChange(await this.habits(),await this.entries(),rootId,typeChange),now=new Date().toISOString();
+        for(const id of plan.habitIds)await this.db.runAsync('UPDATE habits SET type=?,calendar_threshold=NULL,updated_at=? WHERE id=?',[typeChange.to,now,id]);
+        for(const {entry,value} of plan.entries)if(entry.value!==value)await this.db.runAsync('UPDATE entries SET value=?,updated_at=? WHERE id=?',[value,now,entry.id]);
+      }
+      const all=await this.habits(),root=all.find(h=>h.id===rootId&&!h.parentId&&!h.isGeneral);
+      if(!root)throw new Error('Top-level habit not found');
+      for(const item of updates)assertHabitAppearance(item.emoji===all.find(h=>h.id===item.id)?.emoji?'':item.emoji,item.color);
+      for(const item of creates){assertHabitAppearance(item.emoji,item.color);assertCalendarThreshold(root.type,item.calendarThreshold)}
+      for(const item of updates)assertCalendarThreshold(root.type,item.calendarThreshold);
+      if(updates.some(item=>!item.name.trim())||creates.some(item=>!item.name.trim()))throw new Error('Name is required');
+      const allowed=validateAttachments(all,rootId,creates,moves),deletedTree=new Set(deletes.flatMap(id=>[id,...descendants(all,id).map(h=>h.id)]));
+      if(deletes.some(id=>id===rootId||!allowed.has(id)))throw new Error('Invalid subtree deletion');
+      if(updates.some(item=>item.hideFromOverview!==undefined&&(typeof item.hideFromOverview!=='boolean'||(item.hideFromOverview&&item.id!==rootId))))throw new Error('Only top-level habits can be hidden from overview');
+      if(updates.some(item=>item.isHidden!==undefined&&(typeof item.isHidden!=='boolean'||(item.isHidden&&item.id!==rootId))))throw new Error('Only top-level habits can be hidden');
+      if(moves.some(item=>deletedTree.has(item.id)||deletedTree.has(item.parentKey)))throw new Error('Deleted attachment destination');
+      if(updates.some(item=>!allowed.has(item.id)))throw new Error('Invalid habit update');
+      const draftKeys=new Set<string>();
+      for(const item of creates){if(all.some(h=>h.id===item.key)||draftKeys.has(item.key)||(!allowed.has(item.parentKey)&&!draftKeys.has(item.parentKey))||deletedTree.has(item.parentKey))throw new Error('Invalid draft hierarchy');draftKeys.add(item.key)}
+      const now=new Date().toISOString();
       for(const item of updates)if(!deletedTree.has(item.id))await this.db.runAsync('UPDATE habits SET name=?,emoji=?,color=?,hide_from_overview=?,is_hidden=?,calendar_threshold=?,updated_at=? WHERE id=?',[item.name.trim(),item.emoji,item.color===undefined?all.find(h=>h.id===item.id)?.color??null:item.color,Number(item.hideFromOverview??all.find(h=>h.id===item.id)?.hideFromOverview??false),Number(item.isHidden??all.find(h=>h.id===item.id)?.isHidden??false),item.calendarThreshold===undefined?all.find(h=>h.id===item.id)?.calendarThreshold??null:item.calendarThreshold,now,item.id]);
       const deleteRoots=deletes.filter(id=>!deletes.some(other=>other!==id&&descendants(all,other).some(item=>item.id===id))),affected=new Set<string>();
       for(const id of deleteRoots){const item=all.find(h=>h.id===id);if(item?.parentId)affected.add(item.parentId);await this.db.runAsync('DELETE FROM habits WHERE id=?',[id])}
@@ -52,6 +73,23 @@ export class HabitRepository {
         const real=await this.db.getFirstAsync<{n:number}>('SELECT COUNT(*) n FROM habits WHERE parent_id=? AND is_general=0',[parentId]);
         if(!real?.n){let general=(await this.db.getFirstAsync<{id:string}>('SELECT id FROM habits WHERE parent_id=? AND is_general=1',[parentId]))?.id;if(!general){general=makeId();await this.db.runAsync('INSERT INTO habits(id,parent_id,name,emoji,type,sort_order,is_general,archived_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[general,parentId,'General','•',root.type,-1,1,null,now,now]);await this.db.runAsync('UPDATE entries SET habit_id=? WHERE habit_id=?',[general,parentId])}}
         const id=makeId();ids.set(item.key,id);await this.db.runAsync('INSERT INTO habits(id,parent_id,name,emoji,type,sort_order,is_general,archived_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[id,parentId,item.name.trim(),item.emoji,root.type,real?.n??0,0,null,now,now]);if(item.calendarThreshold!=null)await this.db.runAsync('UPDATE habits SET calendar_threshold=? WHERE id=?',[item.calendarThreshold,id]);if(item.color)await this.db.runAsync('UPDATE habits SET color=? WHERE id=?',[item.color,id]);
+      }
+      for(const item of moves){
+        const parentId=ids.get(item.parentKey)??item.parentKey;
+        const snapshot=await this.habits(),error=validateMove(snapshot,item.id,parentId),parent=snapshot.find(h=>h.id===parentId);
+        if(error||!parent||parent.isGeneral||parent.archivedAt)throw new Error(error??'Invalid attachment destination');
+        const general=snapshot.find(h=>h.parentId===parentId&&h.isGeneral);
+        if(!general){const generalId=makeId();await this.db.runAsync('INSERT INTO habits(id,parent_id,name,emoji,type,sort_order,is_general,archived_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[generalId,parentId,'General','•',root.type,-1,1,null,now,now]);await this.db.runAsync('UPDATE entries SET habit_id=? WHERE habit_id=?',[generalId,parentId])}
+        const count=await this.db.getFirstAsync<{n:number}>('SELECT COUNT(*) n FROM habits WHERE parent_id=? AND is_general=0',[parentId]);
+        await this.db.runAsync('UPDATE habits SET parent_id=?,sort_order=?,hide_from_overview=0,is_hidden=0,updated_at=? WHERE id=?',[parentId,count?.n??0,now,item.id]);
+        await this.normalize(item.expectedParentId);
+        const siblings=(await this.habits()).filter(h=>h.parentId===parentId&&!h.isGeneral&&h.id!==item.id).sort((a,b)=>a.sortOrder-b.sortOrder);
+        siblings.splice(Math.min(item.index??siblings.length,siblings.length),0,(await this.habits()).find(h=>h.id===item.id)!);
+        for(let i=0;i<siblings.length;i++)await this.db.runAsync('UPDATE habits SET sort_order=? WHERE id=?',[i,siblings[i].id]);
+        if(item.expectedParentId){
+          const real=await this.db.getFirstAsync<{n:number}>('SELECT COUNT(*) n FROM habits WHERE parent_id=? AND is_general=0',[item.expectedParentId]);
+          if(!real?.n){const oldGeneral=await this.db.getFirstAsync<{id:string}>('SELECT id FROM habits WHERE parent_id=? AND is_general=1',[item.expectedParentId]);if(oldGeneral){await this.db.runAsync('UPDATE entries SET habit_id=? WHERE habit_id=?',[item.expectedParentId,oldGeneral.id]);await this.db.runAsync('DELETE FROM habits WHERE id=?',[oldGeneral.id])}}
+        }
       }
     });
   }

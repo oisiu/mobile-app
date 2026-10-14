@@ -5,9 +5,9 @@ import { router } from 'expo-router';
 import { useApp } from '@/features/AppProvider';
 import { t } from '@/i18n';
 
-export function HiddenCategories(){
+export function HiddenCategories({initialOpen=false}:{initialOpen?:boolean}){
   const {habits,repo,refresh,showSuccess,palette:c}=useApp();
-  const [open,setOpen]=useState(false),[saving,setSaving]=useState(false),pending=useRef(false);
+  const [open,setOpen]=useState(initialOpen),[saving,setSaving]=useState(false),pending=useRef(false);
   const roots=habits.filter(h=>h.parentId===null&&!h.isGeneral&&!h.archivedAt&&h.isHidden).sort((a,b)=>a.sortOrder-b.sortOrder);
   const restore=async(id:string,name:string)=>{
     if(!repo||pending.current)return;
