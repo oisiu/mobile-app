@@ -1,5 +1,6 @@
+import { monthYearHeading } from '../src/utils/dates';
 import { expect,it } from 'vitest';
-import { buildDetailWindow,shiftDetailAnchor } from '../src/domain/detailWindow';
+import { buildDetailWindow,buildQuarterHistoryWindow,shiftDetailAnchor } from '../src/domain/detailWindow';
 import { Entry } from '../src/domain/types';
 const record=(localDate:string)=>({localDate} as Entry);
 it('uses daily week/month buckets and clips future dates',()=>{
@@ -29,4 +30,20 @@ it('moves each shared period and clamps at today',()=>{
  expect(shiftDetailAnchor('year','2026-10-12',-1,'2026-10-12')).toBe('2025-01-01');
  expect(shiftDetailAnchor('year','2026-10-12',1,'2026-10-12')).toBe('2026-10-12');
  expect(shiftDetailAnchor('all','2019-01-01',-1,'2026-10-12')).toBe('2026-10-12');
+});
+
+it('builds twelve natural quarters ending at the selected quarter and excludes future dates',()=>{
+ const window=buildQuarterHistoryWindow('2026-10-15','2026-10-15');
+ expect(window.buckets).toHaveLength(12);
+ expect(window.start).toBe('2024-01-01');expect(window.end).toBe('2026-10-15');
+ expect(window.buckets.map(bucket=>bucket.key)).toEqual(Array.from({length:12},(_,i)=>`${2024+Math.floor(i/4)}-Q${i%4+1}`));
+ expect(window.buckets[0].dates.size).toBe(91);
+ expect(window.buckets[11].dates.size).toBe(15);
+ expect(window.buckets[11].dates.has('2026-10-16')).toBe(false);
+ const previous=buildQuarterHistoryWindow('2026-07-01','2026-10-15');
+ expect(previous.buckets.at(-1)?.key).toBe('2026-Q3');expect(previous.end).toBe('2026-09-30');
+});
+
+it.each([['en-US','October 2026'],['es-ES','Octubre 2026'],['es-MX','Octubre 2026']])('formats the detail month heading for %s',(locale,expected)=>{
+ expect(monthYearHeading('2026-10-15',locale)).toBe(expected);
 });

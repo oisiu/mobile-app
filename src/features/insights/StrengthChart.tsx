@@ -2,16 +2,16 @@ import React,{useMemo,useState} from 'react';
 import { Text,View } from 'react-native';
 import Svg,{Circle,Line,Polyline,Text as SvgText} from 'react-native-svg';
 import { habitStrength,strengthSummary } from '@/domain/habitStrength';
-import { InsightPeriod,TimeBucket } from '@/domain/analytics';
+import { BucketSize,TimeBucket } from '@/domain/analytics';
 import { Entry,Habit } from '@/domain/types';
 import { t } from '@/i18n';
 import { light } from '@/theme';
 
-export function StrengthChart({habit,selected,habits,entries,today,buckets,period,c,showSummary=true,showPoints=true,highlightedId=null,onHighlight}:{habit:Habit;selected:{habit:Habit;color:string}[];habits:Habit[];entries:Entry[];today:string;buckets:TimeBucket[];period:InsightPeriod;c:typeof light;showSummary?:boolean;showPoints?:boolean;highlightedId?:string|null;onHighlight?:(id:string|null)=>void}){
+export function StrengthChart({habit,selected,habits,entries,today,buckets,bucketSize,c,showSummary=true,showPoints=true,highlightedId=null,onHighlight}:{habit:Habit;selected:{habit:Habit;color:string}[];habits:Habit[];entries:Entry[];today:string;buckets:TimeBucket[];bucketSize:BucketSize;c:typeof light;showSummary?:boolean;showPoints?:boolean;highlightedId?:string|null;onHighlight?:(id:string|null)=>void}){
   const [width,setWidth]=useState(320);
   const summary=useMemo(()=>showSummary?strengthSummary(habit,habits,entries,today):null,[showSummary,habit,habits,entries,today]);
   const series=useMemo(()=>selected.map(item=>({...item,values:habitStrength(item.habit,habits,entries,buckets)})),[selected,habits,entries,buckets]);
-  const left=42,right=width-14,span=Math.max(1,right-left),stride=period==='quarter'?(buckets.length<=3?1:3):Math.max(1,Math.ceil(buckets.length/Math.max(2,Math.floor(span/32))));
+  const left=42,right=width-14,span=Math.max(1,right-left),stride=bucketSize==='month'?(buckets.length<=3?1:3):Math.max(1,Math.ceil(buckets.length/Math.max(2,Math.floor(span/32))));
   const x=(index:number)=>left+span*index/Math.max(1,buckets.length-1),y=(value:number)=>160-value*1.4;
   const percent=(value:number,signed=false)=>new Intl.NumberFormat(undefined,{style:'percent',maximumFractionDigits:0,signDisplay:signed?'always':'auto'}).format(value/100);
   const stats=summary?[
@@ -26,8 +26,8 @@ export function StrengthChart({habit,selected,habits,entries,today,buckets,perio
       {[100,80,60,40,20,0].map(value=><React.Fragment key={value}><Line x1={left} x2={right} y1={y(value)} y2={y(value)} stroke={c.line}/><SvgText x={left-8} y={y(value)+4} textAnchor="end" fill={c.muted} fontSize={10}>{`${value}%`}</SvgText></React.Fragment>)}
       {series.map(item=><React.Fragment key={item.habit.id}><Polyline onPress={onHighlight?()=>onHighlight(highlightedId===item.habit.id?null:item.habit.id):undefined} points={item.values.flatMap((value,index)=>buckets[index].dates.size?[`${x(index)},${y(value)}`]:[]).join(' ')} fill="none" stroke={item.color} strokeWidth={highlightedId===item.habit.id?4:2} opacity={highlightedId&&highlightedId!==item.habit.id?.22:1}/>{showPoints&&item.values.map((value,index)=>buckets[index].dates.size>0&&<Circle key={buckets[index].key} cx={x(index)} cy={y(value)} r={highlightedId===item.habit.id?5:3.5} opacity={highlightedId&&highlightedId!==item.habit.id?.22:1} fill={item.color}/>)}</React.Fragment>)}
       {buckets.map((bucket,index)=>{
-        const label=period==='quarter'?bucket.label.replace(/[.\s]/g,'').slice(0,3):bucket.label;
-        return <React.Fragment key={bucket.key}>{(period==='quarter'?index%stride===0:index===0||index===buckets.length-1||(index%stride===0&&buckets.length-1-index>=stride))&&<SvgText x={x(index)} y={178} textAnchor={index===0?'start':index===buckets.length-1?'end':'middle'} fill={c.muted} fontSize={period==='quarter'?9:11}>{label}</SvgText>}{period==='quarter'&&(index===0||bucket.key.slice(0,4)!==buckets[index-1].key.slice(0,4))&&<SvgText x={x(index)} y={194} textAnchor={index===0?'start':'middle'} fill={c.muted} fontSize={11}>{bucket.key.slice(0,4)}</SvgText>}</React.Fragment>;
+        const label=bucketSize==='month'?bucket.label.replace(/[.\s]/g,'').slice(0,3):bucket.label;
+        return <React.Fragment key={bucket.key}>{(bucketSize==='month'?index%stride===0:index===0||index===buckets.length-1||(index%stride===0&&buckets.length-1-index>=stride))&&<SvgText x={x(index)} y={178} textAnchor={index===0?'start':index===buckets.length-1?'end':'middle'} fill={c.muted} fontSize={bucketSize==='month'?9:11}>{label}</SvgText>}{bucketSize==='month'&&(index===0||bucket.key.slice(0,4)!==buckets[index-1].key.slice(0,4))&&<SvgText x={x(index)} y={194} textAnchor={index===0?'start':'middle'} fill={c.muted} fontSize={11}>{bucket.key.slice(0,4)}</SvgText>}</React.Fragment>;
       })}
     </Svg>
   </View>;

@@ -2,6 +2,7 @@ import { addDays,addMonths } from '../utils/dates';
 
 export type InsightScale='weeks'|'months'|'years';
 export type InsightPeriod='week'|'month'|'quarter'|'year';
+export type BucketSize='day'|'month'|'quarter'|'year';
 export interface TimeBucket { key:string; label:string; dates:Set<string> }
 export interface InsightWindow { start:string; end:string; buckets:TimeBucket[] }
 export interface ActivityStreak { start:string; end:string; length:number }
