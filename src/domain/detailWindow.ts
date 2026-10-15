@@ -32,3 +32,17 @@ export function shiftDetailAnchor(period:DetailPeriod,anchor:string,amount:numbe
   const next=period==='week'?addDays(anchor,amount*7):period==='year'?`${Number(anchor.slice(0,4))+amount}-01-01`:addMonths(anchor.slice(0,7),amount*(period==='quarter'?3:1))+'-01';
   return next>today?today:next;
 }
+
+export function buildQuarterHistoryWindow(anchor:string,today:string):InsightWindow{
+  const quarterMonth=Math.floor((Number(anchor.slice(5,7))-1)/3)*3+1;
+  const quarterStart=`${anchor.slice(0,4)}-${String(quarterMonth).padStart(2,'0')}-01`;
+  const first=addMonths(quarterStart.slice(0,7),-33),buckets:TimeBucket[]=[];
+  for(let index=0;index<12;index++){
+    const month=addMonths(first,index*3),start=month+'-01',end=addDays(addMonths(month,3)+'-01',-1);
+    const quarter=Math.floor((Number(month.slice(5,7))-1)/3)+1,dates=new Set<string>();
+    for(let date=start;date<=end&&date<=today;date=addDays(date,1))dates.add(date);
+    buckets.push({key:month.slice(0,4)+'-Q'+quarter,label:String(quarter),dates});
+  }
+  const end=addDays(addMonths(quarterStart.slice(0,7),3)+'-01',-1);
+  return {start:first+'-01',end:end>today?today:end,buckets};
+}

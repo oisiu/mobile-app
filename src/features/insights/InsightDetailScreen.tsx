@@ -4,7 +4,7 @@ import { descendants } from '@/domain/tree';
 import { visibleHabitSnapshot } from '@/domain/habitVisibility';
 import { booleanAnalysis } from '@/domain/booleanAnalysis';
 import { HistoryChart } from './HistoryChart';
-import { buildDetailWindow,shiftDetailAnchor,DetailPeriod } from '@/domain/detailWindow';
+import { buildDetailWindow,buildQuarterHistoryWindow,shiftDetailAnchor,DetailPeriod } from '@/domain/detailWindow';
 import { habitAccent } from '@/theme/habitColors';
 import { StrengthChart } from './StrengthChart';
 import { buildCalendarTimeline,initialCalendarWeek } from './calendarTimeline';
@@ -16,17 +16,17 @@ import { CalendarDraft,calendarDraft,calendarEntry,calendarInputValue,toggledCal
 import { SheetHandle } from '@/features/SheetHandle';
 import { Ionicons } from '@expo/vector-icons';
 import { router,useLocalSearchParams } from 'expo-router';
-import React,{useEffect,useMemo,useRef,useState} from 'react';
+import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import { AccessibilityInfo,ActivityIndicator,Alert,Animated,FlatList,Modal,Pressable,ScrollView,StyleSheet,Text,TouchableOpacity,View } from 'react-native';
 import { aggregate } from '@/domain/aggregation';
-import { bestActivityStreaks,InsightPeriod,InsightWindow,TimeBucket } from '@/domain/analytics';
+import { bestActivityStreaks,BucketSize,InsightWindow,TimeBucket } from '@/domain/analytics';
 import { todayLocal } from '@/domain/entries';
 import { orderedCandidates } from './orderedCandidates';
 import { Entry,Habit } from '@/domain/types';
 import { useApp } from '@/features/AppProvider';
 import { t } from '@/i18n';
 import { dark,depthBackground,light } from '@/theme';
-import { addDays,addMonths } from '@/utils/dates';
+import { addDays,addMonths,monthYearHeading } from '@/utils/dates';
 import { usePrefetchRoutes,useResponsiveNavigation } from '@/features/useResponsiveNavigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -58,13 +58,15 @@ export default function InsightDetailScreen(){
   useEffect(()=>{if(!contentReady)return;const task=requestIdleCallback(()=>setCalendarReady(true),{timeout:1000});return()=>cancelIdleCallback(task)},[contentReady]);
   const periodEntries=useMemo(()=>{const ids=new Set([id,...descendants(storedHabits,id).map(habit=>habit.id)]);return storedEntries.filter(entry=>ids.has(entry.habitId))},[id,storedHabits,storedEntries]);
   const window=useMemo(()=>buildDetailWindow(period,anchor,today,periodEntries),[period,anchor,today,periodEntries]);
-  const chartPeriod:InsightPeriod=period==='all'?'year':period==='year'?'quarter':period;
+  const historyWindow=useMemo(()=>period==='quarter'?buildQuarterHistoryWindow(anchor,today):window,[period,anchor,today,window]);
+  const scoreBucketSize:BucketSize=period==='all'?'year':period==='quarter'||period==='year'?'month':'day';
+  const historyBucketSize:BucketSize=period==='quarter'?'quarter':scoreBucketSize;
   useEffect(()=>{setPeriod('week');setAnchor(today);setScoreIds(new Set([id]));setHistoryIds(new Set([id]));setCalendarId(id);setStreakId(id);setFrequencyId(id)},[id,today]);
   const historyData=useMemo(()=>{
     if(!root||!historyReady)return [];
     const selected=[...(historyIds.size?historyIds:new Set([root.id]))].map(habitId=>candidates.find(habit=>habit.id===habitId)??root);
-    return buildHistorySeries(selected,habits,entries,window.buckets);
-  },[root,historyReady,historyIds,candidates,habits,entries,window.buckets]);
+    return buildHistorySeries(selected,habits,entries,historyWindow.buckets);
+  },[root,historyReady,historyIds,candidates,habits,entries,historyWindow.buckets]);
   const scoreSelection=useMemo(()=>root?[...scoreIds].map(habitId=>candidates.find(habit=>habit.id===habitId)??root).map(habit=>({habit,color:habitAccent(habit,habits,colors[Math.max(0,candidates.findIndex(item=>item.id===habit.id))%colors.length])})):[],[scoreIds,candidates,root,habits]);
   if(!root)return <View style={[s.center,{backgroundColor:c.bg}]}><Text style={{color:c.text}}>{t('categoryNotFound')}</Text></View>;
   const candidate=(habitId:string)=>candidates.find(h=>h.id===habitId)??root,colorFor=(habitId:string)=>habitAccent(candidate(habitId),habits,colors[Math.max(0,candidates.findIndex(h=>h.id===habitId))%colors.length]);
@@ -79,9 +81,9 @@ export default function InsightDetailScreen(){
     {storedRoot&&storedRoot.type!=='boolean'&&<View accessibilityRole="radiogroup" accessibilityLabel={t('analysisView')} style={[s.periodControls,{backgroundColor:c.soft,marginTop:0,marginBottom:16}]}>{[false,true].map(boolean=>{const selected=boolean===booleanView,label=boolean?t('activity'):t(storedRoot.type);return <TouchableOpacity key={String(boolean)} accessibilityRole="radio" accessibilityLabel={label} accessibilityState={{selected}} onPress={()=>setAnalysisMode({id,boolean})} style={[s.periodButton,selected&&{backgroundColor:c.accent}]}><Text style={{color:selected?c.onAccent:c.text,fontWeight:'700'}}>{label}</Text></TouchableOpacity>})}</View>}
     <DetailPeriodControls period={period} anchor={anchor} window={window} today={today} entries={periodEntries} onChoose={value=>{setPeriod(value);setAnchor(today)}} onMove={amount=>setAnchor(value=>shiftDetailAnchor(period,value,amount,today))} c={c}/>
     {!contentReady?<InsightSkeleton c={c}/>:<>
-    <FadeIn><ChartCard chart="score" label={selectionLabel(scoreIds,candidates)} onFilter={()=>setFilter('score')} c={c}><Text style={{color:c.muted,fontSize:11,marginTop:12}}>{t('currentSummary')}</Text><ChartTimeline expanded={period==='all'} count={window.buckets.length}><StrengthChart habit={storedRoot!} buckets={window.buckets} period={chartPeriod} selected={scoreSelection} habits={storedHabits} entries={storedEntries} today={today} c={c}/></ChartTimeline></ChartCard></FadeIn>
+    <FadeIn><ChartCard chart="score" label={selectionLabel(scoreIds,candidates)} onFilter={()=>setFilter('score')} c={c}><ChartTimeline expanded={period==='all'} count={window.buckets.length}><StrengthChart habit={storedRoot!} buckets={window.buckets} bucketSize={scoreBucketSize} selected={scoreSelection} habits={storedHabits} entries={storedEntries} today={today} c={c}/></ChartTimeline></ChartCard></FadeIn>
     {calendarReady?<FadeIn><ActivityCalendar habit={calendarHabit} habits={habits} entries={entries} today={today} onEdit={setCalendarZoom} color={colorFor(calendarId)} onFilter={()=>setFilter('calendar')} c={c}/></FadeIn>:<DeferredCardSkeleton c={c}/>}
-    {historyReady?<ChartCard chart="history" label={selectionLabel(historyIds,candidates)} onFilter={()=>setFilter('history')} c={c}><ChartTimeline expanded={period==='all'} count={window.buckets.length}><HistoryChart key={`${period}-${anchor}`} series={historySeries} buckets={window.buckets} period={chartPeriod} type={root.type} c={c}/></ChartTimeline></ChartCard>:<DeferredCardSkeleton c={c}/>}
+    {historyReady?<ChartCard chart="history" label={selectionLabel(historyIds,candidates)} onFilter={()=>setFilter('history')} c={c}>{period==='quarter'&&<Text style={{color:c.muted,fontSize:11,textAlign:'center',marginTop:8}}>{dateLabel(historyWindow.start)+' – '+dateLabel(historyWindow.end)}</Text>}<ChartTimeline expanded={period==='all'} count={historyWindow.buckets.length}><HistoryChart key={`${period}-${anchor}`} series={historySeries} buckets={historyWindow.buckets} bucketSize={historyBucketSize} type={root.type} c={c}/></ChartTimeline></ChartCard>:<DeferredCardSkeleton c={c}/>}
     {tailReady?<><Streaks window={window} habit={candidate(streakId)} habits={habits} entries={entries} today={today} color={colorFor(streakId)} onFilter={()=>setFilter('streaks')} c={c}/><Frequency window={window} period={period} habit={candidate(frequencyId)} habits={habits} entries={entries} today={today} color={colorFor(frequencyId)} onFilter={()=>setFilter('frequency')} c={c}/></>:<><DeferredCardSkeleton c={c}/><DeferredCardSkeleton c={c}/></>}
     </>}
   </ScrollView><FilterModal filter={filter} setFilter={setFilter} candidates={candidates} scoreIds={scoreIds} historyIds={historyIds} currentSingle={currentSingle} toggleMulti={toggleMulti} setSingle={setSingle} c={c}/>{calendarZoom!==null&&<CalendarDialog initialDate={calendarZoom} calendarHabit={storedHabits.find(habit=>habit.id===calendarId)??storedRoot!} booleanView={booleanView} color={colorFor(calendarId)} onClose={()=>setCalendarZoom(null)}/>}</>;
@@ -178,14 +180,14 @@ function depthOf(habit:Habit,candidates:Habit[]){let depth=0,current=habit;while
 function selectionLabel(ids:Set<string>,candidates:Habit[]){if(ids.size===1){const habit=candidates.find(item=>ids.has(item.id));return habit?`${habit.emoji} ${habit.name}`:'1'}return `${ids.size} ${t('selected')}`}
 type ChartTitle='score'|'calendar'|'history'|'bestStreaks'|'frequency';
 const chartHelp={score:'consistencyInfo',calendar:'calendarInfo',history:'historyInfo',bestStreaks:'streaksInfo',frequency:'frequencyInfo'} as const;
-function Title({chart,c}:{chart:ChartTitle;c:Palette}){
-  const title=t(chart),help=chartHelp[chart];
-  return <View style={{flexDirection:'row',alignItems:'center',flexShrink:1,gap:2}}><Text accessibilityRole="header" style={[s.sectionTitle,{color:c.text}]}>{title}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel={t('chartInfo',{name:title})} onPress={()=>Alert.alert(title,t(help),[{text:t('close')}])} style={{width:36,minHeight:44,alignItems:'center',justifyContent:'center'}}><Ionicons name="information-circle-outline" size={17} color={c.muted}/></TouchableOpacity></View>;
+function ChartHeader({chart,label,onFilter,c}:{chart:ChartTitle;label:string;onFilter:()=>void;c:Palette}){
+  const [open,setOpen]=useState(false),title=t(chart);
+  return <View><View style={s.sectionHeader}><View style={{flexDirection:'row',alignItems:'center',flexShrink:1,gap:2}}><Text accessibilityRole="header" style={[s.sectionTitle,{color:c.text}]}>{title}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel={t('chartInfo',{name:title})} accessibilityState={{expanded:open}} onPress={()=>setOpen(value=>!value)} style={{width:44,minHeight:44,alignItems:'center',justifyContent:'center'}}><Ionicons name={open?'chevron-up':'information-circle-outline'} size={17} color={open?c.accent:c.muted}/></TouchableOpacity></View><FilterButton label={label} onPress={onFilter} c={c}/></View>{open&&<Text style={{color:c.muted,fontSize:14,lineHeight:21,marginTop:8}}>{t(chartHelp[chart])}</Text>}</View>;
 }
 function FilterButton({label,onPress,c}:{label:string;onPress:()=>void;c:Palette}){return <TouchableOpacity onPress={onPress} style={[s.filterButton,{backgroundColor:c.soft}]}><Text numberOfLines={1} style={[s.filterButtonText,{color:c.accent}]}>{label}</Text><Ionicons name="chevron-down" size={15} color={c.accent}/></TouchableOpacity>}
 
-function Header({chart,habit,onFilter,c}:{chart:ChartTitle;habit?:Habit;onFilter:()=>void;c:Palette}){return <View style={s.sectionHeader}><Title chart={chart} c={c}/><FilterButton label={habit?`${habit.emoji} ${habit.name}`:''} onPress={onFilter} c={c}/></View>}
-function ChartCard({chart,label,onFilter,c,children}:{chart:ChartTitle;label:string;onFilter:()=>void;c:Palette;children:React.ReactNode}){return <View style={[s.card,{backgroundColor:c.card}]}><View style={s.sectionHeader}><Title chart={chart} c={c}/><FilterButton label={label} onPress={onFilter} c={c}/></View>{children}</View>}
+function Header({chart,habit,onFilter,c}:{chart:ChartTitle;habit?:Habit;onFilter:()=>void;c:Palette}){return <ChartHeader chart={chart} label={habit?`${habit.emoji} ${habit.name}`:''} onFilter={onFilter} c={c}/>}
+function ChartCard({chart,label,onFilter,c,children}:{chart:ChartTitle;label:string;onFilter:()=>void;c:Palette;children:React.ReactNode}){return <View style={[s.card,{backgroundColor:c.card}]}><ChartHeader chart={chart} label={label} onFilter={onFilter} c={c}/>{children}</View>}
 function ActivityCalendar({habit,habits,entries,today,onEdit,color,onFilter,c}:{habit:Habit;habits:Habit[];entries:Entry[];today:string;onEdit:(date:string)=>void;color:string;onFilter:()=>void;c:Palette}){
   return <View style={[s.card,{backgroundColor:c.card}]}>
     <Header chart="calendar" habit={habit} onFilter={onFilter} c={c}/>
@@ -261,10 +263,12 @@ function Frequency({habit,habits,entries,window,period,color,onFilter,c}:{habit:
 }
 function ChartTimeline({expanded,count,children}:{expanded:boolean;count:number;children:React.ReactNode}){return expanded&&count>6?<ScrollView horizontal showsHorizontalScrollIndicator><View style={{width:count*60}}>{children}</View></ScrollView>:<>{children}</>}
 function DetailPeriodControls({period,anchor,window,today,entries,onChoose,onMove,c}:{period:DetailPeriod;anchor:string;window:InsightWindow;today:string;entries:Entry[];onChoose:(period:DetailPeriod)=>void;onMove:(amount:number)=>void;c:Palette}){
-  const more=()=>Alert.alert(t('analysisPeriod'),undefined,[{text:t('quarter'),onPress:()=>onChoose('quarter')},{text:t('allHistory'),onPress:()=>onChoose('all')},{text:t('cancel'),style:'cancel'}]);
-  const label=period==='all'?t('allHistory'):period==='year'?anchor.slice(0,4):period==='month'?new Intl.DateTimeFormat(undefined,{month:'long',year:'numeric'}).format(new Date(anchor+'T12:00:00')):dateLabel(window.start)+' – '+dateLabel(period==='week'?addDays(window.start,6):addDays(addMonths(window.start.slice(0,7),3)+'-01',-1));
+  const selector=useRef<ScrollView>(null),viewport=useRef(0),positions=useRef<Partial<Record<DetailPeriod,{x:number;width:number}>>>({});
+  const revealSelected=useCallback(()=>{const item=positions.current[period];if(item&&viewport.current)selector.current?.scrollTo({x:Math.max(0,item.x-(viewport.current-item.width)/2),animated:true})},[period]);
+  useEffect(revealSelected,[revealSelected]);
+  const label=period==='all'?dateLabel(window.start)+' – '+dateLabel(window.end):period==='year'?anchor.slice(0,4):period==='month'?monthYearHeading(anchor):dateLabel(window.start)+' – '+dateLabel(period==='week'?addDays(window.start,6):addDays(addMonths(window.start.slice(0,7),3)+'-01',-1));
   const current=window.start===buildDetailWindow(period,today,today,entries).start;
-  return <View style={{marginBottom:16}}><View accessibilityRole="radiogroup" accessibilityLabel={t('analysisPeriod')} style={[s.periodControls,{marginTop:0,backgroundColor:c.soft}]}>{(['week','month','year'] as const).map(value=><TouchableOpacity key={value} accessibilityRole="radio" accessibilityLabel={t(value)} accessibilityState={{selected:period===value}} onPress={()=>onChoose(value)} style={[s.periodButton,period===value&&{backgroundColor:c.accent}]}><Text style={{color:period===value?c.onAccent:c.text,fontSize:12,fontWeight:'700'}}>{t(value)}</Text></TouchableOpacity>)}<TouchableOpacity accessibilityRole="button" accessibilityLabel={t('morePeriods')} accessibilityState={{selected:period==='quarter'||period==='all'}} onPress={more} style={{minWidth:44,maxWidth:'45%',minHeight:36,paddingHorizontal:6,borderRadius:15,alignItems:'center',justifyContent:'center',backgroundColor:period==='quarter'||period==='all'?c.accent:'transparent'}}>{period==='quarter'||period==='all'?<Text style={{color:c.onAccent,fontSize:11,fontWeight:'700',textAlign:'center'}}>{t(period==='all'?'allHistory':'quarter')}</Text>:<Ionicons name="ellipsis-horizontal" size={20} color={c.text}/>}</TouchableOpacity></View><View style={s.historyNavigation}>{period!=='all'&&<TouchableOpacity accessibilityRole="button" accessibilityLabel={t('previousPeriod')} onPress={()=>onMove(-1)} style={s.historyNavButton}><Ionicons name="chevron-back" size={18} color={c.text}/></TouchableOpacity>}<Text accessibilityLiveRegion="polite" style={[s.historyRange,{color:c.muted}]}>{period==='quarter'?t('quarter')+' · ':''}{label}</Text>{period!=='all'&&<TouchableOpacity accessibilityRole="button" accessibilityLabel={t('nextPeriod')} accessibilityState={{disabled:current}} disabled={current} onPress={()=>onMove(1)} style={[s.historyNavButton,{opacity:current?.3:1}]}><Ionicons name="chevron-forward" size={18} color={c.text}/></TouchableOpacity>}</View></View>;
+  return <View style={{marginBottom:16}}><ScrollView ref={selector} horizontal showsHorizontalScrollIndicator={false} onLayout={event=>{viewport.current=event.nativeEvent.layout.width;revealSelected()}} style={{backgroundColor:c.soft,borderRadius:18}} contentContainerStyle={{flexGrow:1}}><View accessibilityRole="radiogroup" accessibilityLabel={t('analysisPeriod')} style={[s.periodControls,{marginTop:0,flexGrow:1}]}>{(['week','month','quarter','year','all'] as const).map(value=><TouchableOpacity key={value} accessibilityRole="radio" accessibilityLabel={t(value==='all'?'allHistory':value)} accessibilityState={{selected:period===value}} onLayout={event=>{positions.current[value]=event.nativeEvent.layout;revealSelected()}} onPress={()=>onChoose(value)} style={[s.periodButton,{flex:0,flexGrow:1,minHeight:44,paddingHorizontal:12},period===value&&{backgroundColor:c.accent}]}><Text style={{color:period===value?c.onAccent:c.text,fontSize:12,fontWeight:'700'}}>{t(value==='all'?'allHistoryShort':value)}</Text></TouchableOpacity>)}</View></ScrollView><View style={s.historyNavigation}><TouchableOpacity accessibilityRole="button" accessibilityLabel={t('previousPeriod')} accessibilityState={{disabled:period==='all'}} disabled={period==='all'} onPress={()=>onMove(-1)} style={[s.historyNavButton,{opacity:period==='all'?.3:1}]}><Ionicons name="chevron-back" size={18} color={c.text}/></TouchableOpacity><Text accessibilityLiveRegion="polite" style={[s.historyRange,{color:c.muted}]}>{period==='quarter'?t('quarter')+' · ':''}{label}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel={t('nextPeriod')} accessibilityState={{disabled:current||period==='all'}} disabled={current||period==='all'} onPress={()=>onMove(1)} style={[s.historyNavButton,{opacity:current||period==='all'?.3:1}]}><Ionicons name="chevron-forward" size={18} color={c.text}/></TouchableOpacity></View></View>;
 }
 
 const skeleton=StyleSheet.create({skeletonStack:{gap:16},skeletonCard:{height:360,borderRadius:23,padding:16,overflow:'hidden'},skeletonHeader:{flexDirection:'row',justifyContent:'space-between',alignItems:'center'},skeletonTitle:{width:94,height:24,borderRadius:8},skeletonPill:{width:116,height:36,borderRadius:18},skeletonChart:{height:190,marginTop:28,position:'relative'},skeletonLine:{position:'absolute',left:0,right:0,height:2,borderRadius:1},skeletonControls:{height:44,borderRadius:18,marginTop:24},calendarSkeleton:{flexDirection:'row'},calendarSkeletonWeekdays:{width:22,paddingTop:34,gap:3},calendarSkeletonWeekday:{width:12,height:44,borderRadius:3},calendarSkeletonViewport:{flex:1,overflow:'hidden'},calendarSkeletonWeeks:{flexDirection:'row',gap:3},calendarSkeletonWeek:{width:44},calendarSkeletonMonthSpace:{height:18},calendarSkeletonMonth:{width:44,height:8,borderRadius:3},calendarSkeletonDays:{gap:3},calendarSkeletonDay:{width:44,height:44,borderRadius:3}});

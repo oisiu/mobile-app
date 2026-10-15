@@ -1,3 +1,4 @@
+import { buildQuarterHistoryWindow } from '../src/domain/detailWindow';
 import { describe,expect,it } from 'vitest';
 import { buildHistorySeries,buildHistoryWindow,historyAxis,historyWeekLabel,shiftHistoryAnchor } from '../src/domain/history';
 import { Entry,Habit } from '../src/domain/types';
@@ -140,4 +141,12 @@ describe('History stacked contributions',()=>{
     expect(series.map(s=>s.values[0])).toEqual([0,1.5,.5]);
     expect(historyAxis([2],'boolean').max).toBeGreaterThanOrEqual(2);
   });
+});
+
+it.each(['number','duration','boolean'] as const)('aggregates %s across all three months into one quarter',type=>{
+ const root=habit('root',type),window=buildQuarterHistoryWindow('2026-12-01','2026-12-10');
+ const records=[entry('root','2026-10-01',2),entry('root','2026-11-01',3),entry('root','2026-12-01',4),entry('root','2026-12-11',100),entry('root','2026-09-30',5)];
+ const series=buildHistorySeries([root],[root],records,window.buckets);
+ expect(series[0].values.at(-1)).toBe(type==='boolean'?3:9);
+ expect(series[0].values.at(-2)).toBe(type==='boolean'?1:5);
 });
