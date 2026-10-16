@@ -5,7 +5,7 @@ export function useResponsiveNavigation(){
   const [pending,setPending]=useState<string|null>(null),frame=useRef<number|null>(null);
   useFocusEffect(useCallback(()=>{
     setPending(null);
-    return()=>{if(frame.current!==null)cancelAnimationFrame(frame.current)};
+    return()=>{if(frame.current!==null){cancelAnimationFrame(frame.current);frame.current=null}};
   },[]));
   const push=useCallback((href:string)=>{
     if(frame.current!==null)return;

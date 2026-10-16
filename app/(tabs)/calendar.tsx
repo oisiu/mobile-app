@@ -1,3 +1,4 @@
+import { entryErrorTitle } from '@/features/entryWriteError';
 import { visibleHabitSnapshot } from '@/domain/habitVisibility';
 import { CalendarDayBackground } from '@/features/CalendarDayBackground';
 import { habitAccent,habitChartColor } from '@/theme/habitColors';
@@ -41,7 +42,7 @@ export default function Calendar(){
     if(!selectedDate||!habit||savingRef.current)return;
     savingRef.current=true;setSaving(true);
     try{await changeEntry(habit.id,selectedDate,value);setEditor(null)}
-    catch(error){Alert.alert(t('couldNotSave'),error instanceof Error?error.message:String(error))}
+    catch(error){Alert.alert(entryErrorTitle(error),error instanceof Error?error.message:String(error))}
     finally{savingRef.current=false;setSaving(false)}
   };
   const save=async()=>{if(!editor)return;if(!isCompleteDecimalInput(editor.value))return Alert.alert(t('invalidNumber'));const input=Number(editor.value),value=editor.habit.type==='duration'?durationInputToSeconds(input,editor.unit):input;if(!Number.isFinite(value)||value<0||(editor.habit.type==='duration'&&!Number.isInteger(value)))return Alert.alert(t('invalidNumber'));await persist(value)};

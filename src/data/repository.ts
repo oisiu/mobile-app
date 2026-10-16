@@ -1,3 +1,4 @@
+import { assertHabitName } from '@/domain/habitName';
 import { HabitTypeChange,planHabitTypeChange } from '@/domain/habitTypeChange';
 import { TreeAttachment,validateAttachments } from '@/domain/treeAttachments';
 import { assertCalendarThreshold } from '@/domain/calendarThreshold';
@@ -9,7 +10,7 @@ import { planImport, validateImport } from '@/domain/import'; import { descendan
 
 const toHabit=(r:any):Habit=>({id:r.id,parentId:r.parent_id,name:r.name,emoji:r.emoji,...(r.color?{color:r.color}:{}),...(r.hide_from_overview?{hideFromOverview:true}:{}),...(r.is_hidden?{isHidden:true}:{}),...(r.calendar_threshold!=null?{calendarThreshold:r.calendar_threshold}:{}),type:r.type,sortOrder:r.sort_order,isGeneral:!!r.is_general,archivedAt:r.archived_at,createdAt:r.created_at,updatedAt:r.updated_at});
 const toEntry=(r:any):Entry=>({id:r.id,habitId:r.habit_id,value:r.value,occurredAt:r.occurred_at,localDate:r.local_date,timezone:r.timezone,createdAt:r.created_at,updatedAt:r.updated_at});
-export interface TreeDraftCreate { key:string; parentKey:string; name:string; emoji:string; color?:Habit['color']; calendarThreshold?:number|null }
+export interface TreeDraftCreate { key:string; parentKey:string; name:string; emoji:string; color?:Habit['color']; calendarThreshold?:number|null; index?:number }
 export interface TreeDraftUpdate { id:string; name:string; emoji:string; color?:Habit['color']; hideFromOverview?:boolean; isHidden?:boolean; calendarThreshold?:number|null }
 export class HabitRepository {
   constructor(private db:SQLiteDatabase){}
@@ -17,10 +18,10 @@ export class HabitRepository {
   async habits(){ return (await this.db.getAllAsync<any>('SELECT * FROM habits ORDER BY parent_id,sort_order')).map(toHabit); }
   async entries(from?:string,to?:string){ const rows=from&&to?await this.db.getAllAsync<any>('SELECT * FROM entries WHERE local_date BETWEEN ? AND ?',[from,to]):await this.db.getAllAsync<any>('SELECT * FROM entries'); return rows.map(toEntry); }
   private async normalize(parentId:string|null){ const rows=await this.db.getAllAsync<{id:string}>('SELECT id FROM habits WHERE parent_id IS ? AND is_general=0 ORDER BY sort_order,id',[parentId]); for(let i=0;i<rows.length;i++) await this.db.runAsync('UPDATE habits SET sort_order=? WHERE id=?',[i,rows[i].id]); }
-  async create(input:CreateHabitInput){ assertCalendarThreshold(input.type,input.calendarThreshold); assertHabitAppearance(input.emoji,input.color); if(input.hideFromOverview!==undefined&&(typeof input.hideFromOverview!=='boolean'||(input.hideFromOverview&&input.parentId!==null)))throw new Error('Only top-level habits can be hidden from overview'); if(input.isHidden!==undefined&&(typeof input.isHidden!=='boolean'||(input.isHidden&&input.parentId!==null)))throw new Error('Only top-level habits can be hidden'); const all=await this.habits(); if(input.parentId){ const p=all.find(h=>h.id===input.parentId); if(!p) throw new Error('Parent not found'); if(p.type!==input.type) throw new Error('A branch must use one type'); }
+  async create(input:CreateHabitInput){ assertHabitName(input.name);assertCalendarThreshold(input.type,input.calendarThreshold); assertHabitAppearance(input.emoji,input.color); if(input.hideFromOverview!==undefined&&(typeof input.hideFromOverview!=='boolean'||(input.hideFromOverview&&input.parentId!==null)))throw new Error('Only top-level habits can be hidden from overview'); if(input.isHidden!==undefined&&(typeof input.isHidden!=='boolean'||(input.isHidden&&input.parentId!==null)))throw new Error('Only top-level habits can be hidden'); const all=await this.habits(); if(input.parentId){ const p=all.find(h=>h.id===input.parentId); if(!p) throw new Error('Parent not found'); if(p.type!==input.type) throw new Error('A branch must use one type'); }
     const now=new Date().toISOString(),id=makeId(); await this.db.withTransactionAsync(async()=>{ if(input.parentId){ const real=all.filter(h=>h.parentId===input.parentId&&!h.isGeneral); if(!real.length){ const existing=all.filter(h=>h.parentId===input.parentId&&h.isGeneral)[0]; let general=existing?.id; if(!general){ general=makeId(); await this.db.runAsync('INSERT INTO habits(id,parent_id,name,emoji,type,sort_order,is_general,archived_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[general,input.parentId,'General','•',input.type,-1,1,null,now,now]); await this.db.runAsync('UPDATE entries SET habit_id=? WHERE habit_id=?',[general,input.parentId]); } } }
       const count=await this.db.getFirstAsync<{n:number}>('SELECT COUNT(*) n FROM habits WHERE parent_id IS ? AND is_general=0',[input.parentId]); await this.db.runAsync('INSERT INTO habits(id,parent_id,name,emoji,type,sort_order,is_general,archived_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[id,input.parentId,input.name.trim(),input.emoji,input.type,count?.n??0,0,null,now,now]); if(input.calendarThreshold!=null)await this.db.runAsync('UPDATE habits SET calendar_threshold=? WHERE id=?',[input.calendarThreshold,id]);if(input.color)await this.db.runAsync('UPDATE habits SET color=? WHERE id=?',[input.color,id]);if(input.hideFromOverview)await this.db.runAsync('UPDATE habits SET hide_from_overview=1 WHERE id=?',[id]);if(input.isHidden)await this.db.runAsync('UPDATE habits SET is_hidden=1 WHERE id=?',[id]); }); return id; }
-  async update(id:string,patch:Partial<Pick<Habit,'name'|'emoji'|'color'|'calendarThreshold'>>){ const previous=(await this.habits()).find(h=>h.id===id);assertHabitAppearance(patch.emoji===undefined||patch.emoji===previous?.emoji?'':patch.emoji,patch.color);assertCalendarThreshold(previous?.type??'boolean',patch.calendarThreshold);const now=new Date().toISOString(); if(patch.name!==undefined&&!patch.name.trim()) throw new Error('Name is required'); await this.db.runAsync('UPDATE habits SET name=COALESCE(?,name),emoji=COALESCE(?,emoji),color=CASE WHEN ? THEN ? ELSE color END,calendar_threshold=CASE WHEN ? THEN ? ELSE calendar_threshold END,updated_at=? WHERE id=?',[patch.name?.trim()??null,patch.emoji??null,Number(patch.color!==undefined),patch.color??null,Number(patch.calendarThreshold!==undefined),patch.calendarThreshold??null,now,id]); }
+  async update(id:string,patch:Partial<Pick<Habit,'name'|'emoji'|'color'|'calendarThreshold'>>){ const previous=(await this.habits()).find(h=>h.id===id);assertHabitAppearance(patch.emoji===undefined||patch.emoji===previous?.emoji?'':patch.emoji,patch.color);assertCalendarThreshold(previous?.type??'boolean',patch.calendarThreshold);const now=new Date().toISOString(); if(patch.name!==undefined)assertHabitName(patch.name,previous?.name); await this.db.runAsync('UPDATE habits SET name=COALESCE(?,name),emoji=COALESCE(?,emoji),color=CASE WHEN ? THEN ? ELSE color END,calendar_threshold=CASE WHEN ? THEN ? ELSE calendar_threshold END,updated_at=? WHERE id=?',[patch.name?.trim()??null,patch.emoji??null,Number(patch.color!==undefined),patch.color??null,Number(patch.calendarThreshold!==undefined),patch.calendarThreshold??null,now,id]); }
   async createTree(input:CreateHabitInput,updates:TreeDraftUpdate[],creates:TreeDraftCreate[],moves:TreeAttachment[],rootKey='__new_root__'){
     const id=makeId(),resolve=(key:string)=>key===rootKey?id:key;
     await this.writeTree(id,updates,creates.map(item=>({...item,parentKey:resolve(item.parentKey)})),[],moves.map(item=>({...item,parentKey:resolve(item.parentKey)})),input);
@@ -30,6 +31,7 @@ export class HabitRepository {
   private async writeTree(rootId:string,updates:TreeDraftUpdate[],creates:TreeDraftCreate[],deletes:string[],moves:TreeAttachment[],input?:CreateHabitInput,typeChange?:HabitTypeChange){
     await this.db.withTransactionAsync(async()=>{
       if(input){
+        assertHabitName(input.name);
         if(input.parentId!==null||!input.name.trim())throw new Error('Invalid root');
         assertHabitAppearance(input.emoji,input.color);assertCalendarThreshold(input.type,input.calendarThreshold);
         if((input.isHidden!==undefined&&typeof input.isHidden!=='boolean')||(input.hideFromOverview!==undefined&&typeof input.hideFromOverview!=='boolean'))throw new Error('Invalid visibility');
@@ -44,9 +46,10 @@ export class HabitRepository {
       const all=await this.habits(),root=all.find(h=>h.id===rootId&&!h.parentId&&!h.isGeneral);
       if(!root)throw new Error('Top-level habit not found');
       for(const item of updates)assertHabitAppearance(item.emoji===all.find(h=>h.id===item.id)?.emoji?'':item.emoji,item.color);
-      for(const item of creates){assertHabitAppearance(item.emoji,item.color);assertCalendarThreshold(root.type,item.calendarThreshold)}
+      for(const item of creates){assertHabitAppearance(item.emoji,item.color);assertCalendarThreshold(root.type,item.calendarThreshold);if(item.index!==undefined&&(!Number.isInteger(item.index)||item.index<0))throw new Error('Invalid draft position')}
       for(const item of updates)assertCalendarThreshold(root.type,item.calendarThreshold);
-      if(updates.some(item=>!item.name.trim())||creates.some(item=>!item.name.trim()))throw new Error('Name is required');
+      for(const item of updates)assertHabitName(item.name,all.find(h=>h.id===item.id)?.name);
+      for(const item of creates)assertHabitName(item.name);
       const allowed=validateAttachments(all,rootId,creates,moves),deletedTree=new Set(deletes.flatMap(id=>[id,...descendants(all,id).map(h=>h.id)]));
       if(deletes.some(id=>id===rootId||!allowed.has(id)))throw new Error('Invalid subtree deletion');
       if(updates.some(item=>item.hideFromOverview!==undefined&&(typeof item.hideFromOverview!=='boolean'||(item.hideFromOverview&&item.id!==rootId))))throw new Error('Only top-level habits can be hidden from overview');
@@ -91,6 +94,14 @@ export class HabitRepository {
           if(!real?.n){const oldGeneral=await this.db.getFirstAsync<{id:string}>('SELECT id FROM habits WHERE parent_id=? AND is_general=1',[item.expectedParentId]);if(oldGeneral){await this.db.runAsync('UPDATE entries SET habit_id=? WHERE habit_id=?',[item.expectedParentId,oldGeneral.id]);await this.db.runAsync('DELETE FROM habits WHERE id=?',[oldGeneral.id])}}
         }
       }
+      const positions=[...creates.filter(item=>item.index!==undefined).map(item=>({id:ids.get(item.key)!,parentId:ids.get(item.parentKey)??item.parentKey,index:item.index!})),...moves.filter(item=>item.index!==undefined).map(item=>({id:item.id,parentId:ids.get(item.parentKey)??item.parentKey,index:item.index!}))];
+      const snapshot=await this.habits();
+      for(const parentId of new Set(positions.map(item=>item.parentId))){
+        const placed=positions.filter(item=>item.parentId===parentId).sort((first,second)=>first.index-second.index),positioned=new Set(placed.map(item=>item.id));
+        const siblings=snapshot.filter(item=>item.parentId===parentId&&!item.isGeneral&&!positioned.has(item.id)).sort((first,second)=>first.sortOrder-second.sortOrder).map(item=>item.id);
+        for(const item of placed)siblings.splice(Math.min(item.index,siblings.length),0,item.id);
+        for(const [index,id] of siblings.entries())await this.db.runAsync('UPDATE habits SET sort_order=? WHERE id=?',[index,id]);
+      }
     });
   }
   async saveEntry(input:EntryInput){ const all=await this.habits(); const h=all.find(x=>x.id===input.habitId); if(!h) throw new Error('Habit not found'); if(h.archivedAt) throw new Error('Archived habits cannot receive entries'); const error=validateEntry(h.type,input.value,input.localDate); if(error) throw new Error(error); let target=h; const children=all.filter(x=>x.parentId===h.id); if(children.length){ target=children.find(x=>x.isGeneral)!; if(!target) throw new Error('General child missing'); }
@@ -115,7 +126,7 @@ export class HabitRepository {
   }
   async archive(id:string,archived:boolean){ const all=await this.habits(),ids=[id,...descendants(all,id).map(h=>h.id)],time=archived?new Date().toISOString():null; await this.db.withTransactionAsync(async()=>{ for(const x of ids) await this.db.runAsync('UPDATE habits SET archived_at=? WHERE id=?',[time,x]); }); }
   async remove(id:string){ const all=await this.habits(),item=all.find(h=>h.id===id); if(!item)return; await this.db.withTransactionAsync(async()=>{ await this.db.runAsync('DELETE FROM habits WHERE id=?',[id]); await this.normalize(item.parentId); if(item.parentId){ const real=await this.db.getFirstAsync<{n:number}>('SELECT COUNT(*) n FROM habits WHERE parent_id=? AND is_general=0',[item.parentId]); if(!real?.n){ const general=await this.db.getFirstAsync<{id:string}>('SELECT id FROM habits WHERE parent_id=? AND is_general=1',[item.parentId]); if(general){ await this.db.runAsync('UPDATE entries SET habit_id=? WHERE habit_id=?',[item.parentId,general.id]); await this.db.runAsync('DELETE FROM habits WHERE id=?',[general.id]); } } } }); }
-  async deletionImpact(id:string){ const all=await this.habits(),ids=[id,...descendants(all,id).map(h=>h.id)]; const placeholders=ids.map(()=>'?').join(','); const row=await this.db.getFirstAsync<{n:number}>(`SELECT COUNT(*) n FROM entries WHERE habit_id IN (${placeholders})`,ids); return {habits:ids.length,entries:row?.n??0}; }
+  async deletionImpact(id:string){ const all=await this.habits(),ids=[id,...descendants(all,id).map(h=>h.id)]; const placeholders=ids.map(()=>'?').join(','); const row=await this.db.getFirstAsync<{n:number}>(`SELECT COUNT(*) n FROM entries WHERE habit_id IN (${placeholders})`,ids); return {habits:all.filter(h=>ids.includes(h.id)&&!h.isGeneral).length,entries:row?.n??0}; }
   async export():Promise<ExportData>{ return {version:1,exportedAt:new Date().toISOString(),habits:await this.habits(),entries:await this.entries()}; }
   async import(raw:unknown){
     const incoming=validateImport(raw);

@@ -5,7 +5,7 @@ import { t } from '@/i18n';
 
 export function useDraftGuard(dirty:boolean,busy?:{current:boolean}){
   const navigation=useNavigation(),allowed=useRef(false),prompting=useRef(false);
-  usePreventRemove(dirty,({data})=>{
+  usePreventRemove(dirty||!!busy?.current,({data})=>{
     if(allowed.current){navigation.dispatch(data.action);return}
     if(busy?.current||prompting.current)return;
     prompting.current=true;

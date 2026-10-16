@@ -10,7 +10,7 @@ import React from 'react';
 import { act,create,ReactTestRenderer,ReactTestInstance } from 'react-test-renderer';
 import { afterEach,beforeEach,describe,expect,it,vi } from 'vitest';
 import { Habit } from '../src/domain/types';
-import { light,dark } from '../src/theme';
+import { light,dark,depthBackground } from '../src/theme';
 import { aggregate } from '../src/domain/aggregation';
 import InsightDetailScreen from '../src/features/insights/InsightDetailScreen';
 import { StrengthChart } from '../src/features/insights/StrengthChart';
@@ -23,7 +23,7 @@ import Insights from '../app/(tabs)/insights';
 import Calendar from '../app/(tabs)/calendar';
 import { CalendarDayBackground } from '../src/features/CalendarDayBackground';
 
-const state=vi.hoisted(()=>({app:{} as Record<string,unknown>,alert:vi.fn(),path:'/',pending:null as string|null,push:vi.fn(),today:'2026-09-08',navigate:vi.fn(),dismissTo:vi.fn()}));
+const state=vi.hoisted(()=>({app:{} as Record<string,unknown>,blur:null as null|(()=>void),alert:vi.fn(),path:'/',pending:null as string|null,push:vi.fn(),today:'2026-09-08',navigate:vi.fn(),dismissTo:vi.fn()}));
 vi.mock('expo-haptics',()=>({impactAsync:vi.fn().mockResolvedValue(undefined),ImpactFeedbackStyle:{Light:'Light'}}));
 vi.mock('../src/features/home/CategoryDragHandle',()=>({CategoryDragHandle:'DragHandle'}));
 vi.mock('react-native',()=>({
@@ -36,7 +36,7 @@ vi.mock('react-native',()=>({
 vi.mock('react-native-svg',()=>({default:'Svg',Circle:'Circle',Line:'Line',Polyline:'Polyline',Text:'SvgText',Rect:'Rect',Defs:'Defs',Pattern:'Pattern',Path:'Path'}));
 vi.mock('@expo/vector-icons',()=>({Ionicons:'Icon'}));
 vi.mock('react-native-safe-area-context',()=>({useSafeAreaInsets:()=>({top:0,bottom:0,left:0,right:0})}));
-vi.mock('expo-router',()=>({useLocalSearchParams:()=>({id:'habit'}),usePathname:()=>state.path,router:{push:state.push,back:vi.fn(),navigate:state.navigate,dismissTo:state.dismissTo}}));
+vi.mock('expo-router',()=>({useFocusEffect:(effect:()=>()=>void)=>React.useEffect(()=>{const cleanup=effect();state.blur=cleanup;return cleanup},[effect]),useLocalSearchParams:()=>({id:'habit'}),usePathname:()=>state.path,router:{push:state.push,back:vi.fn(),navigate:state.navigate,dismissTo:state.dismissTo}}));
 vi.mock('../src/features/AppProvider',()=>({useApp:()=>state.app,SuccessToast:'SuccessToast'}));
 vi.mock('../src/features/insights/useChartEntrance',()=>({useChartEntrance:()=>true}));
 vi.mock('../src/features/useResponsiveNavigation',()=>({usePrefetchRoutes:()=>{},useResponsiveNavigation:()=>({pending:state.pending,push:state.push})}));
@@ -584,27 +584,145 @@ it('keeps hidden categories in settings and restores them with the eye button',a
  await press(button(root,t('restoreHiddenCategory',{name:'Reading'})));expect(restore).toHaveBeenCalledExactlyOnceWith('habit',false);expect(refresh).toHaveBeenCalledOnce();
  await act(async()=>renderer.update(<HiddenCategories/>));expect(button(root,t('hiddenCategories'))).toBeUndefined();expect(success).toHaveBeenCalledWith(t('hiddenCategoryRestored',{name:'Reading'}));
 });
-it('retains hidden categories on recovery failure and prevents duplicate recovery writes',async()=>{
+it.each(['card','list'] as const)('retains hidden categories on recovery failure and prevents duplicate recovery writes in the %s',async variant=>{
  const hidden={...habit,isHidden:true};let reject!:(error:Error)=>void;const restore=vi.fn(()=>new Promise<void>((_,fail)=>{reject=fail}));
  state.app={...state.app,ready:true,habits:[hidden],repo:{setHidden:restore},refresh:vi.fn(),showSuccess:vi.fn()};
- const root=await render(<HiddenCategories/>);
+ const root=await render(<HiddenCategories variant={variant}/>);
  await press(button(root,t('hiddenCategories')));const eye=button(root,t('restoreHiddenCategory',{name:'Reading'}));
  await act(async()=>{void eye.props.onPress();void eye.props.onPress()});expect(restore).toHaveBeenCalledOnce();expect(eye.props.disabled).toBe(true);
  await act(async()=>reject(new Error('Synthetic recovery failure')));expect(state.alert).toHaveBeenCalledWith(t('couldNotSave'),'Synthetic recovery failure');expect(eye.props.disabled).toBe(false);expect(button(root,t('edit')+' Reading')).toBeDefined();expect(state.app.refresh).not.toHaveBeenCalled();
 });
+it.each(['card','list'] as const)('retries only refresh after a committed restoration in the %s',async variant=>{
+ const restore=vi.fn().mockResolvedValue(undefined),success=vi.fn();
+ const refresh=vi.fn().mockRejectedValueOnce(new Error('Refresh failed')).mockImplementationOnce(async()=>{state.app={...state.app,habits:[{...habit,isHidden:false}]}});
+ state.app={...state.app,habits:[{...habit,isHidden:true}],repo:{setHidden:restore},refresh,showSuccess:success};
+ const root=await render(<HiddenCategories variant={variant}/>);
+ await press(button(root,t('hiddenCategories')));await press(button(root,t('restoreHiddenCategory',{name:'Reading'})));
+ expect(state.alert).toHaveBeenLastCalledWith(t('habitSavedRefreshFailed'),t('hiddenCategoryRefreshHelp'));
+ expect(button(root,t('restoreHiddenCategory',{name:'Reading'})).props.disabled).toBe(true);
+ expect(button(root,t('edit')+' Reading').props.disabled).toBe(true);expect(success).not.toHaveBeenCalled();
+ await press(button(root,t('retry')));expect(restore).toHaveBeenCalledExactlyOnceWith('habit',false);expect(refresh).toHaveBeenCalledTimes(2);
+ await act(async()=>renderer.update(<HiddenCategories variant={variant}/>));
+ expect(button(renderer.root,t('hiddenCategories'))).toBeUndefined();expect(success).toHaveBeenCalledExactlyOnceWith(t('hiddenCategoryRestored',{name:'Reading'}));
+});
 
-it('toggles the expanded hidden-category footer with a three-second title hold',async()=>{
- state.app={...state.app,ready:true,habits:[{...habit,isHidden:true}]};
+it.each([
+ {theme:'light',palette:light,variant:'list' as const},
+ {theme:'dark',palette:dark,variant:'list' as const},
+ {theme:'light',palette:light,variant:'card' as const},
+ {theme:'dark',palette:dark,variant:'card' as const},
+])('preserves $variant presentation and collapse semantics in $theme mode',async({palette,variant})=>{
+ const restore=vi.fn(),refresh=vi.fn();state.app={...state.app,palette,habits:[{...habit,isHidden:true}],repo:{setHidden:restore},refresh};
+ const root=await render(<HiddenCategories variant={variant}/>);
+ const styles=(node:ReactTestInstance)=>Object.assign({},...node.props.style.filter(Boolean));
+ const container=root.findAllByType('View' as React.ElementType)[0],heading=button(root,t('hiddenCategories'));
+ expect(styles(container).backgroundColor).toBe(palette.card);
+ expect(styles(container).borderRadius).toBe(variant==='list'?0:18);
+ expect(heading.props.accessibilityState.expanded).toBe(false);
+ expect(button(root,t('edit')+' Reading')).toBeUndefined();
+ await press(heading);
+ const edit=button(root,t('edit')+' Reading'),row=edit.parent!;
+ expect(heading.props.accessibilityState.expanded).toBe(true);
+ const help=root.findAll(node=>node.type as unknown==='Text'&&node.props.children===t('restoreHiddenCategoryHelp'));
+ expect(help).toHaveLength(variant==='list'?0:1);
+ if(variant==='list'){
+  expect(styles(row).backgroundColor).toBe(depthBackground(palette.card,palette.soft,1));
+  expect(styles(row).minHeight).toBe(styles(heading).minHeight);
+  expect(styles(row).paddingLeft).toBeGreaterThan(styles(heading).paddingHorizontal);
+ }
+ expect(button(root,t('restoreHiddenCategory',{name:'Reading'})).props.accessibilityHint).toBe(t('restoreHiddenCategoryHelp'));
+ await press(edit);expect(state.push).toHaveBeenCalledExactlyOnceWith('/habit/habit');
+ await press(heading);expect(heading.props.accessibilityState.expanded).toBe(false);
+ expect(button(root,t('edit')+' Reading')).toBeUndefined();
+ expect(restore).not.toHaveBeenCalled();expect(refresh).not.toHaveBeenCalled();
+});
+
+it('lists only active hidden roots in saved order and disables recovery without a repository',async()=>{
+ const first={...habit,id:'first',name:'First',isHidden:true,sortOrder:1},last={...first,id:'last',name:'Last',sortOrder:5};
+ state.app={...state.app,repo:null,habits:[last,{...habit,id:'visible'},{...first,id:'archived',archivedAt:'2026-09-01'},{...first,id:'child',parentId:'first'},{...first,id:'general',isGeneral:true},first]};
+ const root=await render(<HiddenCategories variant="list"/>);
+ const heading=button(root,t('hiddenCategories'));
+ expect(heading.findAll(node=>node.type as unknown==='Text'&&node.props.children===2)).toHaveLength(1);
+ await press(heading);
+ const edits=root.findAll(node=>node.type as unknown==='TouchableOpacity'&&node.props.accessibilityLabel?.startsWith(t('edit')+' '));
+ expect(edits.map(node=>node.props.accessibilityLabel)).toEqual([t('edit')+' First',t('edit')+' Last']);
+ const eye=button(root,t('restoreHiddenCategory',{name:'First'}));expect(eye.props.disabled).toBe(true);
+ await press(eye);expect(state.alert).not.toHaveBeenCalled();
+ state.app={...state.app,habits:[{...habit,isHidden:false}]};
+ await act(async()=>renderer.update(<HiddenCategories variant="list"/>));
+ expect(button(renderer.root,t('hiddenCategories'))).toBeUndefined();
+});
+
+it('starts the Home disclosure collapsed again after hiding and revealing it',async()=>{
+ const restore=vi.fn(),success=vi.fn();state.app={...state.app,ready:true,habits:[{...habit,isHidden:true}],repo:{setHidden:restore},showSuccess:success};
+ const root=await render(<Home/>);
+ await act(async()=>root.findAllByType('View' as React.ElementType)[0].props.onLayout({nativeEvent:{layout:{width:360}}}));
+ const title=button(root,'Oi Siu');
+ await act(async()=>title.props.onAccessibilityAction({nativeEvent:{actionName:'activate'}}));
+ await press(button(root,t('hiddenCategories')));expect(button(root,t('edit')+' Reading')).toBeDefined();
+ await act(async()=>state.blur!());expect(button(root,t('hiddenCategories'))).toBeUndefined();
+ await act(async()=>title.props.onAccessibilityAction({nativeEvent:{actionName:'activate'}}));
+ expect(button(root,t('hiddenCategories')).props.accessibilityState.expanded).toBe(false);
+ expect(button(root,t('edit')+' Reading')).toBeUndefined();expect(restore).not.toHaveBeenCalled();
+});
+
+it('reveals a collapsed hidden-category list row with three quick taps and announces both states',async()=>{
+ const success=vi.fn();state.app={...state.app,ready:true,habits:[{...habit,isHidden:true}],showSuccess:success};
  const root=await render(<Home/>);await act(async()=>root.findAllByType('View' as React.ElementType)[0].props.onLayout({nativeEvent:{layout:{width:360}}}));
- const title=button(root,'Oi Siu');expect(title.props.delayLongPress).toBe(3000);expect(title.props.onPress).toBeUndefined();
+ const title=button(root,'Oi Siu');expect(title.props.onLongPress).toBeUndefined();
  expect(button(root,t('hiddenCategories'))).toBeUndefined();
- await act(async()=>title.props.onLongPress());
+ await press(title);await press(title);expect(button(root,t('hiddenCategories'))).toBeUndefined();expect(success).not.toHaveBeenCalled();
+ await press(title);
+ expect(button(root,t('hiddenCategories')).props.accessibilityState.expanded).toBe(false);
+ expect(button(root,t('edit')+' Reading')).toBeUndefined();
+ expect(root.findByType(HiddenCategories).props.variant).toBe('list');
+ await press(button(root,t('hiddenCategories')));
  expect(button(root,t('hiddenCategories')).props.accessibilityState.expanded).toBe(true);
  expect(button(root,t('edit')+' Reading')).toBeDefined();
  expect(root.findAll(node=>node.props.data).map(node=>node.props.data)).toContainEqual([]);
- await act(async()=>title.props.onLongPress());expect(button(root,t('hiddenCategories'))).toBeUndefined();
+ expect(success).toHaveBeenLastCalledWith(t('hiddenCategoriesVisible'));
+ await press(title);await press(title);await press(title);expect(button(root,t('hiddenCategories'))).toBeUndefined();
+ expect(success).toHaveBeenLastCalledWith(t('hiddenCategoriesConcealed'));
  await act(async()=>title.props.onAccessibilityAction({nativeEvent:{actionName:'activate'}}));
  expect(button(root,t('hiddenCategories'))).toBeDefined();
+});
+
+it('resets slow taps and clears temporary visibility and partial taps when leaving Home',async()=>{
+ const clock=vi.spyOn(Date,'now');let now=1000;clock.mockImplementation(()=>now);
+ const success=vi.fn();state.app={...state.app,ready:true,habits:[{...habit,isHidden:true}],showSuccess:success};
+ try{
+  const root=await render(<Home/>);await act(async()=>root.findAllByType('View' as React.ElementType)[0].props.onLayout({nativeEvent:{layout:{width:360}}}));
+  const title=button(root,'Oi Siu');
+  await press(title);now+=501;await press(title);now+=100;await press(title);
+  expect(button(root,t('hiddenCategories'))).toBeUndefined();
+  now+=100;await press(title);expect(button(root,t('hiddenCategories'))).toBeDefined();
+  await press(title);await press(title);
+  await act(async()=>state.blur!());expect(button(root,t('hiddenCategories'))).toBeUndefined();
+  await press(title);expect(button(root,t('hiddenCategories'))).toBeUndefined();
+  expect(success).toHaveBeenCalledOnce();
+ }finally{clock.mockRestore()}
+});
+
+it('keeps title reveals temporary while explicit recovery from More persists on returning Home',async()=>{
+ const hidden={...habit,isHidden:true},restore=vi.fn().mockResolvedValue(undefined),success=vi.fn();
+ const refresh=vi.fn().mockImplementation(async()=>{state.app={...state.app,habits:[{...hidden,isHidden:false}]}});
+ state.app={...state.app,ready:true,habits:[hidden],repo:{setHidden:restore},refresh,showSuccess:success};
+ let root=await render(<Home/>);
+ await act(async()=>root.findAllByType('View' as React.ElementType)[0].props.onLayout({nativeEvent:{layout:{width:360}}}));
+ const title=button(root,'Oi Siu');await press(title);await press(title);await press(title);
+ expect(restore).not.toHaveBeenCalled();expect((state.app.habits as Habit[])[0].isHidden).toBe(true);
+ await act(async()=>renderer.update(<HiddenCategories/>));
+ root=renderer.root;
+ await press(button(root,t('hiddenCategories')));
+ expect(button(root,t('restoreHiddenCategory',{name:'Reading'})).props.accessibilityHint).toBe(t('restoreHiddenCategoryHelp'));
+ await press(button(root,t('restoreHiddenCategory',{name:'Reading'})));
+ expect(restore).toHaveBeenCalledExactlyOnceWith('habit',false);
+ await act(async()=>renderer.update(<Home/>));
+ root=renderer.root;
+ await act(async()=>root.findAllByType('View' as React.ElementType)[0].props.onLayout({nativeEvent:{layout:{width:360}}}));
+ expect(button(root,'Oi Siu').props.accessibilityState.expanded).toBe(false);
+ expect(root.findAll(node=>Array.isArray(node.props.data)&&node.props.data.some((item:{habit?:Habit})=>item.habit?.id==='habit')).length).toBeGreaterThan(0);
+ expect((state.app.habits as Habit[])[0].isHidden).toBe(false);
 });
 
 it('omits hidden categories from Today including its footer',async()=>{
