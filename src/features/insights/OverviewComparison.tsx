@@ -28,7 +28,7 @@ export function OverviewComparison({roots,habits,entries,today,c,period,anchor,o
       <TouchableOpacity accessibilityRole="button" accessibilityLabel={history?t('selectMultiple')+' '+title:t('selectMultiple')} onPress={()=>setFilter(true)} style={[s.filter,{backgroundColor:c.soft}]}><Text style={{color:c.text}}>{selected.length} {t('selected')}</Text><Ionicons name="options-outline" size={18} color={c.text}/></TouchableOpacity>
     </View>
     {roots.length?<>
-      {history?<HistoryChart series={historySeries} buckets={window.buckets} period={scale} type="boolean" c={c} showLegend={false} highlightedId={highlightedId} onHighlight={setHighlight}/>:<StrengthChart habit={selected[0].habit} selected={selected} habits={habits} entries={entries} today={today} buckets={window.buckets} period={scale} c={c} showSummary={false} showPoints={false} highlightedId={highlightedId} onHighlight={setHighlight}/>}
+      {history?<HistoryChart series={historySeries} buckets={window.buckets} bucketSize={period==='year'?'month':'day'} type="boolean" c={c} showLegend={false} highlightedId={highlightedId} onHighlight={setHighlight}/>:<StrengthChart habit={selected[0].habit} selected={selected} habits={habits} entries={entries} today={today} buckets={window.buckets} bucketSize={period==='year'?'month':'day'} c={c} showSummary={false} showPoints={false} highlightedId={highlightedId} onHighlight={setHighlight}/>}
       <OverviewLegend items={selected} highlightedId={highlightedId} onHighlight={setHighlight} c={c}/>
     </>:<Text style={{color:c.muted,textAlign:'center',paddingVertical:24}}>{t('empty')}</Text>}
     <View style={s.navigation}>

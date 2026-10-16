@@ -134,18 +134,25 @@ describe('Score axis',()=>{
     expect(button(root,t('nextPeriod')).props.disabled).toBe(false);
     await press(button(root,t('nextPeriod')));
     expect(root.findByType(StrengthChart).props.buckets[0].key).toBe('2026-09-01');
-    await press(button(root,t('morePeriods')));
-    await act(async()=>state.alert.mock.calls.at(-1)![2][0].onPress());
+    for(const label of ['week','month','quarter','year','allHistoryShort'] as const)expect(period(t(label))).toBeDefined();
+    await press(period(t('quarter')));
+    expect(period(t('quarter')).props.accessibilityState.selected).toBe(true);
     const buckets=root.findByType(StrengthChart).props.buckets;
     expect(buckets).toHaveLength(3);
     expect(buckets[0].key).toBe('2026-07');
+    await act(async()=>root.findAllByType('ScrollView' as React.ElementType)[0].props.onScroll({nativeEvent:{contentOffset:{y:800}}}));
+    const history=root.findByType(HistoryChart);
+    expect(history.props.buckets).toHaveLength(12);
+    expect(history.props.buckets.at(-1).key).toBe('2026-Q3');
+    expect(history.props.bucketSize).toBe('quarter');
+    expect(history.findAllByType('SvgText' as React.ElementType).filter(node=>node.props.y===177).map(node=>node.props.children)).toEqual(history.props.buckets.map((bucket:{label:string})=>t('quarterShort',{number:bucket.label})));
     const chart=root.findByType(StrengthChart);
     const labels=chart.findAllByType('SvgText' as React.ElementType).map(node=>node.props.children);
     expect(chart.findAllByType('SvgText' as React.ElementType).filter(node=>node.props.y===178).map(node=>node.props.children)).toEqual(buckets.map((bucket:{label:string})=>bucket.label.replace(/[.\s]/g,'').slice(0,3)));
     expect(labels).toContain('2026');
   });
   it.each([light,dark])('keeps each percentage in one text node outside the plot',async c=>{
-    const root=await render(<StrengthChart habit={habit} selected={[{habit,color:c.accent}]} habits={[habit]} entries={[]} today="2026-09-08" buckets={[{key:'2026-09-08',label:'T',dates:new Set(['2026-09-08'])}]} period="week" c={c}/>);
+    const root=await render(<StrengthChart habit={habit} selected={[{habit,color:c.accent}]} habits={[habit]} entries={[]} today="2026-09-08" buckets={[{key:'2026-09-08',label:'T',dates:new Set(['2026-09-08'])}]} bucketSize="day" c={c}/>);
     const labels=root.findAllByType('SvgText' as React.ElementType).filter(node=>typeof node.props.children==='string'&&node.props.children.endsWith('%'));
     expect(labels.map(node=>node.props.children)).toEqual(['100%','80%','60%','40%','20%','0%']);
     const plotLeft=root.findAllByType('Line' as React.ElementType)[0].props.x1;
@@ -374,8 +381,8 @@ it('compares only root scores with one, several or all curves and twelve-month Y
   await press(all);expect(score().props.selected).toHaveLength(3);
   expect(score().props.selected.map((item:{color:string})=>item.color)).toEqual([habitAccentPalette.green,habitAccentPalette.blue,habitAccentPalette.pink]);
   await press(button(root,t('year')));
-  expect(score().props.period).toBe('quarter');
-  expect(root.findByType(HistoryChart).props.period).toBe('quarter');
+  expect(score().props.bucketSize).toBe('month');
+  expect(root.findByType(HistoryChart).props.bucketSize).toBe('month');
   expect(root.findAll(node=>node.props.accessibilityLabel===t('year')+' '+t('score'))).toHaveLength(0);
   expect(root.findAll(node=>node.props.accessibilityLabel===t('quarter')+' '+t('history'))).toHaveLength(0);
   expect(score().props.buckets).toHaveLength(12);
@@ -455,7 +462,7 @@ it('handles empty analyses and recovers selection when the selected root is arch
 
 it.each([['number',9999],['duration',7200]] as const)('keeps %s History labels inside their gutter and omits future readouts',async(type,value)=>{
   const buckets=[{key:'2026-09-08',label:'8',dates:new Set(['2026-09-08'])},{key:'2026-09-09',label:'9',dates:new Set<string>()}];
-  const root=await render(<HistoryChart series={[{habit:{...habit,type},color:light.accent,values:[value,0]}]} buckets={buckets} period="month" type={type} c={light}/>);
+  const root=await render(<HistoryChart series={[{habit:{...habit,type},color:light.accent,values:[value,0]}]} buckets={buckets} bucketSize="day" type={type} c={light}/>);
   const svg=root.findByType('Svg' as React.ElementType);
   expect(svg.props.accessibilityLabel).toContain('2026-09-08');
   expect(svg.props.accessibilityLabel).not.toContain('2026-09-09');
@@ -466,7 +473,7 @@ it.each([['number',9999],['duration',7200]] as const)('keeps %s History labels i
 
 it.each([28,29,30,31])('keeps the final day readable on %i-day monthly axes',async(days)=>{
   const buckets=Array.from({length:days},(_,index)=>({key:`2026-10-${index+1}`,label:String(index+1),dates:new Set<string>()}));
-  const root=await render(<><StrengthChart habit={habit} selected={[{habit,color:light.accent}]} habits={[habit]} entries={[]} today="2026-10-02" buckets={buckets} period="month" c={light}/><HistoryChart series={[{habit,color:light.accent,values:buckets.map(()=>0)}]} buckets={buckets} period="month" type="boolean" c={light}/></>);
+  const root=await render(<><StrengthChart habit={habit} selected={[{habit,color:light.accent}]} habits={[habit]} entries={[]} today="2026-10-02" buckets={buckets} bucketSize="day" c={light}/><HistoryChart series={[{habit,color:light.accent,values:buckets.map(()=>0)}]} buckets={buckets} bucketSize="day" type="boolean" c={light}/></>);
   for(const chart of [root.findByType(StrengthChart),root.findByType(HistoryChart)]){
     const labels=chart.findAllByType('SvgText' as React.ElementType).filter(node=>node.props.y===178||node.props.y===177);
     expect(labels[0].props.children).toBe('1');
@@ -475,9 +482,9 @@ it.each([28,29,30,31])('keeps the final day readable on %i-day monthly axes',asy
   }
 });
 
-it('labels every third month in quarterly History while retaining all twelve bars',async()=>{
+it('labels every third monthly History bucket while retaining all twelve bars',async()=>{
   const buckets=Array.from({length:12},(_,index)=>({key:`2026-${String(index+1).padStart(2,'0')}`,label:`m${index+1}`,dates:new Set([`2026-${String(index+1).padStart(2,'0')}-01`])}));
-  const root=await render(<HistoryChart series={[{habit,color:light.accent,values:buckets.map(()=>1)}]} buckets={buckets} period="quarter" type="boolean" c={light}/>);
+  const root=await render(<HistoryChart series={[{habit,color:light.accent,values:buckets.map(()=>1)}]} buckets={buckets} bucketSize="month" type="boolean" c={light}/>);
   expect(root.findAllByType('Rect' as React.ElementType)).toHaveLength(12);
   expect(root.findAllByType('SvgText' as React.ElementType).filter(node=>node.props.y===177).map(node=>node.props.children)).toEqual(['m1','m4','m7','m10']);
 });
@@ -532,7 +539,7 @@ it('highlights overview legends independently without changing values, filters o
   await act(async()=>root.findByType(PieCategoryFilter).props.onChange(new Set(['second'])));expect(legends()[0].props.highlightedId).toBeNull();
   await act(async()=>renderer.update(<InsightDetailScreen/>));
   expect(renderer.root.findByType(StrengthChart).props.highlightedId).toBeUndefined();
-  await act(async()=>renderer.update(<HistoryChart series={[{habit,color:light.accent,values:[1]}]} buckets={[{key:state.today,label:'Today',dates:new Set([state.today])}]} period="week" type="boolean" c={light}/>));
+  await act(async()=>renderer.update(<HistoryChart series={[{habit,color:light.accent,values:[1]}]} buckets={[{key:state.today,label:'Today',dates:new Set([state.today])}]} bucketSize="day" type="boolean" c={light}/>));
   expect(renderer.root.findAllByType('Text' as React.ElementType).some(node=>Array.isArray(node.props.children)&&node.props.children[0]===habit.emoji)).toBe(true);
 });
 
@@ -732,13 +739,20 @@ it('omits hidden categories from Today including its footer',async()=>{
  expect(root.findAll(node=>node.props.data).map(node=>node.props.data)).toContainEqual([]);
 });
 
-it('opens a distinct explanation for every habit chart without changing its values',async()=>{
+it('expands and collapses inline explanations independently without changing chart values',async()=>{
  const root=await render(<InsightDetailScreen/>);
  await act(async()=>{await new Promise(resolve=>setTimeout(resolve,10))});
  await act(async()=>root.findAllByType('ScrollView' as React.ElementType)[0].props.onScroll({nativeEvent:{contentOffset:{y:800}}}));
  for(const [chart,help] of [['score','consistencyInfo'],['calendar','calendarInfo'],['history','historyInfo'],['bestStreaks','streaksInfo'],['frequency','frequencyInfo']] as const){
-  await press(button(root,t('chartInfo',{name:t(chart)})));
-  expect(state.alert).toHaveBeenLastCalledWith(t(chart),t(help),[{text:t('close')}]);
+  const info=()=>button(root,t('chartInfo',{name:t(chart)}));
+  expect(info().props.accessibilityState.expanded).toBe(false);
+  expect(root.findAllByType('Text' as React.ElementType).map(node=>node.props.children)).not.toContain(t(help));
+  await press(info());
+  expect(info().props.accessibilityState.expanded).toBe(true);
+  expect(root.findAllByType('Text' as React.ElementType).map(node=>node.props.children)).toContain(t(help));
+  await press(info());
+  expect(info().props.accessibilityState.expanded).toBe(false);
+  expect(root.findAllByType('Text' as React.ElementType).map(node=>node.props.children)).not.toContain(t(help));
  }
  expect(state.app.changeEntry).not.toHaveBeenCalled();
  expect(root.findByType(StrengthChart).props.habit.id).toBe(habit.id);
@@ -767,10 +781,12 @@ it('shares detail periods across charts while keeping the calendar independent',
  expect(root.findByType(StrengthChart).props.buckets).toHaveLength(12);
  expect(root.findByType(HistoryChart).props.buckets).toEqual(root.findByType(StrengthChart).props.buckets);
  expect(calendar()).toEqual(before);
- await press(button(root,t('morePeriods')));await act(async()=>state.alert.mock.calls.at(-1)![2][1].onPress());
+ await press(button(root,t('allHistory')));
  expect(root.findByType(StrengthChart).props.buckets.map((bucket:{key:string})=>bucket.key)).toEqual(['2018','2019','2020','2021','2022','2023','2024','2025','2026']);
  expect(root.findByType(HistoryChart).props.buckets).toEqual(root.findByType(StrengthChart).props.buckets);
- expect(button(root,t('nextPeriod'))).toBeUndefined();expect(calendar()).toEqual(before);
+ expect(button(root,t('nextPeriod')).props.disabled).toBe(true);
+ expect(button(root,t('previousPeriod')).props.disabled).toBe(true);
+ expect(button(root,t('previousPeriod')).props.accessibilityState.disabled).toBe(true);expect(calendar()).toEqual(before);
  await press(button(root,t('week')));expect(root.findByType(StrengthChart).props.buckets).toHaveLength(7);
 });
 
