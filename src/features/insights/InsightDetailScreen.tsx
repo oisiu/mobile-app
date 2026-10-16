@@ -1,3 +1,4 @@
+import { entryErrorTitle } from '@/features/entryWriteError';
 import { buildFrequency } from '@/domain/frequency';
 import { calendarFillOpacity } from '@/domain/calendarThreshold';
 import { descendants } from '@/domain/tree';
@@ -101,7 +102,7 @@ function CalendarDialog({initialDate,calendarHabit,color,onClose,booleanView=fal
     if(calendarSavingRef.current||date>today||calendarHabit.archivedAt)return;
     calendarSavingRef.current=true;setSavingDate(date);
     try{await changeEntry(calendarHabit.id,date,value);setCalendarEditor(null)}
-    catch(error){Alert.alert(t('couldNotSave'),error instanceof Error?error.message:String(error))}
+    catch(error){Alert.alert(entryErrorTitle(error),error instanceof Error?error.message:String(error))}
     finally{calendarSavingRef.current=false;setSavingDate(null)}
   };
   const openCalendarEditor=(date:string)=>{

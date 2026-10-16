@@ -300,6 +300,44 @@ it('keeps staged attachments in the preview order among newly created siblings',
  await repo.editTree('root',[],[{key:'new',parentKey:'root',name:'New',emoji:'✨'}],[],[{id:'existing',parentKey:'root',expectedParentId:null,index:0}]);
  const saved=await repo.export();expect(saved.habits.filter(h=>h.parentId==='root'&&!h.isGeneral).map(h=>[h.name,h.sortOrder])).toEqual([['existing',0],['New',1]]);expect(()=>validateImport(saved)).not.toThrow();
 });
+it('enforces name limits on writes while preserving unchanged imported legacy names',async()=>{
+ const {repo}=await setup(),legacy='a'.repeat(60);
+ await repo.import(doc([{...h('root'),name:legacy}]));
+ await repo.update('root',{name:legacy,color:'blue'});
+ await expect(repo.update('root',{name:'b'.repeat(26)})).rejects.toThrow('habitNameTooLong');
+ await expect(repo.create({name:' ',emoji:'✨',type:'number',parentId:null})).rejects.toThrow('nameRequired');
+ await expect(repo.create({name:'b'.repeat(26),emoji:'✨',type:'number',parentId:null})).rejects.toThrow('habitNameTooLong');
+ await expect(repo.editTree('root',[{id:'root',name:legacy,emoji:'•'}],[{key:'new',parentKey:'root',name:'b'.repeat(26),emoji:'✨'}],[])).rejects.toThrow('habitNameTooLong');
+ expect((await repo.habits()).map(item=>item.name)).toEqual([legacy]);
+ await repo.create({name:'b'.repeat(25),emoji:'✨',type:'number',parentId:'root'});
+ expect((await repo.deletionImpact('root')).habits).toBe(2);
+});
+it('excludes internal General habits from deletion counts while including their records',async()=>{
+ const {repo}=await setup();await repo.import(doc([h('root'),h('general','root',-1,true),h('child','root')],[e('direct','general'),e('child-record','child')]));
+ expect(await repo.deletionImpact('root')).toEqual({habits:2,entries:2});
+ expect(await repo.deletionImpact('child')).toEqual({habits:1,entries:1});
+});
+
+it('preserves draft insertion positions among existing, new and attached siblings at nested levels',async()=>{
+ const {repo}=await setup();await repo.import(doc([h('root'),h('general','root',-1,true),h('existing','root'),h('nested-general','existing',-1,true),h('nested','existing'),h('source',null,1)],[e('record','nested')]));
+ await repo.editTree('root',[],[
+  {key:'first',parentKey:'root',name:'First',emoji:'✨',index:0},
+  {key:'nested-first',parentKey:'existing',name:'Nested first',emoji:'✨',index:0},
+  {key:'last',parentKey:'root',name:'Last',emoji:'✨',index:3},
+ ],[],[{id:'source',parentKey:'root',expectedParentId:null,index:1}]);
+ const saved=await repo.export();
+ expect(saved.habits.filter(item=>item.parentId==='root'&&!item.isGeneral).map(item=>[item.name,item.sortOrder])).toEqual([['First',0],['source',1],['existing',2],['Last',3]]);
+ expect(saved.habits.filter(item=>item.parentId==='existing'&&!item.isGeneral).map(item=>[item.name,item.sortOrder])).toEqual([['Nested first',0],['nested',1]]);
+ expect(saved.entries).toEqual([e('record','nested')]);expect(()=>validateImport(saved)).not.toThrow();
+});
+
+it('rejects invalid insertion positions and rolls back a failed sibling-order write',async()=>{
+ const {repo,db}=await setup();await repo.import(doc([h('root')],[e('direct','root')]));const before=await repo.export();
+ for(const index of [-1,0.5,NaN])await expect(repo.editTree('root',[],[{key:'new',parentKey:'root',name:'New',emoji:'✨',index}],[])).rejects.toThrow('Invalid draft position');
+ const run=db.runAsync;vi.spyOn(db,'runAsync').mockImplementation(async(sql,params)=>{if(sql.startsWith('UPDATE habits SET sort_order='))throw new Error('Synthetic order failure');return run(sql,params)});
+ await expect(repo.editTree('root',[],[{key:'new',parentKey:'root',name:'New',emoji:'✨',index:0}],[])).rejects.toThrow('Synthetic order failure');
+ expect(await repo.habits()).toEqual(before.habits);expect(await repo.entries()).toEqual(before.entries);
+});
 
 it('rolls back both source and destination direct-record transfers on a later attachment failure',async()=>{
  const {repo,db}=await setup();await repo.import(doc([h('source'),h('source-general','source',-1,true),h('child','source'),h('target',null,1),h('second',null,2)],[e('source-direct','source-general'),e('target-direct','target'),e('child-entry','child')]));const before=await repo.export(),run=db.runAsync;

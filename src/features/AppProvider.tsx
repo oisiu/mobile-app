@@ -1,3 +1,4 @@
+import { EntryRefreshError } from './entryWriteError';
 import { BranchEdit } from '@/domain/branchDay';
 import { Ionicons } from '@expo/vector-icons';
 import React,{createContext,useCallback,useContext,useEffect,useMemo,useRef,useState} from 'react';
@@ -17,15 +18,33 @@ const Context=createContext<State|null>(null);
 
 export function AppProvider({children}:{children:React.ReactNode}){
   const systemTheme=useColorScheme()==='dark'?'dark':'light',[themeMode,setThemeModeState]=useState<ThemeMode>('system'),[themeReady,setThemeReady]=useState(false),[ready,setReady]=useState(false),startupPending=useRef(false),[repo,setRepo]=useState<HabitRepository|null>(null),[habits,setHabits]=useState<Habit[]>([]),[entries,setEntries]=useState<Entry[]>([]),[error,setError]=useState<string|null>(null),[toast,setToast]=useState<ToastState|null>(null),toastId=useRef(0);
+  const pendingEntryWrites=useRef(new Map<string,()=>void>());
   const refresh=useCallback(async()=>{if(!repo)return;const [nextHabits,nextEntries]=await Promise.all([repo.habits(),repo.entries()]);setHabits(nextHabits);setEntries(nextEntries)},[repo]);
   const setThemeMode=useCallback(async(mode:ThemeMode)=>{setThemeModeState(mode);await Storage.setItem('theme-mode',mode)},[]);
   const showSuccess=useCallback((message:string)=>setToast({id:++toastId.current,message}),[]);
-  const changeEntry=useCallback(async(habitId:string,date:string,value:number|null)=>{if(!repo)return;const currentHabits=await repo.habits(),target=currentHabits.find(habit=>habit.parentId===habitId&&habit.isGeneral)?.id??habitId,currentEntries=await repo.entries(date,date),previous=currentEntries.find(entry=>entry.habitId===target)?.value??null;if(previous===value)return;if(value===null)await repo.clearEntry(habitId,date);else await repo.saveEntry({habitId,value,localDate:date});await refresh();const habit=currentHabits.find(item=>item.id===habitId),visibleHabit=habit?.isGeneral?currentHabits.find(item=>item.id===habit.parentId):habit,name=visibleHabit?`${visibleHabit.emoji} ${visibleHabit.name}`.trim():t('habitName');showSuccess(t(previous===null?'recordAdded':value===null?'recordRemoved':'recordUpdated',{name}))},[repo,refresh,showSuccess]);
+  const publishEntryWrite=useCallback(async(key:string)=>{
+    try{await refresh()}catch{throw new EntryRefreshError()}
+    const notify=pendingEntryWrites.current.get(key);pendingEntryWrites.current.delete(key);notify?.();
+  },[refresh]);
+  const changeEntry=useCallback(async(habitId:string,date:string,value:number|null)=>{
+    if(!repo)return;
+    const key=JSON.stringify(['entry',habitId,date,value]);
+    if(pendingEntryWrites.current.has(key)){await publishEntryWrite(key);return}
+    const currentHabits=await repo.habits(),target=currentHabits.find(habit=>habit.parentId===habitId&&habit.isGeneral)?.id??habitId,currentEntries=await repo.entries(date,date),previous=currentEntries.find(entry=>entry.habitId===target)?.value??null;
+    if(previous===value){await refresh();return}
+    if(value===null)await repo.clearEntry(habitId,date);else await repo.saveEntry({habitId,value,localDate:date});
+    const habit=currentHabits.find(item=>item.id===habitId),visibleHabit=habit?.isGeneral?currentHabits.find(item=>item.id===habit.parentId):habit,name=visibleHabit?`${visibleHabit.emoji} ${visibleHabit.name}`.trim():t('habitName');
+    pendingEntryWrites.current.set(key,()=>showSuccess(t(previous===null?'recordAdded':value===null?'recordRemoved':'recordUpdated',{name})));
+    await publishEntryWrite(key);
+  },[repo,refresh,showSuccess,publishEntryWrite]);
   const changeBranchDay=useCallback(async(habitId:string,date:string,expected:Entry[],edits:BranchEdit[],destination:string)=>{
     if(!repo)throw new Error(t('couldNotSave'));
+    const key=JSON.stringify(['branch',habitId,date,expected,edits,destination]);
+    if(pendingEntryWrites.current.has(key)){await publishEntryWrite(key);return}
     try{await repo.editBranchDay(habitId,date,expected,edits,destination)}catch(error){if(error instanceof Error){const key=({BRANCH_DAY_CHANGED:'branchChangedError',BRANCH_CONFLICT:'branchConflictHelp',BRANCH_DATE:'branchDateError',BRANCH_VALUE:'invalidNumber'} as const)[error.message as 'BRANCH_DAY_CHANGED'];if(key)throw new Error(t(key))}throw error}
-    await refresh();const habit=habits.find(h=>h.id===habitId);showSuccess(t('branchChanged',{name:habit?`${habit.emoji} ${habit.name}`:t('habitName')}));
-  },[repo,refresh,habits,showSuccess]);
+    const habit=habits.find(h=>h.id===habitId);pendingEntryWrites.current.set(key,()=>showSuccess(t('branchChanged',{name:habit?`${habit.emoji} ${habit.name}`:t('habitName')})));
+    await publishEntryWrite(key);
+  },[repo,publishEntryWrite,habits,showSuccess]);
   useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(current=>current?.id===toast.id?null:current),2600);return()=>clearTimeout(timer)},[toast]);
   useEffect(()=>{Storage.getItem('theme-mode').then(value=>{if(value==='system'||value==='light'||value==='dark')setThemeModeState(value)}).catch(()=>{}).finally(()=>setThemeReady(true))},[]);
   const retryStartup=useCallback(async()=>{

@@ -3,6 +3,28 @@ import { habitColors } from '../src/domain/habitAppearance';
 
 afterEach(() => { vi.restoreAllMocks(); vi.resetModules(); });
 
+it.each([
+ ['en-US','Tap three times','Hidden habits section enabled below the list.','Hidden habits section hidden.','Leaving this view will not hide it.'],
+ ['es-ES','Toca tres veces','Sección de hábitos ocultos activada debajo de la lista.','Sección de hábitos ocultos oculta.','Salir de esta vista no lo ocultará.'],
+])('localizes temporary reveals and permanent restoration for %s',async(locale,hint,visible,hidden,restore)=>{
+ const options=new Intl.DateTimeFormat().resolvedOptions();
+ vi.spyOn(Intl.DateTimeFormat.prototype,'resolvedOptions').mockReturnValue({...options,locale});
+ const {t}=await import('../src/i18n');
+ expect(t('toggleHiddenCategoriesHint')).toContain(hint);
+ expect(t('hiddenCategoriesVisible')).toBe(visible);expect(t('hiddenCategoriesConcealed')).toBe(hidden);
+ expect(t('restoreHiddenCategoryHelp')).toContain(restore);
+ expect(t('habitSavedRefreshFailed')).toBe(locale==='es-ES'?'Cambios guardados; no se pudo actualizar':'Changes saved; refresh failed');
+ expect(t('habitSavedRefreshFailedHelp')).toContain(locale==='es-ES'?'sin guardarlos otra vez':'without saving again');
+ expect(t('deletionSummary',{habits:2,entries:3})).toBe(locale==='es-ES'?'Hábitos: 2 · Registros: 3':'Habits: 2 · Records: 3');
+ expect(t('habitNameTooLong',{limit:25})).toBe(locale==='es-ES'?'Usa como máximo 25 caracteres para el nombre del hábito.':'Use no more than 25 characters for a habit name.');
+ expect(t('archiveWithoutSaving')).toBe(locale==='es-ES'?'Archivar sin guardar':'Archive without saving');
+ expect(t('restoreWithoutSaving')).toBe(locale==='es-ES'?'Restaurar sin guardar':'Restore without saving');
+ expect(t('habitNameCount',{count:12,limit:25})).toBe(locale==='es-ES'?'12 de 25 caracteres':'12 of 25 characters');
+ expect(t('hiddenCategoryRefreshHelp')).toContain(locale==='es-ES'?'sin restaurarlo otra vez':'without restoring it again');
+ expect(t('entrySavedRefreshHelp')).toContain(locale==='es-ES'?'sin guardarlos ni moverlos otra vez':'without saving or moving them again');
+ expect(t('hideCompletelyHelp')).not.toMatch(/3 seconds|3 segundos/);
+});
+
 describe('More language', () => {
   it.each(['es-ES', 'es-MX', 'es-AR'])('uses Spanish throughout More for %s', async locale => {
     const options = new Intl.DateTimeFormat().resolvedOptions();
