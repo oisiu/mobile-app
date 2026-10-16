@@ -1,0 +1,6 @@
+<en-US>
+General updates and improvements.
+</en-US>
+<es-ES>
+Actualizaciones y mejoras generales.
+</es-ES>
