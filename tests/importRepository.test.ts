@@ -25,7 +25,7 @@ describe('Safe import integrity',()=>{
     const {repo}=await setup();await repo.import(doc([h('first'),h('general','first',-1,true),h('child','first'),h('second',null,1),h('third',null,2)],[e('record','child')]));
     await repo.move('first',null,2);
     const saved=await repo.export();expect(saved.habits.filter(item=>item.parentId===null).map(item=>[item.id,item.sortOrder])).toEqual([['second',0],['third',1],['first',2]]);
-    expect(saved.habits.find(item=>item.id==='child')?.parentId).toBe('first');expect(saved.entries).toEqual([e('record','child')]);expect(()=>validateImport(saved)).not.toThrow();
+    expect(saved.habits.find(item=>item.id==='first')?.updatedAt).toBe(now);expect(saved.habits.find(item=>item.id==='child')?.parentId).toBe('first');expect(saved.entries).toEqual([e('record','child')]);expect(()=>validateImport(saved)).not.toThrow();
     await repo.move('first',null,0);expect((await repo.habits()).filter(item=>item.parentId===null).map(item=>item.id)).toEqual(['first','second','third']);
   });
   it('rolls back all sibling positions when a reorder write fails',async()=>{
@@ -379,4 +379,57 @@ it('converts only the original branch before adding compatible target-type categ
  const {repo}=await setup();await repo.import(doc([{...h('root'),type:'boolean'},h('existing',null,1)],[e('yes','root',1),e('quantity','existing',5)]));
  await repo.editTree('root',[],[{key:'new',parentKey:'root',name:'New',emoji:'✨'}],[],[{id:'existing',parentKey:'root',expectedParentId:null}],await typeChangeRequest(repo,'root','number',2));
  const saved=await repo.export();expect(saved.entries.find(e=>e.id==='yes')?.value).toBe(2);expect(saved.entries.find(e=>e.id==='quantity')?.value).toBe(5);expect(saved.habits.every(h=>h.type==='number')).toBe(true);expect(()=>validateImport(saved)).not.toThrow();
+});
+
+it('preserves both parents direct records when moving the last child into a recorded leaf',async()=>{
+ const {repo}=await setup();await repo.import(doc([h('source'),h('source-general','source',-1,true),h('child','source'),h('target',null,1)],[e('source-direct','source-general',0),e('target-direct','target'),e('child-record','child')]));
+ await repo.move('child','target',0);
+ const saved=await repo.export(),general=saved.habits.find(h=>h.parentId==='target'&&h.isGeneral)!;
+ expect(saved.habits.some(h=>h.id==='source-general')).toBe(false);
+ expect(saved.entries.find(e=>e.id==='source-direct')).toEqual({...e('source-direct','source-general',0),habitId:'source'});
+ expect(saved.entries.find(e=>e.id==='target-direct')).toEqual({...e('target-direct','target'),habitId:general.id});
+ expect(saved.entries.find(e=>e.id==='child-record')).toEqual(e('child-record','child'));
+ expect(()=>validateImport(saved)).not.toThrow();
+ await repo.move('child',null,1);
+ const detached=await repo.export();expect(detached.habits.some(h=>h.id===general.id)).toBe(false);
+ expect(detached.entries.find(e=>e.id==='target-direct')).toEqual(e('target-direct','target'));
+ expect(()=>validateImport(detached)).not.toThrow();
+});
+it('clears root visibility flags when a root moves into another category',async()=>{
+ const {repo}=await setup();await repo.import(doc([{...h('hidden'),isHidden:true,hideFromOverview:true},h('target',null,1)],[e('record','hidden')]));
+ await repo.move('hidden','target',0);const saved=await repo.export(),moved=saved.habits.find(h=>h.id==='hidden')!;
+ expect(moved.isHidden).toBeUndefined();expect(moved.hideFromOverview).toBeUndefined();expect(saved.entries).toEqual([e('record','hidden')]);expect(()=>validateImport(saved)).not.toThrow();
+});
+it('rejects moving General nodes or placing categories below General and archived parents',async()=>{
+ const {repo}=await setup();await repo.import(doc([h('root'),h('general','root',-1,true),h('child','root'),h('other',null,1),{...h('archived',null,2),archivedAt:now}]));const before=await repo.habits();
+ await expect(repo.move('general',null,0)).rejects.toThrow();
+ await expect(repo.move('other','general',0)).rejects.toThrow();
+ await expect(repo.move('other','archived',0)).rejects.toThrow();
+ for(const index of [NaN,Infinity,0.5])await expect(repo.move('other',null,index)).rejects.toThrow('Invalid move position');
+ expect(await repo.habits()).toEqual(before);
+});
+it('rolls back destination records and General creation when a cross-parent move fails',async()=>{
+ const {repo,db}=await setup();await repo.import(doc([h('source'),h('target',null,1)],[e('direct','target')]));const before=await repo.export(),run=db.runAsync;
+ vi.spyOn(db,'runAsync').mockImplementation(async(sql,params)=>{if(sql.startsWith('UPDATE habits SET parent_id='))throw new Error('Synthetic move failure');return run(sql,params)});
+ await expect(repo.move('source','target',0)).rejects.toThrow('Synthetic move failure');
+ expect(await repo.habits()).toEqual(before.habits);expect(await repo.entries()).toEqual(before.entries);
+});
+
+
+it('rejects creating children beneath General and archived parents without changing data',async()=>{
+ const {repo}=await setup();await repo.import(doc([h('root'),h('general','root',-1,true),h('child','root'),{...h('archived',null,1),archivedAt:now}],[e('record','general')]));
+ const before=await repo.export();
+ for(const parentId of ['general','archived'])await expect(repo.create({name:'Child',emoji:'',type:'number',parentId})).rejects.toThrow('Invalid creation destination');
+ const after=await repo.export();expect(after.habits).toEqual(before.habits);expect(after.entries).toEqual(before.entries);expect(()=>validateImport(after)).not.toThrow();
+});
+
+it('validates a new child against the parent state inside its transaction',async()=>{
+ const {repo,db,sqlite}=await setup();await repo.import(doc([h('root')],[e('record','root')]));
+ const transaction=db.withTransactionAsync;
+ vi.spyOn(db,'withTransactionAsync').mockImplementationOnce(async action=>{
+  sqlite.prepare('UPDATE habits SET archived_at=? WHERE id=?').run(now,'root');
+  return transaction(action);
+ });
+ await expect(repo.create({name:'Child',emoji:'',type:'number',parentId:'root'})).rejects.toThrow('Invalid creation destination');
+ expect(await repo.habits()).toEqual([{...h('root'),archivedAt:now}]);expect(await repo.entries()).toEqual([e('record','root')]);
 });

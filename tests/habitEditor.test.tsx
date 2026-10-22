@@ -136,6 +136,16 @@ it.each(['number','duration'] as const)('creates a %s habit with an optional col
  await act(async()=>button(t('save')).props.onPress());
  expect(mocks.create.mock.calls[0][0].calendarThreshold).toBe(type==='duration'?150:2.5);
 });
+it.each(['number','duration'] as const)('preserves the %s threshold when reselecting the current type',async type=>{
+ await act(async()=>{renderer=create(<HabitEditor/>)});
+ await act(async()=>{input(1).props.onChangeText('Practice');button(t(type)).props.onPress()});
+ const threshold=()=>renderer.root.findAll(node=>node.type as unknown==='TextInput'&&node.props.accessibilityLabel===t('calendarThresholdFor',{name:'Practice'}))[0];
+ await act(async()=>threshold().props.onChangeText('2.5'));
+ await act(async()=>button(t(type)).props.onPress());
+ expect(threshold().props.value).toBe('2.5');
+ await act(async()=>button(t('save')).props.onPress());
+ expect(mocks.create.mock.calls[0][0].calendarThreshold).toBe(type==='duration'?150:2.5);
+});
 it('preserves duration thresholds when changing units and rejects invalid drafts',async()=>{
  await act(async()=>{renderer=create(<HabitEditor/>)});
  await act(async()=>{input(1).props.onChangeText('Practice');button(t('duration')).props.onPress()});

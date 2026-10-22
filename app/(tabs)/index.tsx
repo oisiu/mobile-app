@@ -1,4 +1,4 @@
-import { entryErrorTitle } from '@/features/entryWriteError';
+import { EntryRefreshError,entryErrorTitle } from '@/features/entryWriteError';
 import { HiddenCategories } from '@/features/settings/HiddenCategories';
 import { CategoryDragHandle } from '@/features/home/CategoryDragHandle';
 import { habitAccent } from '@/theme/habitColors';
@@ -8,7 +8,7 @@ import { CalendarEntryModal } from '@/features/insights/CalendarEntryModal';
 import { calendarDraft,calendarEntry,calendarInputValue,CalendarDraft } from '@/features/insights/calendarEntry';
 import { homeDateWindow } from '@/features/home/dateWindow';
 import { depthBackground,mainTitle } from '@/theme';
-import React,{useCallback,useMemo,useRef,useState} from 'react'; import { ActivityIndicator,Alert,Animated,FlatList,Pressable,ScrollView,StyleSheet,Text,TouchableOpacity,View } from 'react-native'; import * as Haptics from 'expo-haptics'; import { router,useFocusEffect } from 'expo-router'; import { Ionicons } from '@expo/vector-icons';
+import React,{useCallback,useMemo,useRef,useState} from 'react'; import { ActivityIndicator,Alert,Animated,FlatList,Pressable,ScrollView,StyleSheet,Text,TouchableOpacity,View } from 'react-native'; import * as Haptics from 'expo-haptics'; import { useFocusEffect } from 'expo-router'; import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '@/features/AppProvider'; import { buildTree } from '@/domain/tree'; import { aggregate,formatValue } from '@/domain/aggregation'; import { HabitNode } from '@/domain/types'; import { addDays,shortDay } from '@/utils/dates'; import { todayLocal } from '@/domain/entries'; import { t } from '@/i18n'; import { usePrefetchRoutes,useResponsiveNavigation } from '@/features/useResponsiveNavigation';
 const HABIT_COLUMN_WIDTH=157;
 
@@ -33,9 +33,11 @@ export default function Home(){const {ready,error,habits,entries,changeEntry,sho
   const finishDateScroll=()=>{const index=visibleFirstDay.current;setFirstDay(index);setHistoryDays(count=>index+15>=count?count+30:count)};
   const moveDates=(amount:number)=>dateScroll.current?.scrollTo({x:Math.max(0,firstDay-amount)*dayWidth,animated:true});
   const toggle=async(h:HabitNode,date:string)=>{if(date>today||savingRef.current)return;if(branchRecords(habits,entries,h,date).some(record=>!record.direct&&(h.type!=='boolean'||record.entry.value>0))){setBranchDialog({habit:h,date});return}const current=aggregate(habits,entries,h.id,new Set([date]));if(h.type==='boolean'){savingRef.current=true;try{await changeEntry(h.id,date,current?null:1);void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(()=>undefined)}catch(error){Alert.alert(entryErrorTitle(error),error instanceof Error?error.message:String(error))}finally{savingRef.current=false}}else{setDialog({...calendarDraft(h,date,calendarEntry(h,habits,entries,date)?.value??null),habit:h})}};
+  const [entryNeedsRefresh,setEntryNeedsRefresh]=useState(false);
+  const committedEntry=useRef<{value:number|null}|null>(null);
   const savingRef=useRef(false),[saving,setSaving]=useState(false);
-  const persist=async(value:number|null)=>{if(!dialog||savingRef.current)return;savingRef.current=true;setSaving(true);try{await changeEntry(dialog.habit.id,dialog.date,value);setDialog(null)}catch(error){Alert.alert(entryErrorTitle(error),error instanceof Error?error.message:String(error))}finally{savingRef.current=false;setSaving(false)}};
-  const save=async()=>{if(!dialog)return;const value=calendarInputValue(dialog.habit,dialog);if(value===null)return Alert.alert(t('invalidNumber'));await persist(value)};
+  const persist=async(value:number|null)=>{if(!dialog||savingRef.current)return;savingRef.current=true;setSaving(true);try{await changeEntry(dialog.habit.id,dialog.date,committedEntry.current?committedEntry.current.value:value);committedEntry.current=null;setEntryNeedsRefresh(false);setDialog(null)}catch(error){if(error instanceof EntryRefreshError){committedEntry.current??={value};setEntryNeedsRefresh(true)}Alert.alert(entryErrorTitle(error),error instanceof Error?error.message:String(error))}finally{savingRef.current=false;setSaving(false)}};
+  const save=async()=>{if(!dialog)return;if(committedEntry.current){await persist(committedEntry.current.value);return}const value=calendarInputValue(dialog.habit,dialog);if(value===null)return Alert.alert(t('invalidNumber'));await persist(value)};
   const dayValues=useMemo(()=>{
     const dates=new Set(days),visibleEntries=entries.filter(entry=>dates.has(entry.localDate));
     const values=new Map<string,Map<string,string>>();
@@ -67,7 +69,7 @@ export default function Home(){const {ready,error,habits,entries,changeEntry,sho
   return <View onLayout={event=>setWidth(event.nativeEvent.layout.width)} style={[s.page,{backgroundColor:c.bg}]}>
   <View style={s.header}>
     <Pressable accessibilityRole="button" accessibilityLabel="Oi Siu" accessibilityHint={t('toggleHiddenCategoriesHint')} accessibilityState={{expanded:showHiddenCategories}} accessibilityActions={[{name:'activate',label:t('toggleHiddenCategories')}]} onAccessibilityAction={toggleHiddenCategories} onPress={tapTitle} style={{flex:1,minHeight:48,justifyContent:'center'}}><Text accessibilityRole="header" style={[s.brand,{color:c.text}]}>Oi Siu</Text></Pressable>{firstDay>0&&<TouchableOpacity accessibilityRole="button" onPress={()=>dateScroll.current?.scrollTo({x:0,animated:true})} style={{minHeight:44,justifyContent:"center",paddingHorizontal:12}}><Text style={{color:c.accent,fontSize:13}}>{t("today")}</Text></TouchableOpacity>}
-          <Pressable accessibilityRole="button" accessibilityLabel={t('add')} onPress={()=>router.push('/habit/new')} style={({pressed})=>[s.add,{backgroundColor:pressed?c.soft:'transparent'}]}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('add')} disabled={navigation.pending!==null} accessibilityState={{disabled:navigation.pending!==null,busy:navigation.pending==='/habit/new'}} onPress={()=>navigation.push('/habit/new')} style={({pressed})=>[s.add,{backgroundColor:pressed?c.soft:'transparent'}]}>
             {({pressed})=><Ionicons name="add" size={20} color={pressed?c.text:c.muted}/>}
           </Pressable>
   </View>
@@ -86,5 +88,5 @@ export default function Home(){const {ready,error,habits,entries,changeEntry,sho
   </View>}
 
   {branchDialog&&<BranchDayDialog habit={branchDialog.habit} date={branchDialog.date} onClose={()=>setBranchDialog(null)}/>}
-  {dialog&&<CalendarEntryModal editor={dialog} habit={dialog.habit} hasRecord={!!calendarEntry(dialog.habit,habits,entries,dialog.date)} saving={saving} setEditor={update=>{if(!savingRef.current)setDialog(current=>{const next=typeof update==='function'?update(current):update;return current&&next?{...next,habit:current.habit}:null})}} onSave={save} onClear={()=>persist(null)} c={c}/>}</View>}
+  {dialog&&<CalendarEntryModal locked={entryNeedsRefresh} editor={dialog} habit={dialog.habit} hasRecord={!!calendarEntry(dialog.habit,habits,entries,dialog.date)} saving={saving} setEditor={update=>{if(!savingRef.current&&(update===null||!committedEntry.current))setDialog(current=>{if(update===null){committedEntry.current=null;setEntryNeedsRefresh(false)}const next=typeof update==='function'?update(current):update;return current&&next?{...next,habit:current.habit}:null})}} onSave={save} onClear={()=>persist(null)} c={c}/>}</View>}
 const s=StyleSheet.create({page:{flex:1,paddingTop:12},center:{flex:1,alignItems:'center',justifyContent:'center'},brand:mainTitle,header:{minHeight:48,paddingLeft:20,paddingRight:12,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},add:{width:48,height:48,borderRadius:16,alignItems:'center',justifyContent:'center'},week:{width:'100%',flexDirection:'row',minHeight:64,paddingVertical:14},dateHeader:{flexGrow:0,flexShrink:0},timeline:{flex:1},habitList:{flex:1},habitGroup:{marginBottom:6},frozenLabel:{width:HABIT_COLUMN_WIDTH,flexDirection:'row',zIndex:2},dateLabelSpacer:{width:HABIT_COLUMN_WIDTH,paddingHorizontal:20,justifyContent:'center'},dateViewport:{height:52,flexGrow:0,flexShrink:0,overflow:'hidden'},dateTrack:{height:52,flexDirection:'row',alignItems:'center'},day:{alignItems:'center',justifyContent:'center',gap:4},dayNum:{fontWeight:'700'},row:{width:'100%',height:52,marginBottom:6,flexDirection:'row',alignItems:'center'},label:{flex:1,minWidth:0,minHeight:48,flexDirection:'row',alignItems:'center',gap:4,paddingRight:4},expand:{width:28,minHeight:48,alignItems:'center',justifyContent:'center'},emoji:{fontSize:18},name:{fontSize:13,fontWeight:'600',flex:1,minWidth:0},cell:{minHeight:48,alignItems:'center',justifyContent:'center'},cellText:{fontSize:12,fontWeight:'600'},empty:{alignSelf:'stretch',textAlign:'center',paddingVertical:24}})

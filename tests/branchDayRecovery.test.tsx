@@ -33,3 +33,22 @@ it('locks a committed branch draft and retries the same reviewed operation after
  const original=change.mock.calls[0];await act(async()=>button(t('save')).props.onPress());
  expect(change.mock.calls[1]).toEqual(original);expect(close).toHaveBeenCalledOnce();
 });
+
+it('retries a committed direct-entry deletion without rewriting its original draft value',async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const root:Habit={id:'root',parentId:null,name:'Root',emoji:'🌱',type:'number',sortOrder:0,isGeneral:false,archivedAt:null,createdAt:'',updatedAt:''},child={...root,id:'child',parentId:'root',name:'Child'};
+ const record:Entry={id:'record',habitId:'child',value:2,localDate:'2026-01-01',occurredAt:'',timezone:'UTC',createdAt:'',updatedAt:''};
+ const change=vi.fn().mockRejectedValueOnce(new EntryRefreshError()).mockResolvedValue(undefined),close=vi.fn();
+ mocks.app={habits:[root,child],entries:[record],changeEntry:change,palette:light};
+ await act(async()=>{renderer=create(<BranchDayDialog habit={root} date={record.localDate} onClose={close}/>)});
+ const direct=renderer.root.findAll(node=>node.type as unknown==='Button'&&node.findAll(child=>child.type as unknown==='Text'&&child.props.children===t('branchDirectShort')).length>0).at(-1)!;
+ await act(async()=>direct.props.onPress());
+ const editor=()=>renderer.root.find(node=>node.type as unknown==='DirectEditor');
+ await act(async()=>editor().props.setEditor((current:Record<string,unknown>)=>({...current,value:''})));
+ await act(async()=>editor().props.onClear());
+ expect(editor().props.locked).toBe(true);expect(close).not.toHaveBeenCalled();
+ await act(async()=>editor().props.setEditor((current:Record<string,unknown>)=>({...current,value:'8'})));
+ expect(editor().props.editor.value).toBe('');
+ await act(async()=>editor().props.onSave());
+ expect(change.mock.calls).toEqual([['root','2026-01-01',null],['root','2026-01-01',null]]);expect(close).toHaveBeenCalledOnce();
+});

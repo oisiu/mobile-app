@@ -2,13 +2,15 @@ import { isValidCalendarThreshold } from './calendarThreshold';
 import { isHabitColor } from './habitAppearance';
 import { ExportData, Habit, Entry } from './types';
 import { assertHomogeneousAcyclic } from './tree'; import { isLocalDate, validateEntry } from './entries';
+const isRecord=(value:unknown):value is Record<string,unknown>=>value!==null&&typeof value==='object'&&!Array.isArray(value);
+const isNonEmptyString=(value:unknown):value is string=>typeof value==='string'&&value.length>0;
 export const MAX_IMPORT_FILE_BYTES=5*1024*1024;
 export function assertImportFileSize(size:number|undefined):void { if(size!==undefined&&(!Number.isFinite(size)||size<0||size>MAX_IMPORT_FILE_BYTES)) throw new Error('Import file is too large'); }
 export function validateImport(raw:unknown):ExportData {
   if(!raw||typeof raw!=='object') throw new Error('Import must be an object'); const d=raw as Partial<ExportData>;
   if(d.version!==1||!Array.isArray(d.habits)||!Array.isArray(d.entries)) throw new Error('Unsupported or malformed export');
   const habits=d.habits as Habit[],entries=d.entries as Entry[]; const ids=new Set<string>();
-  for(const h of habits){ if(!isValidCalendarThreshold(h.type,h.calendarThreshold)||(h.isGeneral&&h.calendarThreshold!=null)||!h.id||!h.name||typeof h.emoji!=='string'||(h.color!==undefined&&h.color!==null&&!isHabitColor(h.color))||!['boolean','number','duration'].includes(h.type)||!Number.isInteger(h.sortOrder)||(h.isHidden!==undefined&&(typeof h.isHidden!=='boolean'||(h.isHidden&&(h.parentId!==null||h.isGeneral))))||(h.hideFromOverview!==undefined&&(typeof h.hideFromOverview!=='boolean'||(h.hideFromOverview&&(h.parentId!==null||h.isGeneral))))) throw new Error('Invalid habit'); if(ids.has(h.id)) throw new Error('Duplicate habit ID'); ids.add(h.id); }
+  for(const h of habits){ if(!isRecord(h)||!isNonEmptyString(h.id)||!isNonEmptyString(h.name)||(h.parentId!==null&&!isNonEmptyString(h.parentId))||typeof h.isGeneral!=='boolean'||(h.archivedAt!==null&&!isNonEmptyString(h.archivedAt))||!isNonEmptyString(h.createdAt)||!isNonEmptyString(h.updatedAt))throw new Error('Invalid habit'); if(!isValidCalendarThreshold(h.type,h.calendarThreshold)||(h.isGeneral&&h.calendarThreshold!=null)||!h.id||!h.name||typeof h.emoji!=='string'||(h.color!==undefined&&h.color!==null&&!isHabitColor(h.color))||!['boolean','number','duration'].includes(h.type)||!Number.isInteger(h.sortOrder)||(h.isHidden!==undefined&&(typeof h.isHidden!=='boolean'||(h.isHidden&&(h.parentId!==null||h.isGeneral))))||(h.hideFromOverview!==undefined&&(typeof h.hideFromOverview!=='boolean'||(h.hideFromOverview&&(h.parentId!==null||h.isGeneral))))) throw new Error('Invalid habit'); if(ids.has(h.id)) throw new Error('Duplicate habit ID'); ids.add(h.id); }
   assertHomogeneousAcyclic(habits);
   const order=new Set<string>(); for(const h of habits.filter(x=>!x.isGeneral)){ const k=`${h.parentId}:${h.sortOrder}`; if(h.sortOrder<0||order.has(k)) throw new Error('Invalid sibling ordering'); order.add(k); }
   const children=new Map<string,Habit[]>();
@@ -18,7 +20,7 @@ export function validateImport(raw:unknown):ExportData {
     if(habit.isGeneral&&(!habit.parentId||habit.sortOrder!==-1||kids.length))throw new Error('Invalid General child');
     if(kids.length&&(habit.isGeneral||kids.filter(child=>child.isGeneral).length!==1||!kids.some(child=>!child.isGeneral)))throw new Error('Invalid General child');
   }
-  const habitById=new Map(habits.map(h=>[h.id,h])),entryIds=new Set<string>(),days=new Set<string>(); for(const e of entries){ const h=habitById.get(e.habitId); if(!e.id||!h||children.has(e.habitId)||entryIds.has(e.id)||!isLocalDate(e.localDate)||validateEntry(h.type,e.value,e.localDate)) throw new Error('Invalid entry'); const k=`${e.habitId}:${e.localDate}`; if(days.has(k)) throw new Error('Duplicate daily entry'); entryIds.add(e.id); days.add(k); }
+  const habitById=new Map(habits.map(h=>[h.id,h])),entryIds=new Set<string>(),days=new Set<string>(); for(const e of entries){ if(!isRecord(e)||!isNonEmptyString(e.id)||!isNonEmptyString(e.habitId)||!isNonEmptyString(e.occurredAt)||!isNonEmptyString(e.timezone)||!isNonEmptyString(e.createdAt)||!isNonEmptyString(e.updatedAt))throw new Error('Invalid entry'); const h=habitById.get(e.habitId); if(!e.id||!h||children.has(e.habitId)||entryIds.has(e.id)||!isLocalDate(e.localDate)||validateEntry(h.type,e.value,e.localDate)) throw new Error('Invalid entry'); const k=`${e.habitId}:${e.localDate}`; if(days.has(k)) throw new Error('Duplicate daily entry'); entryIds.add(e.id); days.add(k); }
   return d as ExportData;
 }
 const habitPayload=(h:Habit)=>JSON.stringify([h.id,h.parentId,h.name,h.emoji,h.color??null,h.hideFromOverview??false,h.isHidden??false,h.calendarThreshold??null,h.type,h.isGeneral,h.archivedAt,h.createdAt,h.updatedAt]);

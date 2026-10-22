@@ -15,10 +15,10 @@ export function buildDetailWindow(period:DetailPeriod,anchor:string,today:string
   if(period==='all'){
     const first=entries.reduce((min,entry)=>entry.localDate<min?entry.localDate:min,today).slice(0,4);
     start=first+'-01-01';end=today;
-    for(let item=Number(first);item<=Number(today.slice(0,4));item++)append(String(item),String(item),item+'-01-01',item+'-12-31');
+    for(let item=Number(first);item<=Number(today.slice(0,4));item++)append(String(item),String(item),String(item).padStart(4,'0')+'-01-01',String(item).padStart(4,'0')+'-12-31');
   }else{
     const month=period==='year'?0:Math.floor((Number(anchor.slice(5,7))-1)/3)*3;
-    const first=`${year}-${String(month+1).padStart(2,'0')}`,count=period==='year'?12:3;
+    const first=`${String(year).padStart(4,'0')}-${String(month+1).padStart(2,'0')}`,count=period==='year'?12:3;
     start=first+'-01';end=addDays(addMonths(first,count)+'-01',-1);
     for(let index=0;index<count;index++){
       const key=addMonths(first,index),date=key+'-01';
@@ -29,7 +29,7 @@ export function buildDetailWindow(period:DetailPeriod,anchor:string,today:string
 }
 export function shiftDetailAnchor(period:DetailPeriod,anchor:string,amount:number,today:string):string{
   if(period==='all')return today;
-  const next=period==='week'?addDays(anchor,amount*7):period==='year'?`${Number(anchor.slice(0,4))+amount}-01-01`:addMonths(anchor.slice(0,7),amount*(period==='quarter'?3:1))+'-01';
+  const next=period==='week'?addDays(anchor,amount*7):period==='year'?`${String(Number(anchor.slice(0,4))+amount).padStart(4,'0')}-01-01`:addMonths(anchor.slice(0,7),amount*(period==='quarter'?3:1))+'-01';
   return next>today?today:next;
 }
 

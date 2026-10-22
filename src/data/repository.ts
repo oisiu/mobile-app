@@ -18,8 +18,7 @@ export class HabitRepository {
   async habits(){ return (await this.db.getAllAsync<any>('SELECT * FROM habits ORDER BY parent_id,sort_order')).map(toHabit); }
   async entries(from?:string,to?:string){ const rows=from&&to?await this.db.getAllAsync<any>('SELECT * FROM entries WHERE local_date BETWEEN ? AND ?',[from,to]):await this.db.getAllAsync<any>('SELECT * FROM entries'); return rows.map(toEntry); }
   private async normalize(parentId:string|null){ const rows=await this.db.getAllAsync<{id:string}>('SELECT id FROM habits WHERE parent_id IS ? AND is_general=0 ORDER BY sort_order,id',[parentId]); for(let i=0;i<rows.length;i++) await this.db.runAsync('UPDATE habits SET sort_order=? WHERE id=?',[i,rows[i].id]); }
-  async create(input:CreateHabitInput){ assertHabitName(input.name);assertCalendarThreshold(input.type,input.calendarThreshold); assertHabitAppearance(input.emoji,input.color); if(input.hideFromOverview!==undefined&&(typeof input.hideFromOverview!=='boolean'||(input.hideFromOverview&&input.parentId!==null)))throw new Error('Only top-level habits can be hidden from overview'); if(input.isHidden!==undefined&&(typeof input.isHidden!=='boolean'||(input.isHidden&&input.parentId!==null)))throw new Error('Only top-level habits can be hidden'); const all=await this.habits(); if(input.parentId){ const p=all.find(h=>h.id===input.parentId); if(!p) throw new Error('Parent not found'); if(p.type!==input.type) throw new Error('A branch must use one type'); }
-    const now=new Date().toISOString(),id=makeId(); await this.db.withTransactionAsync(async()=>{ if(input.parentId){ const real=all.filter(h=>h.parentId===input.parentId&&!h.isGeneral); if(!real.length){ const existing=all.filter(h=>h.parentId===input.parentId&&h.isGeneral)[0]; let general=existing?.id; if(!general){ general=makeId(); await this.db.runAsync('INSERT INTO habits(id,parent_id,name,emoji,type,sort_order,is_general,archived_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[general,input.parentId,'General','•',input.type,-1,1,null,now,now]); await this.db.runAsync('UPDATE entries SET habit_id=? WHERE habit_id=?',[general,input.parentId]); } } }
+  async create(input:CreateHabitInput){ assertHabitName(input.name);assertCalendarThreshold(input.type,input.calendarThreshold); assertHabitAppearance(input.emoji,input.color); if(input.hideFromOverview!==undefined&&(typeof input.hideFromOverview!=='boolean'||(input.hideFromOverview&&input.parentId!==null)))throw new Error('Only top-level habits can be hidden from overview'); if(input.isHidden!==undefined&&(typeof input.isHidden!=='boolean'||(input.isHidden&&input.parentId!==null)))throw new Error('Only top-level habits can be hidden'); const now=new Date().toISOString(),id=makeId(); await this.db.withTransactionAsync(async()=>{ const all=await this.habits(); if(input.parentId){ const p=all.find(h=>h.id===input.parentId); if(!p) throw new Error('Parent not found'); if(p.isGeneral||p.archivedAt)throw new Error('Invalid creation destination'); if(p.type!==input.type) throw new Error('A branch must use one type'); } if(input.parentId){ const real=all.filter(h=>h.parentId===input.parentId&&!h.isGeneral); if(!real.length){ const existing=all.filter(h=>h.parentId===input.parentId&&h.isGeneral)[0]; let general=existing?.id; if(!general){ general=makeId(); await this.db.runAsync('INSERT INTO habits(id,parent_id,name,emoji,type,sort_order,is_general,archived_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[general,input.parentId,'General','•',input.type,-1,1,null,now,now]); await this.db.runAsync('UPDATE entries SET habit_id=? WHERE habit_id=?',[general,input.parentId]); } } }
       const count=await this.db.getFirstAsync<{n:number}>('SELECT COUNT(*) n FROM habits WHERE parent_id IS ? AND is_general=0',[input.parentId]); await this.db.runAsync('INSERT INTO habits(id,parent_id,name,emoji,type,sort_order,is_general,archived_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[id,input.parentId,input.name.trim(),input.emoji,input.type,count?.n??0,0,null,now,now]); if(input.calendarThreshold!=null)await this.db.runAsync('UPDATE habits SET calendar_threshold=? WHERE id=?',[input.calendarThreshold,id]);if(input.color)await this.db.runAsync('UPDATE habits SET color=? WHERE id=?',[input.color,id]);if(input.hideFromOverview)await this.db.runAsync('UPDATE habits SET hide_from_overview=1 WHERE id=?',[id]);if(input.isHidden)await this.db.runAsync('UPDATE habits SET is_hidden=1 WHERE id=?',[id]); }); return id; }
   async update(id:string,patch:Partial<Pick<Habit,'name'|'emoji'|'color'|'calendarThreshold'>>){ const previous=(await this.habits()).find(h=>h.id===id);assertHabitAppearance(patch.emoji===undefined||patch.emoji===previous?.emoji?'':patch.emoji,patch.color);assertCalendarThreshold(previous?.type??'boolean',patch.calendarThreshold);const now=new Date().toISOString(); if(patch.name!==undefined)assertHabitName(patch.name,previous?.name); await this.db.runAsync('UPDATE habits SET name=COALESCE(?,name),emoji=COALESCE(?,emoji),color=CASE WHEN ? THEN ? ELSE color END,calendar_threshold=CASE WHEN ? THEN ? ELSE calendar_threshold END,updated_at=? WHERE id=?',[patch.name?.trim()??null,patch.emoji??null,Number(patch.color!==undefined),patch.color??null,Number(patch.calendarThreshold!==undefined),patch.calendarThreshold??null,now,id]); }
   async createTree(input:CreateHabitInput,updates:TreeDraftUpdate[],creates:TreeDraftCreate[],moves:TreeAttachment[],rootKey='__new_root__'){
@@ -118,7 +117,33 @@ export class HabitRepository {
     });
   }
   async clearEntry(habitId:string,date:string){ const all=await this.habits(); const target=all.find(h=>h.parentId===habitId&&h.isGeneral)?.id??habitId; await this.db.runAsync('DELETE FROM entries WHERE habit_id=? AND local_date=?',[target,date]); }
-  async move(id:string,parentId:string|null,index:number){ const all=await this.habits(),err=validateMove(all,id,parentId); if(err) throw new Error(err); const item=all.find(h=>h.id===id)!; await this.db.withTransactionAsync(async()=>{ const destination=all.filter(h=>h.parentId===parentId&&!h.isGeneral&&h.id!==id).sort((a,b)=>a.sortOrder-b.sortOrder); destination.splice(Math.max(0,Math.min(index,destination.length)),0,item); await this.db.runAsync('UPDATE habits SET parent_id=? WHERE id=?',[parentId,id]); await this.normalize(item.parentId); for(let i=0;i<destination.length;i++) await this.db.runAsync('UPDATE habits SET sort_order=? WHERE id=?',[i,destination[i].id]); }); }
+  async move(id:string,parentId:string|null,index:number){
+    if(!Number.isInteger(index))throw new Error('Invalid move position');
+    await this.db.withTransactionAsync(async()=>{
+      const all=await this.habits(),err=validateMove(all,id,parentId);
+      if(err)throw new Error(err);
+      const item=all.find(h=>h.id===id)!,parent=all.find(h=>h.id===parentId);
+      if(item.isGeneral||parent?.isGeneral||parent?.archivedAt)throw new Error('Invalid move destination');
+      const now=new Date().toISOString();
+      if(item.parentId!==parentId&&parentId&&!all.some(h=>h.parentId===parentId&&h.isGeneral)){
+        const generalId=makeId();
+        await this.db.runAsync('INSERT INTO habits(id,parent_id,name,emoji,type,sort_order,is_general,archived_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[generalId,parentId,'General','•',item.type,-1,1,null,now,now]);
+        await this.db.runAsync('UPDATE entries SET habit_id=? WHERE habit_id=?',[generalId,parentId]);
+      }
+      const destination=all.filter(h=>h.parentId===parentId&&!h.isGeneral&&h.id!==id).sort((a,b)=>a.sortOrder-b.sortOrder);
+      destination.splice(Math.max(0,Math.min(index,destination.length)),0,item);
+      await this.db.runAsync('UPDATE habits SET parent_id=?,hide_from_overview=?,is_hidden=?,updated_at=? WHERE id=?',[parentId,Number(parentId===null&&!!item.hideFromOverview),Number(parentId===null&&!!item.isHidden),item.parentId===parentId?item.updatedAt:now,id]);
+      await this.normalize(item.parentId);
+      for(let i=0;i<destination.length;i++)await this.db.runAsync('UPDATE habits SET sort_order=? WHERE id=?',[i,destination[i].id]);
+      if(item.parentId!==parentId&&item.parentId&&!all.some(h=>h.parentId===item.parentId&&!h.isGeneral&&h.id!==id)){
+        const general=all.find(h=>h.parentId===item.parentId&&h.isGeneral);
+        if(general){
+          await this.db.runAsync('UPDATE entries SET habit_id=? WHERE habit_id=?',[item.parentId,general.id]);
+          await this.db.runAsync('DELETE FROM habits WHERE id=?',[general.id]);
+        }
+      }
+    });
+  }
   async setHidden(id:string,hidden:boolean){
     const habit=(await this.habits()).find(item=>item.id===id);
     if(!habit||habit.parentId!==null||habit.isGeneral)throw new Error('Top-level habit not found');

@@ -4,11 +4,11 @@ import { afterEach,beforeEach,expect,it,vi } from 'vitest';
 import { Entry,Habit } from '../src/domain/types';
 import { AppProvider,useApp } from '../src/features/AppProvider';
 
-const mocks=vi.hoisted(()=>({saveEntry:vi.fn(),clearEntry:vi.fn(),editBranchDay:vi.fn(),habits:vi.fn(),entries:vi.fn(),open:vi.fn(),migrate:vi.fn(),close:vi.fn(),storage:vi.fn()}));
-vi.mock('react-native',()=>({StyleSheet:{create:(value:unknown)=>value},Text:'Text',View:'View',useColorScheme:()=> 'light'}));
+const mocks=vi.hoisted(()=>({saveEntry:vi.fn(),clearEntry:vi.fn(),editBranchDay:vi.fn(),habits:vi.fn(),entries:vi.fn(),open:vi.fn(),migrate:vi.fn(),close:vi.fn(),storage:vi.fn(),storeTheme:vi.fn(),alert:vi.fn()}));
+vi.mock('react-native',()=>({Alert:{alert:mocks.alert},StyleSheet:{create:(value:unknown)=>value},Text:'Text',View:'View',useColorScheme:()=> 'light'}));
 vi.mock('@expo/vector-icons',()=>({Ionicons:'Icon'}));
 vi.mock('expo-sqlite',()=>({openDatabaseAsync:mocks.open}));
-vi.mock('expo-sqlite/kv-store',()=>({default:{getItem:mocks.storage,setItem:async()=>{}}}));
+vi.mock('expo-sqlite/kv-store',()=>({default:{getItem:mocks.storage,setItem:mocks.storeTheme}}));
 vi.mock('../src/data/migrations',()=>({migrate:mocks.migrate}));
 vi.mock('../src/data/repository',()=>({HabitRepository:class{saveEntry=mocks.saveEntry;clearEntry=mocks.clearEntry;editBranchDay=mocks.editBranchDay;habits=mocks.habits;entries=mocks.entries}}));
 
@@ -17,7 +17,7 @@ let snapshots:{habits:Habit[];entries:Entry[]}[];
 function Consumer(){const value=useApp();React.useEffect(()=>{current=value;snapshots.push({habits:value.habits,entries:value.entries})},[value]);return null}
 const deferred=<T,>()=>{let resolve!:(value:T)=>void;const promise=new Promise<T>(yes=>{resolve=yes});return {promise,resolve}};
 beforeEach(async()=>{
-  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});snapshots=[];
+  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});snapshots=[];mocks.storeTheme.mockReset().mockResolvedValue(undefined);mocks.alert.mockClear();
   mocks.open.mockReset().mockResolvedValue({closeAsync:mocks.close});mocks.close.mockReset().mockResolvedValue(undefined);mocks.migrate.mockReset().mockResolvedValue(undefined);mocks.storage.mockReset().mockResolvedValue(null);
   mocks.habits.mockReset().mockResolvedValue([]);mocks.entries.mockReset().mockResolvedValue([]);
   mocks.saveEntry.mockReset().mockResolvedValue(undefined);mocks.clearEntry.mockReset().mockResolvedValue(undefined);mocks.editBranchDay.mockReset().mockResolvedValue(undefined);
@@ -101,4 +101,22 @@ it('waits for the complete initial snapshot before becoming ready',async()=>{
   expect(current.ready).toBe(false);expect(current.repo).toBeNull();expect(current.habits).toEqual([]);
   await act(async()=>pending.resolve([{habitId:'loaded'}] as Entry[]));
   expect(current.ready).toBe(true);expect(current.habits).toEqual([{id:'loaded'}]);expect(current.entries).toEqual([{habitId:'loaded'}]);
+});
+
+it('persists rapid appearance selections in order',async()=>{
+ const first=deferred<void>();mocks.storeTheme.mockReturnValueOnce(first.promise);
+ let dark!:Promise<void>,light!:Promise<void>;
+ await act(async()=>{dark=current.setThemeMode('dark');light=current.setThemeMode('light')});
+ expect(current.themeMode).toBe('light');expect(mocks.storeTheme).toHaveBeenCalledTimes(1);
+ await act(async()=>{first.resolve();await Promise.all([dark,light])});
+ expect(mocks.storeTheme.mock.calls).toEqual([['theme-mode','dark'],['theme-mode','light']]);
+ expect(current.themeMode).toBe('light');
+});
+it('restores persisted appearance after a failed preference write and remains retryable',async()=>{
+ await act(async()=>current.setThemeMode('dark'));
+ mocks.storeTheme.mockRejectedValueOnce(new Error('Storage failed'));
+ await act(async()=>current.setThemeMode('light'));
+ expect(current.themeMode).toBe('dark');expect(mocks.alert).toHaveBeenCalledOnce();
+ await act(async()=>current.setThemeMode('light'));
+ expect(current.themeMode).toBe('light');expect(mocks.storeTheme).toHaveBeenCalledTimes(3);
 });

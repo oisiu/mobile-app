@@ -23,7 +23,7 @@ import Insights from '../app/(tabs)/insights';
 import Calendar from '../app/(tabs)/calendar';
 import { CalendarDayBackground } from '../src/features/CalendarDayBackground';
 
-const state=vi.hoisted(()=>({app:{} as Record<string,unknown>,blur:null as null|(()=>void),alert:vi.fn(),path:'/',pending:null as string|null,push:vi.fn(),today:'2026-09-08',navigate:vi.fn(),dismissTo:vi.fn()}));
+const state=vi.hoisted(()=>({app:{} as Record<string,unknown>,chartReady:true,blur:null as null|(()=>void),alert:vi.fn(),path:'/',pending:null as string|null,push:vi.fn(),today:'2026-09-08',navigate:vi.fn(),dismissTo:vi.fn()}));
 vi.mock('expo-haptics',()=>({impactAsync:vi.fn().mockResolvedValue(undefined),ImpactFeedbackStyle:{Light:'Light'}}));
 vi.mock('../src/features/home/CategoryDragHandle',()=>({CategoryDragHandle:'DragHandle'}));
 vi.mock('react-native',()=>({
@@ -38,7 +38,7 @@ vi.mock('@expo/vector-icons',()=>({Ionicons:'Icon'}));
 vi.mock('react-native-safe-area-context',()=>({useSafeAreaInsets:()=>({top:0,bottom:0,left:0,right:0})}));
 vi.mock('expo-router',()=>({useFocusEffect:(effect:()=>()=>void)=>React.useEffect(()=>{const cleanup=effect();state.blur=cleanup;return cleanup},[effect]),useLocalSearchParams:()=>({id:'habit'}),usePathname:()=>state.path,router:{push:state.push,back:vi.fn(),navigate:state.navigate,dismissTo:state.dismissTo}}));
 vi.mock('../src/features/AppProvider',()=>({useApp:()=>state.app,SuccessToast:'SuccessToast'}));
-vi.mock('../src/features/insights/useChartEntrance',()=>({useChartEntrance:()=>true}));
+vi.mock('../src/features/insights/useChartEntrance',()=>({useChartEntrance:()=>state.chartReady}));
 vi.mock('../src/features/useResponsiveNavigation',()=>({usePrefetchRoutes:()=>{},useResponsiveNavigation:()=>({pending:state.pending,push:state.push})}));
 vi.mock('../src/domain/entries',async importOriginal=>{const actual=await importOriginal<typeof import('../src/domain/entries')>();return {...actual,todayLocal:(date?:Date)=>date?actual.todayLocal(date):state.today}});
 vi.mock('../src/domain/habitStrength',async importOriginal=>{const actual=await importOriginal<typeof import('../src/domain/habitStrength')>();return {...actual,habitStrength:vi.fn(actual.habitStrength),strengthSummary:vi.fn(actual.strengthSummary)}});
@@ -67,7 +67,7 @@ const openCalendar=async()=>{
 const day=(modal:ReactTestInstance,date='2026-09-08')=>modal.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.accessibilityLabel?.startsWith(`Reading, ${date}:`))[0];
 
 beforeEach(()=>{
-  vi.clearAllMocks();state.today='2026-09-08';state.pending=null;
+  vi.clearAllMocks();state.chartReady=true;state.today='2026-09-08';state.pending=null;
   Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
   vi.stubGlobal('requestIdleCallback',(callback:()=>void)=>setTimeout(callback,0));
   vi.stubGlobal('cancelIdleCallback',clearTimeout);
@@ -105,7 +105,7 @@ describe('Score axis',()=>{
     await act(async()=>root.findAllByType('ScrollView' as React.ElementType)[0].props.onScroll({nativeEvent:{contentOffset:{y:800}}}));
     expect(root.findByType(HistoryChart).props.type).toBe(type);
     await press(button(root,t('activity')));
-    expect(root.findByType(HistoryChart).props.type).toBe('boolean');expect(root.findByType(HistoryChart).props.series[0].values[1]).toBe(1);
+    expect(root.findByType(HistoryChart).props.type).toBe('boolean');expect(root.findByType(HistoryChart).props.series[0].values.at(-1)).toBe(1);
     expect(root.findByType(StrengthChart).props.habit.type).toBe(type);expect(root.findByType(StrengthChart).props.entries[0]).toBe(record);
     expect(button(root,t('activity')).props.accessibilityState.selected).toBe(true);
     await act(async()=>{await new Promise(resolve=>setTimeout(resolve,10))});
@@ -117,39 +117,37 @@ describe('Score axis',()=>{
     await act(async()=>root.findByType(CalendarEntryModal).props.setEditor(null));
     await act(async()=>modal.props.onRequestClose());
     await press(button(root,t(type)));
-    expect(root.findByType(HistoryChart).props.series[0].values[1]).toBe(120);expect(root.findByType(StrengthChart).props.entries[0]).toBe(record);
+    expect(root.findByType(HistoryChart).props.series[0].values.at(-1)).toBe(120);expect(root.findByType(StrengthChart).props.entries[0]).toBe(record);
     expect(state.app.changeEntry).not.toHaveBeenCalled();
   });
   it('omits the analysis selector for Boolean categories',async()=>{
     const root=await render(<InsightDetailScreen/>);expect(root.findAll(node=>node.props.accessibilityLabel===t('analysisView'))).toHaveLength(0);
   });
-  it('navigates shared months and shows three natural months in Quarter',async()=>{
+  it('groups Consistency independently and loads earlier dates without changing History',async()=>{
     const root=await render(<InsightDetailScreen/>);
-    const period=(label:string)=>root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.findAll(child=>child.type===('Text' as React.ElementType)&&child.props.children===label).length>0)[0];
-    await press(period(t('month')));
-    expect(root.findByType(StrengthChart).props.buckets).toHaveLength(30);
-    expect(button(root,t('nextPeriod')).props.disabled).toBe(true);
-    await press(button(root,t('previousPeriod')));
-    expect(root.findByType(StrengthChart).props.buckets[0].key).toBe('2026-08-01');
-    expect(button(root,t('nextPeriod')).props.disabled).toBe(false);
-    await press(button(root,t('nextPeriod')));
-    expect(root.findByType(StrengthChart).props.buckets[0].key).toBe('2026-09-01');
-    for(const label of ['week','month','quarter','year','allHistoryShort'] as const)expect(period(t(label))).toBeDefined();
-    await press(period(t('quarter')));
-    expect(period(t('quarter')).props.accessibilityState.selected).toBe(true);
-    const buckets=root.findByType(StrengthChart).props.buckets;
-    expect(buckets).toHaveLength(3);
-    expect(buckets[0].key).toBe('2026-07');
     await act(async()=>root.findAllByType('ScrollView' as React.ElementType)[0].props.onScroll({nativeEvent:{contentOffset:{y:800}}}));
-    const history=root.findByType(HistoryChart);
-    expect(history.props.buckets).toHaveLength(12);
-    expect(history.props.buckets.at(-1).key).toBe('2026-Q3');
-    expect(history.props.bucketSize).toBe('quarter');
-    expect(history.findAllByType('SvgText' as React.ElementType).filter(node=>node.props.y===177).map(node=>node.props.children)).toEqual(history.props.buckets.map((bucket:{label:string})=>t('quarterShort',{number:bucket.label})));
-    const chart=root.findByType(StrengthChart);
-    const labels=chart.findAllByType('SvgText' as React.ElementType).map(node=>node.props.children);
-    expect(chart.findAllByType('SvgText' as React.ElementType).filter(node=>node.props.y===178).map(node=>node.props.children)).toEqual(buckets.map((bucket:{label:string})=>bucket.label.replace(/[.\s]/g,'').slice(0,3)));
-    expect(labels).toContain('2026');
+    const chart=()=>root.findByType(StrengthChart);
+    const history=root.findByType(HistoryChart).props.buckets;
+    expect(chart().props.bucketSize).toBe('day');
+    expect(chart().props.buckets.at(-1).label).toBe('8');
+    for(const scale of ['week','month','quarter','year','day'] as const){
+      await press(button(root,t('consistencyGrouping')));
+      const choice=root.find(node=>node.type===('View' as React.ElementType)&&node.props.accessibilityRole==='radiogroup'&&node.props.accessibilityLabel===t('consistencyGrouping')).findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.accessibilityLabel===t(scale))[0];
+      await press(choice);
+      expect(chart().props.bucketSize).toBe(scale);
+      expect(root.findByType(HistoryChart).props.buckets).toBe(history);
+    }
+    const before=chart().props.buckets;
+    await act(async()=>chart().props.onLoadEarlier());
+    expect(chart().props.buckets).toHaveLength(120);
+    expect(chart().props.buckets.slice(-60)).toEqual(before);
+    await press(button(root,t('consistencyGrouping')));
+    await press(root.find(node=>node.type===('View' as React.ElementType)&&node.props.accessibilityRole==='radiogroup'&&node.props.accessibilityLabel===t('consistencyGrouping')).findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.accessibilityLabel===t('quarter'))[0]);
+    const buckets=chart().props.buckets;
+    expect(buckets.at(-1).key).toBe('2026-07-01');
+    const labels=chart().findAllByType('SvgText' as React.ElementType);
+    expect(labels.filter(node=>node.props.y===178).map(node=>node.props.children)).toEqual(buckets.map((bucket:{label:string})=>bucket.label));
+    expect(labels.filter(node=>node.props.y===194).map(node=>node.props.children)).toContain('2026');
   });
   it.each([light,dark])('keeps each percentage in one text node outside the plot',async c=>{
     const root=await render(<StrengthChart habit={habit} selected={[{habit,color:c.accent}]} habits={[habit]} entries={[]} today="2026-09-08" buckets={[{key:'2026-09-08',label:'T',dates:new Set(['2026-09-08'])}]} bucketSize="day" c={c}/>);
@@ -591,6 +589,12 @@ it('keeps hidden categories in settings and restores them with the eye button',a
  await press(button(root,t('restoreHiddenCategory',{name:'Reading'})));expect(restore).toHaveBeenCalledExactlyOnceWith('habit',false);expect(refresh).toHaveBeenCalledOnce();
  await act(async()=>renderer.update(<HiddenCategories/>));expect(button(root,t('hiddenCategories'))).toBeUndefined();expect(success).toHaveBeenCalledWith(t('hiddenCategoryRestored',{name:'Reading'}));
 });
+it.each(['card','list'] as const)('exposes and blocks pending hidden-category navigation in the %s',async variant=>{
+ state.app={...state.app,habits:[{...habit,isHidden:true}]};state.pending='/habit/habit';
+ const root=await render(<HiddenCategories initialOpen variant={variant}/>);
+ const edit=button(root,t('edit')+' Reading');
+ expect(edit.props.disabled).toBe(true);expect(edit.props.accessibilityState).toEqual({disabled:true,busy:true});
+});
 it.each(['card','list'] as const)('retains hidden categories on recovery failure and prevents duplicate recovery writes in the %s',async variant=>{
  const hidden={...habit,isHidden:true};let reject!:(error:Error)=>void;const restore=vi.fn(()=>new Promise<void>((_,fail)=>{reject=fail}));
  state.app={...state.app,ready:true,habits:[hidden],repo:{setHidden:restore},refresh:vi.fn(),showSuccess:vi.fn()};
@@ -743,7 +747,7 @@ it('expands and collapses inline explanations independently without changing cha
  const root=await render(<InsightDetailScreen/>);
  await act(async()=>{await new Promise(resolve=>setTimeout(resolve,10))});
  await act(async()=>root.findAllByType('ScrollView' as React.ElementType)[0].props.onScroll({nativeEvent:{contentOffset:{y:800}}}));
- for(const [chart,help] of [['score','consistencyInfo'],['calendar','calendarInfo'],['history','historyInfo'],['bestStreaks','streaksInfo'],['frequency','frequencyInfo']] as const){
+ for(const [chart,help] of [['score','consistencyInfo'],['history','historyInfo'],['bestStreaks','streaksInfo'],['frequency','frequencyInfo']] as const){
   const info=()=>button(root,t('chartInfo',{name:t(chart)}));
   expect(info().props.accessibilityState.expanded).toBe(false);
   expect(root.findAllByType('Text' as React.ElementType).map(node=>node.props.children)).not.toContain(t(help));
@@ -754,6 +758,7 @@ it('expands and collapses inline explanations independently without changing cha
   expect(info().props.accessibilityState.expanded).toBe(false);
   expect(root.findAllByType('Text' as React.ElementType).map(node=>node.props.children)).not.toContain(t(help));
  }
+ expect(button(root,t('chartInfo',{name:t('calendar')}))).toBeUndefined();
  expect(state.app.changeEntry).not.toHaveBeenCalled();
  expect(root.findByType(StrengthChart).props.habit.id).toBe(habit.id);
 });
@@ -770,36 +775,36 @@ it.each(['number','duration'] as const)('keeps consistency totals and percentage
  expect(state.app.changeEntry).not.toHaveBeenCalled();
 });
 
-it('shares detail periods across charts while keeping the calendar independent',async()=>{
- state.app={...state.app,entries:[{id:'old',habitId:habit.id,localDate:'2018-04-01',value:1,occurredAt:state.today,timezone:'UTC',createdAt:state.today,updatedAt:state.today}]};
+it('removes shared time controls while retaining independent chart menus and Calendar',async()=>{
  const root=await render(<InsightDetailScreen/>);
  await act(async()=>{await new Promise(resolve=>setTimeout(resolve,10))});
  await act(async()=>root.findAllByType('ScrollView' as React.ElementType)[0].props.onScroll({nativeEvent:{contentOffset:{y:800}}}));
- const calendar=()=>root.findAll(node=>node.props.accessibilityHint===t('openCalendarDay')).map(node=>node.props.accessibilityLabel);
- const before=calendar();
- await press(button(root,t('year')));
- expect(root.findByType(StrengthChart).props.buckets).toHaveLength(12);
- expect(root.findByType(HistoryChart).props.buckets).toEqual(root.findByType(StrengthChart).props.buckets);
- expect(calendar()).toEqual(before);
- await press(button(root,t('allHistory')));
- expect(root.findByType(StrengthChart).props.buckets.map((bucket:{key:string})=>bucket.key)).toEqual(['2018','2019','2020','2021','2022','2023','2024','2025','2026']);
- expect(root.findByType(HistoryChart).props.buckets).toEqual(root.findByType(StrengthChart).props.buckets);
- expect(button(root,t('nextPeriod')).props.disabled).toBe(true);
- expect(button(root,t('previousPeriod')).props.disabled).toBe(true);
- expect(button(root,t('previousPeriod')).props.accessibilityState.disabled).toBe(true);expect(calendar()).toEqual(before);
- await press(button(root,t('week')));expect(root.findByType(StrengthChart).props.buckets).toHaveLength(7);
+ expect(root.findAll(node=>node.props.accessibilityLabel===t('analysisPeriod'))).toHaveLength(0);
+ expect(button(root,t('previousPeriod'))).toBeUndefined();expect(button(root,t('nextPeriod'))).toBeUndefined();
+ expect(button(root,t('consistencyGrouping'))).toBeDefined();expect(button(root,t('historyGrouping'))).toBeDefined();
+ expect(root.findAll(node=>node.props.accessibilityHint===t('openCalendarDay')).length).toBeGreaterThan(0);
 });
 
-it('clips streaks and frequency to the shared interval and updates them during navigation',async()=>{
- state.app={...state.app,entries:[5,6,7,8].map(day=>({id:String(day),habitId:habit.id,localDate:`2026-09-0${day}`,value:1,occurredAt:state.today,timezone:'UTC',createdAt:state.today,updatedAt:state.today}))};
+it('uses complete history for streaks and annual frequency without including future or unrelated records',async()=>{
+ const record=(localDate:string,habitId=habit.id,value=1)=>({id:habitId+localDate,habitId,localDate,value,occurredAt:state.today,timezone:'UTC',createdAt:state.today,updatedAt:state.today});
+ const other={...habit,id:'other',name:'Other'};
+ state.app={...state.app,habits:[habit,other],entries:[record('2024-12-30'),record('2024-12-31'),record('2025-01-01'),record('2025-01-02'),record('2026-09-07'),record('2026-09-08'),record('2026-09-09'),record('2010-01-01',other.id)]};
  const root=await render(<InsightDetailScreen/>);
- await act(async()=>{await new Promise(resolve=>setTimeout(resolve,10))});
  await act(async()=>root.findAllByType('ScrollView' as React.ElementType)[0].props.onScroll({nativeEvent:{contentOffset:{y:800}}}));
  const streakCounts=()=>root.findAll(node=>node.type===('Text' as React.ElementType)&&node.props.style?.color==='white'&&node.props.style?.fontSize===11&&node.props.style?.fontWeight==='800').map(node=>node.props.children);
- const frequencyTotal=()=>root.findAll(node=>node.type===('View' as React.ElementType)&&node.props.accessibilityLabel?.match(/: \d+ \/ \d+ /)).reduce((sum,node)=>sum+Number(node.props.accessibilityLabel.match(/: (\d+) \/ /)[1]),0);
- expect(streakCounts()).toEqual([2]);expect(frequencyTotal()).toBe(2);
- await press(button(root,t('month')));expect(streakCounts()).toEqual([4]);expect(frequencyTotal()).toBe(4);
- await press(button(root,t('previousPeriod')));expect(streakCounts()).toEqual([]);expect(frequencyTotal()).toBe(0);
+ const frequencyLabels=()=>root.findAll(node=>node.type===('View' as React.ElementType)&&node.props.accessibilityLabel?.match(/: \d+ \/ \d+ /)).map(node=>node.props.accessibilityLabel as string);
+ const frequencyTotal=()=>frequencyLabels().reduce((sum,label)=>sum+Number(label.match(/: (\d+) \/ /)![1]),0);
+ expect(streakCounts()).toEqual([4,2]);expect(frequencyTotal()).toBe(6);
+ expect(frequencyLabels()).toHaveLength(21);
+ expect(frequencyLabels().every(label=>/^(2024|2025|2026),/.test(label))).toBe(true);
+ const possible=(year:string)=>frequencyLabels().filter(label=>label.startsWith(year+',')).reduce((sum,label)=>sum+Number(label.match(/\/ (\d+) /)![1]),0);
+ expect(possible('2024')).toBe(366);expect(possible('2025')).toBe(365);expect(possible('2026')).toBe(251);
+ for(const label of ['consistencyGrouping','historyGrouping'] as const){
+  await press(button(root,t(label)));
+  const menu=root.find(node=>node.type===('View' as React.ElementType)&&node.props.accessibilityRole==='radiogroup'&&node.props.accessibilityLabel===t(label));
+  await press(menu.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.accessibilityLabel===t('year'))[0]);
+  expect(streakCounts()).toEqual([4,2]);expect(frequencyTotal()).toBe(6);
+ }
 });
 
 it.each(['number','duration'] as const)('uses fixed soft calendar colors below the original %s threshold in both modes',async type=>{
@@ -819,4 +824,100 @@ it('removes the Activity mode selector after a quantity habit is permanently con
  state.app={...state.app,habits:[{...habit,type:'number'}],entries:[{id:'record',habitId:habit.id,localDate:state.today,value:0,occurredAt:state.today,timezone:'UTC',createdAt:state.today,updatedAt:state.today}]};
  const root=await render(<InsightDetailScreen/>);await press(button(root,t('activity')));expect(button(root,t('activity'))).toBeDefined();
  state.app={...state.app,habits:[habit],entries:(state.app.entries as import('../src/domain/types').Entry[]).map(e=>({...e,value:1}))};await act(async()=>renderer.update(<InsightDetailScreen/>));expect(button(root,t('activity'))).toBeUndefined();
+});
+
+it('starts the consistency timeline at the latest dates without jumping on width changes',async()=>{
+ const scrollToEnd=vi.fn(),scrollTo=vi.fn(),load=vi.fn();
+ await act(async()=>{renderer=create(<StrengthChart habit={habit} selected={[{habit,color:light.accent}]} habits={[habit]} entries={[]} today={state.today} buckets={[{key:state.today,label:'8',dates:new Set([state.today])}]} bucketSize="day" c={light} timeline onLoadEarlier={load}/>,{createNodeMock:()=>({scrollToEnd,scrollTo})})});
+ const scroll=renderer.root.findByType('ScrollView' as React.ElementType);
+ await act(async()=>scroll.props.onContentSizeChange(1000));expect(scrollToEnd).toHaveBeenCalledWith({animated:false});
+ await act(async()=>scroll.props.onScroll({nativeEvent:{contentOffset:{x:40}}}));
+ await act(async()=>scroll.props.onContentSizeChange(2000));expect(scrollTo).not.toHaveBeenCalled();
+ await act(async()=>scroll.props.onScrollEndDrag({nativeEvent:{contentOffset:{x:200}}}));expect(load).not.toHaveBeenCalled();
+ await act(async()=>scroll.props.onScrollEndDrag({nativeEvent:{contentOffset:{x:40}}}));expect(load).toHaveBeenCalledOnce();
+ await act(async()=>scroll.props.onMomentumScrollEnd({nativeEvent:{contentOffset:{x:200}}}));expect(load).toHaveBeenCalledOnce();
+ await act(async()=>scroll.props.onMomentumScrollEnd({nativeEvent:{contentOffset:{x:0}}}));expect(load).toHaveBeenCalledOnce();
+});
+
+it('groups History independently, preserves its selection, and loads older bars',async()=>{
+ const root=await render(<InsightDetailScreen/>);
+ await act(async()=>root.findAllByType('ScrollView' as React.ElementType)[0].props.onScroll({nativeEvent:{contentOffset:{y:800}}}));
+ const chart=()=>root.findByType(HistoryChart),score=root.findByType(StrengthChart).props.buckets;
+ const selected=chart().props.series.map((item:{habit:Habit})=>item.habit.id);
+ for(const scale of ['week','month','quarter','year','day'] as const){
+  await press(button(root,t('historyGrouping')));
+  const menu=root.find(node=>node.type===('View' as React.ElementType)&&node.props.accessibilityRole==='radiogroup'&&node.props.accessibilityLabel===t('historyGrouping'));
+  await press(menu.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.accessibilityLabel===t(scale))[0]);
+  expect(chart().props.bucketSize).toBe(scale);
+  expect(chart().props.showValues).toBe(true);
+  expect(chart().props.series.map((item:{habit:Habit})=>item.habit.id)).toEqual(selected);
+  expect(root.findByType(StrengthChart).props.buckets).toBe(score);
+ }
+ const buckets=chart().props.buckets;
+ await act(async()=>chart().props.onLoadEarlier());
+ expect(chart().props.buckets).toHaveLength(120);expect(chart().props.buckets.slice(-60)).toEqual(buckets);
+});
+
+it.each(['number','duration','boolean'] as const)('labels the whole History stack in the displayed %s unit and keeps scrolling anchored',async type=>{
+ const scrollToEnd=vi.fn(),scrollTo=vi.fn(),load=vi.fn();
+ const multiplier=type==='duration'?3600:1;
+ const values=[2,0,3],buckets=values.map((_,index)=>({key:`2026-0${index+1}-01`,label:['Jan','Apr','Jul'][index],dates:new Set([`2026-0${index+1}-01`])}));
+ const series=[{habit:{...habit,type},color:light.accent,values:values.map(value=>value*multiplier)},{habit:{...habit,id:'second',type},color:light.text,values:values.map(value=>value*multiplier)}];
+ await act(async()=>{renderer=create(<HistoryChart series={series} buckets={buckets} bucketSize="quarter" type={type} c={light} timeline showValues onLoadEarlier={load}/>,{createNodeMock:()=>({scrollToEnd,scrollTo})})});
+ const root=renderer.root,labels=root.findAllByType('SvgText' as React.ElementType),totals=labels.filter(node=>node.props.fontWeight==='600');
+ expect(totals.map(node=>node.props.children)).toEqual(['4','6']);
+ expect(totals.every(node=>node.props.y>=12&&node.props.y<160)).toBe(true);
+ expect(labels.filter(node=>node.props.y===177).map(node=>node.props.children)).toEqual(['Jan','Apr','Jul']);
+ if(type==='duration')expect(root.findAllByType('Text' as React.ElementType).map(node=>node.props.children)).toContain(t('hours'));
+ const scroll=root.findByType('ScrollView' as React.ElementType);
+ await act(async()=>scroll.props.onContentSizeChange(1000));expect(scrollToEnd).toHaveBeenCalledOnce();
+ await act(async()=>scroll.props.onScroll({nativeEvent:{contentOffset:{x:40}}}));
+ await act(async()=>scroll.props.onContentSizeChange(2000));expect(scrollTo).not.toHaveBeenCalled();
+ await act(async()=>scroll.props.onScrollEndDrag({nativeEvent:{contentOffset:{x:200}}}));expect(load).not.toHaveBeenCalled();
+ await act(async()=>scroll.props.onScrollEndDrag({nativeEvent:{contentOffset:{x:0}}}));expect(load).toHaveBeenCalledOnce();
+ await act(async()=>scroll.props.onMomentumScrollEnd({nativeEvent:{contentOffset:{x:200}}}));expect(load).toHaveBeenCalledOnce();
+ await act(async()=>scroll.props.onMomentumScrollEnd({nativeEvent:{contentOffset:{x:0}}}));expect(load).toHaveBeenCalledOnce();
+});
+
+it.each([true,false])('reveals visible detail charts on tall screens when transition readiness is %s',async ready=>{
+ state.chartReady=ready;
+ const root=await render(<InsightDetailScreen/>);
+ await act(async()=>root.findAllByType('ScrollView' as React.ElementType)[0].props.onLayout({nativeEvent:{layout:{height:1000,width:800}}}));
+ if(!ready){
+  expect(root.findAllByType(HistoryChart)).toHaveLength(0);
+  await act(async()=>root.findAllByType('ScrollView' as React.ElementType)[0].props.onScroll({nativeEvent:{contentOffset:{y:100}}}));
+  state.chartReady=true;await act(async()=>renderer.update(<InsightDetailScreen/>));
+ }
+ expect(root.findAllByType(HistoryChart)).toHaveLength(1);
+ expect(button(root,t('chartInfo',{name:t('frequency')}))).toBeDefined();
+});
+
+it.each(['archived','deleted'] as const)('removes %s categories from detail selections without duplicating the root curve',async action=>{
+ const child={...habit,id:'child',parentId:habit.id,name:'Child'};
+ state.app={...state.app,habits:[habit,child]};
+ const root=await render(<InsightDetailScreen/>);
+ await act(async()=>root.findAllByType('ScrollView' as React.ElementType)[0].props.onScroll({nativeEvent:{contentOffset:{y:800}}}));
+ for(const chart of ['score','history'] as const){
+  const header=root.findAll(node=>typeof node.type==='function'&&node.type.name==='ChartHeader'&&node.props.chart===chart)[0];
+  await act(async()=>header.props.onFilter());
+  const modal=root.findAll(node=>node.type===('Modal' as React.ElementType)&&node.props.visible)[0];
+  await press(modal.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.accessibilityRole==='checkbox'&&node.findAll(child=>child.type===('Text' as React.ElementType)&&child.props.children==='Child').length>0)[0]);
+  await act(async()=>modal.props.onRequestClose());
+ }
+ expect(root.findByType(StrengthChart).props.selected).toHaveLength(2);
+ state.app={...state.app,habits:action==='deleted'?[habit]:[habit,{...child,archivedAt:state.today}]};
+ await act(async()=>renderer.update(<InsightDetailScreen/>));
+ expect(root.findByType(StrengthChart).props.selected.map((item:{habit:Habit})=>item.habit.id)).toEqual([habit.id]);
+ expect(root.findByType(HistoryChart).props.series.map((item:{habit:Habit})=>item.habit.id)).toEqual([habit.id]);
+ state.app={...state.app,habits:[habit,child]};await act(async()=>renderer.update(<InsightDetailScreen/>));
+ expect(root.findByType(StrengthChart).props.selected.map((item:{habit:Habit})=>item.habit.id)).toEqual([habit.id]);
+});
+
+it('uses guarded navigation and exposes pending state when creating a habit from Home',async()=>{
+ state.app={...state.app,ready:true};
+ const root=await render(<Home/>);
+ await press(button(root,t('add')));expect(state.push).toHaveBeenCalledExactlyOnceWith('/habit/new');
+ state.pending='/habit/new';await act(async()=>renderer.update(<Home/>));
+ expect(button(root,t('add')).props.disabled).toBe(true);
+ expect(button(root,t('add')).props.accessibilityState).toEqual({disabled:true,busy:true});
 });

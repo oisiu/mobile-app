@@ -17,10 +17,9 @@ Copy for Play Console:
 
 - [English short description](listing/en-US/short-description.txt)
 - [English full description](listing/en-US/full-description.txt)
-- [Version 1.6.1 release notes](releases/1.6.1.txt) in English and Spanish
-- [Version 1.0.0 release notes](releases/1.0.0.txt) in English, Spanish, French, Italian, European Portuguese, and German
+- [Versioned release notes](releases/) retained for published and prepared bundles
 
-Only release notes have all six translations. They do not imply equivalent app localization or production availability.
+Release-note languages vary by version and do not imply equivalent app localization. The app supports English and Spanish.
 
 ## Sources and reproduction
 

@@ -12,7 +12,12 @@ describe('Insights overview language',()=>{
     vi.spyOn(Intl.DateTimeFormat.prototype,'resolvedOptions').mockReturnValue({...options,locale});
     const {t}=await import('../src/i18n');
     expect(t('quarterShort',{number:1})).toBe('Q1');
-    expect(t('historyInfo')).toContain(locale==='es-ES'?'Q1: enero, febrero, marzo':'Q1: January, February, March');
+    expect(t('historyGrouping')).toBe(locale==='es-ES'?'Agrupación temporal de Historial':'History time grouping');
+    expect(t('historyTimeline')).toContain(locale==='es-ES'?'Desliza horizontalmente':'Swipe horizontally');
+    expect(t('streaksInfo')).toContain(locale==='es-ES'?'todo el historial':'all recorded history');
+    expect(t('frequencyInfo')).toContain(locale==='es-ES'?'Cada columna es un año':'Each column is one year');
+    expect(t('frequencyInfo')).not.toContain(locale==='es-ES'?'periodo seleccionado':'selected period');
+    expect(t('historyInfo')).toContain(locale==='es-ES'?'ene, abr, jul, oct':'Jan, Apr, Jul, Oct');
     expect(t('year')).toBe(locale==='es-ES'?'Año':'Year');
     expect(t('insightsRankingYearIntro')).toBe(locale==='es-ES'?'Hábitos principales ordenados por días activos de este año, hasta hoy.':'Top habits ranked by active days this year, through today.');
     expect(t('strengthTotal')).toBe(locale==='es-ES'?'Total de días activos':'Total active days');
