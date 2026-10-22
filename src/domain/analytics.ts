@@ -2,12 +2,12 @@ import { addDays,addMonths } from '../utils/dates';
 
 export type InsightScale='weeks'|'months'|'years';
 export type InsightPeriod='week'|'month'|'quarter'|'year';
-export type BucketSize='day'|'month'|'quarter'|'year';
+export type BucketSize='day'|'week'|'month'|'quarter'|'year';
 export interface TimeBucket { key:string; label:string; dates:Set<string> }
 export interface InsightWindow { start:string; end:string; buckets:TimeBucket[] }
 export interface ActivityStreak { start:string; end:string; length:number }
 
-function localDate(date:Date){const y=date.getFullYear(),m=String(date.getMonth()+1).padStart(2,'0'),d=String(date.getDate()).padStart(2,'0');return `${y}-${m}-${d}`}
+function localDate(date:Date){const y=date.getFullYear(),m=String(date.getMonth()+1).padStart(2,'0'),d=String(date.getDate()).padStart(2,'0');return `${String(y).padStart(4,'0')}-${m}-${d}`}
 function daysBetween(start:string,end:string){const values=new Set<string>();for(let date=start;date<=end;date=addDays(date,1))values.add(date);return values}
 function endOfMonth(month:string){return addDays(`${addMonths(month,1)}-01`,-1)}
 function monthLabel(month:string){return new Intl.DateTimeFormat(undefined,{month:'short'}).format(new Date(`${month}-01T12:00:00`))}
@@ -17,11 +17,11 @@ export function shiftInsightAnchor(anchor:string,period:InsightPeriod,amount:num
   if(period==='week')return addDays(anchor,amount*7);
   if(period==='month')return `${addMonths(anchor.slice(0,7),amount)}-01`;
   if(period==='quarter')return `${addMonths(anchor.slice(0,7),amount*3)}-01`;
-  return `${Number(anchor.slice(0,4))+amount}-01-01`;
+  return `${String(Number(anchor.slice(0,4))+amount).padStart(4,'0')}-01-01`;
 }
 
 export function buildInsightWindow(period:InsightPeriod,anchor:string,today:string):InsightWindow{
-  const date=new Date(`${anchor}T12:00:00`),year=date.getFullYear(),month=date.getMonth(),weekday=(date.getDay()+6)%7;
+  const date=new Date(`${anchor}T12:00:00`),year=anchor.slice(0,4),month=date.getMonth(),weekday=(date.getDay()+6)%7;
   let start:string,end:string,buckets:TimeBucket[]=[];
   if(period==='week'){
     start=addDays(anchor,-weekday);end=addDays(start,6);
@@ -60,9 +60,9 @@ export function buildTimeBuckets(scale:InsightScale,today:string):TimeBucket[]{
     const monday=addDays(today,-((current.getDay()+6)%7));
     for(let offset=-7;offset<=0;offset++){const start=addDays(monday,offset*7),end=addDays(start,6);buckets.push({key:start,label:new Intl.DateTimeFormat(undefined,{day:'numeric',month:'short'}).format(new Date(`${start}T12:00:00`)),dates:daysBetween(start,end>today?today:end)})}
   }else if(scale==='months'){
-    for(let offset=-12;offset<=0;offset++){const startDate=new Date(current.getFullYear(),current.getMonth()+offset,1,12),start=localDate(startDate),endDate=new Date(startDate.getFullYear(),startDate.getMonth()+1,0,12),end=localDate(endDate);buckets.push({key:start.slice(0,7),label:new Intl.DateTimeFormat(undefined,{month:'short'}).format(startDate),dates:daysBetween(start,end>today?today:end)})}
+    for(let offset=-12;offset<=0;offset++){const month=addMonths(today.slice(0,7),offset),startDate=new Date(`${month}-01T12:00:00`),start=localDate(startDate),end=endOfMonth(month);buckets.push({key:start.slice(0,7),label:new Intl.DateTimeFormat(undefined,{month:'short'}).format(startDate),dates:daysBetween(start,end>today?today:end)})}
   }else{
-    for(let offset=-4;offset<=0;offset++){const year=current.getFullYear()+offset,start=`${year}-01-01`,end=`${year}-12-31`;buckets.push({key:String(year),label:String(year),dates:daysBetween(start,end>today?today:end)})}
+    for(let offset=-4;offset<=0;offset++){const year=String(current.getFullYear()+offset).padStart(4,'0'),start=`${year}-01-01`,end=`${year}-12-31`;buckets.push({key:String(year),label:String(year),dates:daysBetween(start,end>today?today:end)})}
   }
   return buckets;
 }

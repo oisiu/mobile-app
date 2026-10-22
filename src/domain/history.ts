@@ -8,7 +8,7 @@ export function historyWeekLabel(start:string):string{
   const thursday=new Date(monday);
   thursday.setUTCDate(thursday.getUTCDate()+3);
   const weekYear=thursday.getUTCFullYear();
-  const firstThursday=new Date(Date.UTC(weekYear,0,4,12));
+  const firstThursday=new Date(`${String(weekYear).padStart(4,'0')}-01-04T12:00:00Z`);
   firstThursday.setUTCDate(firstThursday.getUTCDate()+3-((firstThursday.getUTCDay()+6)%7));
   const number=1+Math.round((thursday.getTime()-firstThursday.getTime())/(7*86400000));
   return `${number} ${weekYear}`;
@@ -31,9 +31,9 @@ export function buildHistoryWindow(period:InsightPeriod,anchor:string,today:stri
     const end=addDays(`${addMonths(last,1)}-01`,-1);
     return {start:`${first}-01`,end:end>today?today:end,buckets};
   }
-  for(let item=year-5;item<=year;item++)append(String(item),String(item),`${item}-01-01`,`${item}-12-31`);
-  const end=`${year}-12-31`;
-  return {start:`${year-5}-01-01`,end:end>today?today:end,buckets};
+  for(let item=year-5;item<=year;item++)append(String(item),String(item),`${String(item).padStart(4,'0')}-01-01`,`${String(item).padStart(4,'0')}-12-31`);
+  const end=`${String(year).padStart(4,'0')}-12-31`;
+  return {start:`${String(year-5).padStart(4,'0')}-01-01`,end:end>today?today:end,buckets};
 }
 export function shiftHistoryAnchor(anchor:string,period:InsightPeriod,amount:number,today:string):string{
   if(period==='week'){
@@ -46,7 +46,7 @@ export function shiftHistoryAnchor(anchor:string,period:InsightPeriod,amount:num
     return `${month>today.slice(0,7)?today.slice(0,7):month}-01`;
   }
   const year=Number(anchor.slice(0,4))+amount*6;
-  return `${Math.min(year,Number(today.slice(0,4)))}-01-01`;
+  return `${String(Math.min(year,Number(today.slice(0,4)))).padStart(4,'0')}-01-01`;
 }
 
 export function buildHistorySeries(selected:Habit[],habits:Habit[],entries:Entry[],buckets:TimeBucket[]){

@@ -24,7 +24,7 @@ After an Expo SDK version change (upgrade or downgrade), regenerate Android with
 
 Android `app/build/`, `app/.cxx/`, `build/`, `.gradle/`, and `.kotlin/` are disposable output/cache directories. Remove them only when builds are stopped; the next build recreates them and takes longer. Preserve release bundles and signing files until their release lifecycle is complete.
 
-`assets/app/icon.png` is the launcher icon. `assets/app/logo.png` is the approved cream-background balance illustration; both themes use this same image, with rounded corners in the app's loading view. The loading logo scales with the available width up to the limit in `app/_layout.tsx`. Both native splash themes also use `assets/app/logo.png`, including its “Powered by PalFly” attribution; its size is configured in `app.json`. Android native splash masking may clip artwork or text outside the central safe area; verify the restored image on a rebuilt device app. Native splash configuration changes require regenerating the native project and rebuilding the app to appear on a device.
+`assets/app/icon.png` is the launcher icon and the attribution-free artwork used by both native splash themes; its launch size is configured in `app.json`. The native splash stays visible until startup completes or the recovery screen is ready, with no second in-app logo. PalFly attribution appears in More under Help & about. Android native splash masking may clip artwork outside the central safe area; verify it on a rebuilt device app. Native splash configuration changes require regenerating the native project and rebuilding the app to appear on a device.
 
 ## Android connection troubleshooting
 
@@ -38,7 +38,7 @@ Repeat port forwarding after reconnecting. Release builds include their JavaScri
 
 ## Android release builds
 
-For each new Google Play bundle, increment `expo.android.versionCode` in `app.json` above every previously uploaded code. The visible app version is separate and does not replace this integer. Before first using the release workflows, ensure the committed version code is at least the highest code already uploaded to Play; preparation increments it by one.
+For each new Google Play bundle, increment `expo.android.versionCode` in `app.json` above every previously uploaded code. The visible app version is separate and does not replace this integer. Release preparation increments the committed version code; keep it aligned with the highest code already uploaded to Play.
 
 ### GitHub release sequence
 
@@ -50,9 +50,9 @@ For each new Google Play bundle, increment `expo.android.versionCode` in `app.js
 
 No version input is needed. Each stage fails if its prerequisites are missing and never falls back to an older release. Finish the release before merging another version bump. Preserve draft releases, tags, and assets. Successful builds cannot be overwritten. After a failed build, inspect incomplete drafts/tags before retrying **Build Android release** manually. After a failed testing submission, rerun **Release to closed testing** manually from `main`; it reuses the successful build and safely resumes an already uploaded matching bundle without a version bump. A newer closed-testing release prevents promotion of the previous version.
 
-### iOS / TestFlight placeholder
+### iOS releases
 
-Android is the only enabled platform. iOS/TestFlight is coming soon and requires Apple Developer/App Store Connect configuration, signing credentials, and an iOS build/upload workflow. Unsupported platform inputs fail before preparation changes files. Future iOS and both-platform options should share the reviewed version and bilingual notes, with independent platform build numbers. App Store production submission remains a separate step after testing.
+The release workflows support Android only. iOS development and JavaScript bundle export are available, but no iOS signing, TestFlight upload, or App Store release workflow is configured. Unsupported platform inputs are rejected before preparation changes files.
 
 ### GitHub and Play configuration
 

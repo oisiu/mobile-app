@@ -16,7 +16,7 @@ vi.mock('expo-file-system/legacy',()=>({cacheDirectory:'file:///cache/',readAsSt
 vi.mock('expo-sharing',()=>({shareAsync:mock.share}));
 vi.mock('expo-document-picker',()=>({getDocumentAsync:mock.pick}));
 vi.mock('expo-clipboard',()=>({setStringAsync:mock.copy}));
-vi.mock('expo-router',()=>({router:{push:vi.fn()}}));
+vi.mock('expo-router',()=>({router:{push:vi.fn()},useFocusEffect:()=>undefined}));
 vi.mock('expo-linking',()=>({openURL:mock.link}));
 
 const localizedLink=(url:string)=>language==='es'?url.replace('https://oisiu.github.io/legal/','https://oisiu.github.io/legal/es/'):url;
@@ -59,7 +59,7 @@ it.each(['close','back','backdrop'])('dismisses the conversion guide with %s',as
 });
 it.each(['json','csv'] as const)('exports %s only after explicit user action',async kind=>{
   const root=await render();expect(repo.export).not.toHaveBeenCalled();expect(mock.share).not.toHaveBeenCalled();
-  await press(action(root,kind==='json'?'exportJson':'exportCsv'));
+  await press(action(root,kind==='json'?'exportJson':'exportCsv'));await press(action(root,'exportSelected'));
   const [uri,content]=mock.write.mock.calls[0];expect(uri).toBe(`file:///cache/oisiu-export.${kind}`);
   if(kind==='json')expect(JSON.parse(content)).toEqual(data);
   else expect(content).toContain('entry,2026-01-01,UTC,number,0,"Read ""books"" / Pages"');
@@ -67,7 +67,7 @@ it.each(['json','csv'] as const)('exports %s only after explicit user action',as
 });
 it.each(['export','write','share'])('shows localized guidance when %s fails',async stage=>{
   (stage==='export'?repo.export:stage==='write'?mock.write:mock.share).mockRejectedValue(new Error('Private transfer error'));
-  const root=await render();await press(action(root,'exportJson'));expect(mock.alert).toHaveBeenLastCalledWith(t('exportFailed'),t('exportFailedHelp'));
+  const root=await render();await press(action(root,'exportJson'));await press(action(root,'exportSelected'));expect(mock.alert).toHaveBeenLastCalledWith(t('exportFailed'),t('exportFailedHelp'));
 });
 it('does not export or delete before the repository is ready',async()=>{
   mock.app.repo=null;const root=await render();await press(action(root,'exportJson'));await press(action(root,'advancedSettings'));await press(action(root,'deleteAllData'));
@@ -129,28 +129,53 @@ it.each(['json','csv'] as const)('exports only the chosen category as %s and can
   const other={id:'other',parentId:null,name:'Other',type:'number',sortOrder:0,emoji:'',archivedAt:'2025-01-01'},rootHabit={...data.habits[0],sortOrder:1,emoji:'',isHidden:true};
   mock.app.habits=[rootHabit,other,data.habits[1]];
   repo.export.mockResolvedValue({...data,habits:[...data.habits,other],entries:[...data.entries,{...data.entries[0],id:'otherEntry',habitId:'other'}]});
-  const root=await render();await press(action(root,'exportScope'));
-  const radios=()=>root.findAll(node=>node.type as unknown==='TouchableOpacity'&&node.props.accessibilityRole==='radio'&&node.props.accessibilityLabel!==t('system')&&node.props.accessibilityLabel!==t('light')&&node.props.accessibilityLabel!==t('dark'));
+  const root=await render();await press(action(root,kind==='json'?'exportJson':'exportCsv'));
+  const radios=()=>root.findAll(node=>node.type as unknown==='TouchableOpacity'&&node.props.accessibilityRole==='checkbox');
   expect(radios().map(node=>node.props.accessibilityLabel)).toEqual([t('exportAllHabits'),` Other (${t('exportArchived')})`,' Read "books"']);
-  await press(radios()[2]);expect(action(root,'exportScope').props.accessibilityState.expanded).toBe(false);
-  await press(action(root,kind==='json'?'exportJson':'exportCsv'));
+  await press(radios()[2]);await press(action(root,'exportSelected'));
   const content=mock.write.mock.calls[0][1];
   if(kind==='json'){const selected=JSON.parse(content);expect(selected.habits.map((h:{id:string})=>h.id)).toEqual(['root','child']);expect(selected.entries).toEqual(data.entries)}
   else {expect(content).toContain('Pages');expect(content).not.toContain('otherEntry')}
-  await press(action(root,'exportScope'));await press(radios()[0]);await press(action(root,'exportJson'));
+  await press(action(root,'exportJson'));await press(radios()[0]);await press(action(root,'exportSelected'));
   expect(JSON.parse(mock.write.mock.calls[1][1]).habits).toHaveLength(3);
 });
 it('blocks repeated exports and scope changes until sharing finishes',async()=>{
   let complete!:()=>void;mock.share.mockReturnValue(new Promise<void>(resolve=>{complete=resolve}));
-  const root=await render();await act(async()=>{void action(root,'exportJson').props.onPress()});await press(action(root,'exportCsv'));
-  expect(repo.export).toHaveBeenCalledOnce();expect(action(root,'exportScope').props.disabled).toBe(true);
+  const root=await render();await act(async()=>{action(root,'exportJson').props.onPress()});await act(async()=>{void action(root,'exportSelected').props.onPress()});await press(action(root,'exportCsv'));
+  expect(repo.export).toHaveBeenCalledOnce();expect(root.find(node=>node.type as unknown==='TouchableOpacity'&&node.props.accessibilityLabel===t('exportSelected')).props.disabled).toBe(true);
   expect(action(root,'exportJson').props.disabled).toBe(true);
-  await act(async()=>complete());expect(action(root,'exportScope').props.disabled).toBe(false);
+  await act(async()=>complete());expect(action(root,'exportSelected')).toBeUndefined();
 });
 it('reports a stale category selection without exporting other habits',async()=>{
   mock.app.habits=[{...data.habits[0],sortOrder:0,emoji:''}];
-  const root=await render();await press(action(root,'exportScope'));
-  await press(root.find(node=>node.type as unknown==='TouchableOpacity'&&node.props.accessibilityRole==='radio'&&node.props.accessibilityLabel===' Read "books"'));
-  repo.export.mockResolvedValue({...data,habits:[],entries:[]});await press(action(root,'exportJson'));
+  const root=await render();await press(action(root,'exportJson'));
+  await press(root.find(node=>node.type as unknown==='TouchableOpacity'&&node.props.accessibilityRole==='checkbox'&&node.props.accessibilityLabel===' Read "books"'));
+  repo.export.mockResolvedValue({...data,habits:[],entries:[]});await press(action(root,'exportSelected'));
   expect(mock.write).not.toHaveBeenCalled();expect(mock.alert).toHaveBeenLastCalledWith(t('exportFailed'),t('exportFailedHelp'));
+});
+
+it('allows multiple categories, blocks an empty selection and cancels without exporting',async()=>{
+ mock.app.habits=[{...data.habits[0],emoji:''},{id:'other',parentId:null,name:'Other',emoji:'',sortOrder:1}];
+ repo.export.mockResolvedValue({...data,habits:[...data.habits,{id:'other',parentId:null,name:'Other'}]});
+ const root=await render();expect(action(root,'exportScope')).toBeUndefined();await press(action(root,'exportJson'));
+ const choices=()=>root.findAll(node=>node.type as unknown==='TouchableOpacity'&&node.props.accessibilityRole==='checkbox');
+ await press(choices()[1]);await press(choices()[1]);expect(action(root,'exportSelected').props.disabled).toBe(true);
+ await press(choices()[1]);await press(choices()[2]);await press(action(root,'exportSelected'));
+ expect(JSON.parse(mock.write.mock.calls[0][1]).habits).toHaveLength(3);
+ await press(action(root,'exportCsv'));await press(action(root,'cancel'));expect(repo.export).toHaveBeenCalledOnce();
+});
+
+it('guards imports from picker through confirmation and pending write, then permits retry',async()=>{
+ let complete!:()=>void;repo.import.mockReturnValue(new Promise<void>(resolve=>{complete=resolve}));
+ const root=await render();await press(action(root,'importJson'));await press(action(root,'importJson'));
+ expect(mock.pick).toHaveBeenCalledOnce();expect(action(root,'importJson').props.disabled).toBe(true);
+ await press(action(root,'exportJson'));expect(action(root,'exportSelected')).toBeUndefined();
+ const confirm=mock.alert.mock.calls.at(-1)![2][1].onPress;
+ await act(async()=>{void confirm();void confirm()});expect(repo.import).toHaveBeenCalledOnce();
+ await act(async()=>complete());expect(action(root,'importJson').props.disabled).toBe(false);
+ await press(action(root,'importJson'));expect(mock.pick).toHaveBeenCalledTimes(2);
+ await act(async()=>mock.alert.mock.calls.at(-1)![2][0].onPress());expect(action(root,'importJson').props.disabled).toBe(false);
+});
+it('blocks import while the repository is unavailable',async()=>{
+ mock.app.repo=null;const root=await render();await press(action(root,'importJson'));expect(mock.pick).not.toHaveBeenCalled();expect(action(root,'importJson').props.disabled).toBe(true);
 });

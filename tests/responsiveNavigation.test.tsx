@@ -23,5 +23,7 @@ it('accepts navigation after a queued transition was canceled on blur',async()=>
  await act(async()=>navigation.push('/insight/second'));
  expect(frames.size).toBe(1);await act(async()=>frames.get(2)!(0));
  expect(mocks.push).toHaveBeenCalledExactlyOnceWith('/insight/second');
+ await act(async()=>navigation.push('/insight/duplicate-after-frame'));
+ expect(frames.size).toBe(1);expect(mocks.push).toHaveBeenCalledOnce();
  await act(async()=>renderer.unmount());
 });

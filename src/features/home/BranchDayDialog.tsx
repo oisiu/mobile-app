@@ -18,6 +18,7 @@ export function BranchDayDialog({habit,date,onClose}:{habit:Habit;date:string;on
   const [drafts,setDrafts]=useState(()=>records.map(r=>calendarDraft(r.habit,date,r.entry.value)));
   const [removed,setRemoved]=useState(new Set<string>()),[saving,setSaving]=useState(false),[destination,setDestination]=useState(date),busy=useRef(false);
   const [refreshOnly,setRefreshOnly]=useState(false),locked=saving||refreshOnly;
+  const directCommitted=useRef<{value:number|null}|null>(null);
   const [directEditor,setDirectEditor]=useState<CalendarDraft|null>(null);
   const [moving,setMoving]=useState(false),[pickingDate,setPickingDate]=useState(false);
   const target=moving?destination:date;
@@ -26,8 +27,8 @@ export function BranchDayDialog({habit,date,onClose}:{habit:Habit;date:string;on
   const changed=target!==date||edits.some((e,index)=>e.value!==records[index].entry.value);
   const conflictRecords=target===date?[]:records.filter((r,index)=>edits[index].value!==null&&entries.some(e=>e.habitId===r.entry.habitId&&e.localDate===target));
   const label=(path:Habit[])=>path.map(h=>h.isGeneral?t('branchDirectShort'):h.name).join(' › ');
-  const close=()=>{if(!busy.current){if(directEditor)setDirectEditor(null);else onClose()}};
-  const saveDirect=async(value:number|null)=>{if(busy.current)return;busy.current=true;setSaving(true);try{await changeEntry(habit.id,date,value);onClose()}catch(error){Alert.alert(entryErrorTitle(error),String(error))}finally{busy.current=false;setSaving(false)}};
+  const close=()=>{if(!busy.current){if(directEditor){directCommitted.current=null;setRefreshOnly(false);setDirectEditor(null)}else onClose()}};
+  const saveDirect=async(value:number|null)=>{if(busy.current)return;busy.current=true;setSaving(true);try{await changeEntry(habit.id,date,directCommitted.current?directCommitted.current.value:value);directCommitted.current=null;onClose()}catch(error){if(error instanceof EntryRefreshError){directCommitted.current??={value};setRefreshOnly(true)}Alert.alert(entryErrorTitle(error),error instanceof Error?error.message:String(error))}finally{busy.current=false;setSaving(false)}};
   const save=async()=>{
     if(busy.current)return;
     if(!refreshOnly&&invalid)return Alert.alert(t('invalidNumber'));
@@ -43,7 +44,7 @@ export function BranchDayDialog({habit,date,onClose}:{habit:Habit;date:string;on
   const original=habit.type==='boolean'?(records.some(r=>r.entry.value>0)?1:0):records.reduce((sum,r)=>sum+r.entry.value,0);
   const disabled=saving||(!refreshOnly&&(!changed||invalid||!validBranchDate(target)||conflictRecords.length>0));
   return <Modal transparent animationType="fade" onRequestClose={close}>
-    {directEditor?<CalendarEntryModal embedded editor={directEditor} habit={habit} hasRecord={!!calendarEntry(habit,habits,entries,date)} saving={saving} setEditor={update=>{if(!busy.current)setDirectEditor(update)}} onSave={async()=>{const value=calendarInputValue(habit,directEditor);if(value===null){Alert.alert(t('invalidNumber'));return}await saveDirect(value)}} onClear={()=>saveDirect(null)} c={c}/>:<KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':'height'}>
+    {directEditor?<CalendarEntryModal embedded locked={refreshOnly} editor={directEditor} habit={habit} hasRecord={!!calendarEntry(habit,habits,entries,date)} saving={saving} setEditor={update=>{if(!busy.current&&(update===null||!directCommitted.current)){if(update===null){directCommitted.current=null;setRefreshOnly(false)}setDirectEditor(update)}}} onSave={async()=>{if(directCommitted.current){await saveDirect(directCommitted.current.value);return}const value=calendarInputValue(habit,directEditor);if(value===null){Alert.alert(t('invalidNumber'));return}await saveDirect(value)}} onClear={()=>saveDirect(null)} c={c}/>:<KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':'height'}>
     <Pressable style={s.overlay} onPress={close}><Pressable accessibilityViewIsModal onAccessibilityEscape={close} style={[s.sheet,{backgroundColor:c.card}]} onPress={()=>undefined}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
         <View style={s.row}><Text style={{fontSize:30}}>{habit.emoji}</Text><View style={{flex:1}}><Text accessibilityRole="header" style={[s.title,{color:c.text}]}>{habit.name}</Text><Text style={{color:c.muted}}>{dateText}</Text></View><Pressable disabled={saving} accessibilityRole="button" accessibilityLabel={t('close')} onPress={close} style={{padding:12}}><Ionicons name="close" size={22} color={c.muted}/></Pressable></View>

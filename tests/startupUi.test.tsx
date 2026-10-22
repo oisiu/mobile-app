@@ -5,7 +5,6 @@ import { t } from '../src/i18n';
 import RootLayout from '../app/_layout';
 import TabsLayout from '../app/(tabs)/_layout';
 import { light,dark } from '../src/theme';
-import logo from '../assets/app/logo.png';
 const mocks=vi.hoisted(()=>({state:{} as Record<string,unknown>,retry:vi.fn(),hide:vi.fn()}));
 vi.mock('react-native',()=>({ActivityIndicator:'Spinner',Image:'Image',Pressable:'Pressable',Text:'Text',View:'View',StyleSheet:{create:(value:unknown)=>value}}));
 vi.mock('react-native-safe-area-context',()=>({useSafeAreaInsets:()=>({top:0,bottom:32,left:0,right:0})}));
@@ -19,19 +18,21 @@ vi.mock('../src/features/AppBar',()=>({AppBar:()=>null}));
 vi.mock('../src/features/AppProvider',()=>({AppProvider:({children}:{children:React.ReactNode})=>children,SuccessToast:()=>null,useApp:()=>mocks.state}));
 let renderer:ReactTestRenderer;
 afterEach(async()=>{if(renderer)await act(async()=>renderer.unmount());vi.restoreAllMocks();vi.resetModules()});
-it.each([{palette:light,resolvedTheme:'light'},{palette:dark,resolvedTheme:'dark'}])('uses the same rounded approved logo in $resolvedTheme mode',async({palette,resolvedTheme})=>{
-  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
-  mocks.state={ready:false,themeReady:true,error:null,retryStartup:mocks.retry,palette,resolvedTheme};
+it.each([{palette:light,resolvedTheme:'light'},{palette:dark,resolvedTheme:'dark'}])('keeps the splash until startup is ready in $resolvedTheme mode',async({palette,resolvedTheme})=>{
+  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});mocks.hide.mockReset();
+  mocks.state={ready:false,themeReady:false,error:null,retryStartup:mocks.retry,palette,resolvedTheme};
   await act(async()=>{renderer=create(<RootLayout/>)});
-  const image=renderer.root.find(node=>node.type as unknown==='Image');
-  expect(image.props.source).toBe(logo);
-  expect(image.props.style.borderRadius).toBe(28);
-  expect(renderer.root.findAll(node=>node.type as unknown==='Spinner')).toHaveLength(1);
+  expect(renderer.toJSON()).toBeNull();expect(mocks.hide).not.toHaveBeenCalled();
+  mocks.state={...mocks.state,themeReady:true};await act(async()=>renderer.update(<RootLayout/>));
+  expect(renderer.toJSON()).toBeNull();expect(mocks.hide).not.toHaveBeenCalled();
   mocks.state={...mocks.state,ready:true};await act(async()=>renderer.update(<RootLayout/>));
-  expect(renderer.root.findAll(node=>node.type as unknown==='Image')).toHaveLength(0);
+  expect(renderer.root.findAll(node=>node.type as unknown==='Stack')).toHaveLength(1);
+  expect(renderer.root.findAll(node=>node.type as unknown==='Image'||node.type as unknown==='Spinner')).toHaveLength(0);
+  expect(mocks.hide).not.toHaveBeenCalled();
+  renderer.root.findAll(node=>node.type as unknown==='View')[0].props.onLayout();expect(mocks.hide).toHaveBeenCalledOnce();
 });
 it.each([light,dark])('shows a readable retry screen and hides the splash after a startup failure',async palette=>{
-  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});mocks.retry.mockReset();mocks.hide.mockReset();
+  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});mocks.retry.mockReset().mockResolvedValue(undefined);mocks.hide.mockReset();
   mocks.state={ready:false,themeReady:true,error:'raw platform error',retryStartup:mocks.retry,palette,resolvedTheme:'light'};
   await act(async()=>{renderer=create(<RootLayout/>)});
   expect(JSON.stringify(renderer.toJSON())).toContain(t('startupFailed'));
@@ -65,4 +66,22 @@ it('keeps navigation surfaces in sync when appearance changes',async()=>{
     expect(renderer.root.find(node=>node.type as unknown==='Stack').props.screenOptions.contentStyle.backgroundColor).toBe(palette.bg);
     expect(renderer.root.find(node=>node.type as unknown==='Tabs').props.screenOptions.sceneStyle.backgroundColor).toBe(palette.bg);
   }
+});
+
+it('keeps recovery visible and disables retry while startup is pending',async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ let finish!:()=>void;
+ mocks.retry.mockReset().mockImplementation(()=>new Promise<void>(resolve=>{finish=resolve}));
+ mocks.state={ready:false,themeReady:true,error:'failed',retryStartup:mocks.retry,palette:light,resolvedTheme:'light'};
+ await act(async()=>{renderer=create(<RootLayout/>)});
+ await act(async()=>renderer.root.find(node=>node.type as unknown==='Pressable').props.onPress());
+ mocks.state={...mocks.state,error:null};await act(async()=>renderer.update(<RootLayout/>));
+ expect(renderer.toJSON()).not.toBeNull();
+ const retry=renderer.root.find(node=>node.type as unknown==='Pressable');
+ expect(retry.props.disabled).toBe(true);expect(retry.props.accessibilityState).toEqual({disabled:true,busy:true});
+ expect(renderer.root.findAll(node=>node.type as unknown==='Spinner')).toHaveLength(1);
+ mocks.state={...mocks.state,error:'failed again'};
+ await act(async()=>{finish();await Promise.resolve();renderer.update(<RootLayout/>)});
+ expect(renderer.root.find(node=>node.type as unknown==='Pressable').props.disabled).toBe(false);
+ expect(renderer.root.findAll(node=>node.type as unknown==='Spinner')).toHaveLength(0);
 });

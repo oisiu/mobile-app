@@ -23,11 +23,9 @@ Whenever user-facing text is added or changed, update all supported translations
 
 ## Automated coverage
 
-The [test suite](../tests/) covers domain rules, real SQLite migrations/transactions, translations, and UI behavior with mocked native components. Provider regressions cover direct-entry no-op refreshes, refresh-only recovery after committed saves/deletions and branch edits/clears/moves, repeated read failures, and genuine write retries. Branch-dialog tests verify committed drafts lock while Save remains available for recovery. Editor regressions cover live root/child name counters, failed child-deletion review with retry, restoration refresh-only retries in both list and card, and distinguish write failures from post-commit refresh failures, verify refresh-only retries and guarded archive/deletion, and cover canceled navigation frames and removal prevention during clean-draft writes.
+The [test suite](../tests/) covers pure domain rules, real SQLite migrations and transactional rollback, safe import/export, localization, and UI behavior with mocked native components. Coverage scope and thresholds belong to the Vitest configuration.
 
-More tests cover navigation accessibility in both themes, data transfer, clipboard failures, and deletion safeguards. Repository tests verify deletion and hierarchy-edit rollback, threshold persistence and constraints, safe import, and retained migration history. Insight tests cover shared period boundaries, elapsed weekday frequencies, typed/Boolean consistency, threshold calendar colors, and chart/legend highlighting.
-
-Hidden-category UI tests cover the Home list and More card in both themes, disclosure accessibility and collapse/reset behavior, saved root ordering and filtering, editing, recovery availability, duplicate-write prevention and retained rows after failures. Triple-tap timing, toast translations, temporary Home reveals and persistent recovery from More are also covered.
+UI regressions cover draft/navigation guards, duplicate-submission protection, refresh-only recovery after committed writes, hidden-category access and restoration, and data-transfer failures. Analytics checks cover independent detail grouping and history loading, weekly boundaries, bar totals, all-history streaks and annual frequency, typed/Boolean analysis, calendar thresholds, and accessible chart values.
 
 `pnpm test:release` checks release preparation, stage order, and credential handling with mocked services. Shell gates use Bash from the installed Git distribution on Windows. It also runs in `pnpm test` and coverage checks. `pnpm test:release:signing` uses JDK tools and `zip` to sign and verify a temporary synthetic archive.
 

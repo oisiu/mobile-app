@@ -1,5 +1,5 @@
 import { expect,it } from 'vitest';
-import { selectExportCategory } from '../src/domain/export';
+import { exportEntriesCsv,selectExportCategory } from '../src/domain/export';
 import { planImport,validateImport } from '../src/domain/import';
 import { Entry,ExportData,Habit } from '../src/domain/types';
 
@@ -27,4 +27,18 @@ it.each(['missing','leaf','general'])('rejects an unavailable or non-root select
 it('exports an archived category without records',()=>{
   const archived={...habit('archived'),archivedAt:now};
   expect(selectExportCategory({...data,habits:[archived],entries:[]},archived.id).habits).toEqual([archived]);
+});
+
+it('exports multiple complete categories without duplicates and rejects empty or stale selections',()=>{
+ const selected=selectExportCategory(data,['root','other','root']);
+ expect(selected.habits).toEqual(data.habits);expect(selected.entries).toEqual(data.entries);
+ expect(validateImport(selected)).toEqual(selected);
+ expect(()=>selectExportCategory(data,[])).toThrow('Select an export category');
+ expect(()=>selectExportCategory(data,['root','missing'])).toThrow('Export category not found');
+});
+
+it('quotes CSV identifiers, timezones and paths containing separators, quotes or line breaks',()=>{
+ const snapshot:ExportData={...data,habits:[{...habit('root'),name:'Read "books", daily\nnotes'}],entries:[{...entry('entry,"quoted"\nline','root'),timezone:'Custom, "zone"\r\nnext'}]};
+ expect(exportEntriesCsv(snapshot)).toBe('entry_id,local_date,timezone,type,value,habit_path\n"entry,""quoted""\nline",2025-01-01,"Custom, ""zone""\r\nnext",number,0,"Read ""books"", daily\nnotes"');
+ expect(()=>exportEntriesCsv({...snapshot,habits:[]})).toThrow('Export habit not found');
 });

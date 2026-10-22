@@ -2,13 +2,14 @@ import { router,useFocusEffect } from 'expo-router';
 import { useCallback,useEffect,useRef,useState } from 'react';
 
 export function useResponsiveNavigation(){
-  const [pending,setPending]=useState<string|null>(null),frame=useRef<number|null>(null);
+  const [pending,setPending]=useState<string|null>(null),frame=useRef<number|null>(null),navigating=useRef(false);
   useFocusEffect(useCallback(()=>{
-    setPending(null);
+    navigating.current=false;setPending(null);
     return()=>{if(frame.current!==null){cancelAnimationFrame(frame.current);frame.current=null}};
   },[]));
   const push=useCallback((href:string)=>{
-    if(frame.current!==null)return;
+    if(navigating.current)return;
+    navigating.current=true;
     setPending(href);
     frame.current=requestAnimationFrame(()=>{frame.current=null;router.push(href as never)});
   },[]);

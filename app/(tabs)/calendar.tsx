@@ -1,4 +1,4 @@
-import { entryErrorTitle } from '@/features/entryWriteError';
+import { EntryRefreshError,entryErrorTitle } from '@/features/entryWriteError';
 import { visibleHabitSnapshot } from '@/domain/habitVisibility';
 import { CalendarDayBackground } from '@/features/CalendarDayBackground';
 import { habitAccent,habitChartColor } from '@/theme/habitColors';
@@ -20,7 +20,9 @@ type ValueEditor={habit:Habit;value:string;unit:DurationUnit};
 
 export default function Calendar(){
   const {habits:allHabits,entries:allEntries,changeEntry,palette:c}=useApp(),{habits,entries}=useMemo(()=>visibleHabitSnapshot(allHabits,allEntries),[allHabits,allEntries]),today=todayLocal(),currentMonth=monthKey(today),[monthCount,setMonthCount]=useState(12),[width,setWidth]=useState(0),[selectedDate,setSelectedDate]=useState<string|null>(null),[editor,setEditor]=useState<ValueEditor|null>(null),[expanded,setExpanded]=useState<Set<string>>(new Set()),[saving,setSaving]=useState(false);
-  const savingRef=useRef(false);
+  const savingRef=useRef(false),committed=useRef<{habitId:string;date:string;value:number|null}|null>(null);
+  const [refreshOnly,setRefreshOnly]=useState(false),locked=saving||refreshOnly;
+  const clearCommitted=()=>{committed.current=null;setRefreshOnly(false)};
   const dayHabits=useMemo(()=>{const rows:{habit:HabitNode;depth:number}[]=[];const visit=(habit:HabitNode,depth:number)=>{rows.push({habit,depth});if(expanded.has(habit.id))habit.children.forEach(child=>visit(child,depth+1))};buildTree(habits).forEach(root=>visit(root,0));return rows},[habits,expanded]);
   const entryIndex=useMemo(()=>aggregationIndex(habits,entries),[habits,entries]);
   const directTargets=useMemo(()=>new Map(habits.map(habit=>[habit.id,habits.find(item=>item.parentId===habit.id&&item.isGeneral)?.id??habit.id])),[habits]);
@@ -34,18 +36,19 @@ export default function Calendar(){
 
   const targetId=(habit:Habit)=>directTargets.get(habit.id)??habit.id;
   const valueOn=(habit:Habit,date:string)=>entryIndex.value(targetId(habit),date);
-  const openEditor=(habit:Habit)=>{if(!selectedDate||savingRef.current)return;const current=valueOn(habit,selectedDate),unit:DurationUnit=habit.type==='duration'&&current>=3600&&current%3600===0?'hours':'minutes';setEditor({habit,unit,value:entryIndex.has(targetId(habit),selectedDate)?String(habit.type==='duration'?current/(unit==='hours'?3600:60):current):''})};
-  const toggleExpanded=(id:string)=>{if(savingRef.current)return;setExpanded(current=>{const next=new Set(current);if(next.has(id))next.delete(id);else next.add(id);return next})};
-  const closeSheet=()=>{if(savingRef.current)return;setEditor(null);setSelectedDate(null)};
-  const goBack=()=>{if(savingRef.current)return;if(editor)setEditor(null);else closeSheet()};
+  const openEditor=(habit:Habit)=>{if(!selectedDate||savingRef.current||committed.current)return;const current=valueOn(habit,selectedDate),unit:DurationUnit=habit.type==='duration'&&current>=3600&&current%3600===0?'hours':'minutes';setEditor({habit,unit,value:entryIndex.has(targetId(habit),selectedDate)?String(habit.type==='duration'?current/(unit==='hours'?3600:60):current):''})};
+  const toggleExpanded=(id:string)=>{if(savingRef.current||committed.current)return;setExpanded(current=>{const next=new Set(current);if(next.has(id))next.delete(id);else next.add(id);return next})};
+  const closeSheet=()=>{if(savingRef.current)return;clearCommitted();setEditor(null);setSelectedDate(null)};
+  const goBack=()=>{if(savingRef.current)return;if(editor){clearCommitted();setEditor(null)}else closeSheet()};
   const persist=async(value:number|null,habit=editor?.habit)=>{
     if(!selectedDate||!habit||savingRef.current)return;
     savingRef.current=true;setSaving(true);
-    try{await changeEntry(habit.id,selectedDate,value);setEditor(null)}
-    catch(error){Alert.alert(entryErrorTitle(error),error instanceof Error?error.message:String(error))}
+    const request=committed.current??{habitId:habit.id,date:selectedDate,value};
+    try{await changeEntry(request.habitId,request.date,request.value);clearCommitted();setEditor(null)}
+    catch(error){if(error instanceof EntryRefreshError){committed.current=request;setRefreshOnly(true)}Alert.alert(entryErrorTitle(error),error instanceof Error?error.message:String(error))}
     finally{savingRef.current=false;setSaving(false)}
   };
-  const save=async()=>{if(!editor)return;if(!isCompleteDecimalInput(editor.value))return Alert.alert(t('invalidNumber'));const input=Number(editor.value),value=editor.habit.type==='duration'?durationInputToSeconds(input,editor.unit):input;if(!Number.isFinite(value)||value<0||(editor.habit.type==='duration'&&!Number.isInteger(value)))return Alert.alert(t('invalidNumber'));await persist(value)};
+  const save=async()=>{if(!editor)return;if(committed.current)return persist(committed.current.value);if(!isCompleteDecimalInput(editor.value))return Alert.alert(t('invalidNumber'));const input=Number(editor.value),value=editor.habit.type==='duration'?durationInputToSeconds(input,editor.unit):input;if(!Number.isFinite(value)||value<0||(editor.habit.type==='duration'&&!Number.isInteger(value)))return Alert.alert(t('invalidNumber'));await persist(value)};
   const hasRecord=!!editor&&!!selectedDate&&entryIndex.has(targetId(editor.habit),selectedDate);
   const dayTotals=useMemo(()=>new Map(dayHabits.map(({habit})=>[habit.id,selectedDate?aggregate(habits,entries,habit.id,new Set([selectedDate])):0])),[dayHabits,habits,entries,selectedDate]);
   return <View style={[s.page,{backgroundColor:c.bg}]} onLayout={event=>setWidth(event.nativeEvent.layout.width)}>
@@ -69,23 +72,25 @@ export default function Calendar(){
           <Text style={[s.sheetTitle,{color:c.text}]}>{selectedDate&&new Intl.DateTimeFormat(undefined,{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date(`${selectedDate}T12:00:00`))}</Text>
           {!editor&&<Text style={[s.sheetHint,{color:c.muted}]}>{t('dayEditorHint')}</Text>}
         </View></View>
+        {refreshOnly&&<Text style={[s.editorHint,{color:c.muted}]}>{t('entrySavedRefreshHelp')}</Text>}
+        {refreshOnly&&!editor&&<TouchableOpacity disabled={saving} accessibilityRole="button" onPress={()=>{const request=committed.current;if(request)void persist(request.value,habits.find(habit=>habit.id===request.habitId))}} style={[s.saveButton,{backgroundColor:c.accent}]}><Text style={[s.saveText,{color:c.onAccent}]}>{t('retry')}</Text></TouchableOpacity>}
         {editor?<ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.valueEditor}>
           <TouchableOpacity disabled={saving} accessibilityRole="button" onPress={goBack} style={s.editorBack}><Ionicons name="chevron-back" size={18} color={c.accent}/><Text style={{color:c.accent,fontWeight:'700'}}>{t('back')}</Text></TouchableOpacity>
           <Text style={[s.editorTitle,{color:c.text}]}>{editor.habit.emoji} {editor.habit.name}</Text>
           {habits.some(habit=>habit.parentId===editor.habit.id&&!habit.isGeneral)&&<Text style={[s.editorHint,{color:c.muted}]}>{t('ownRecordHint')}</Text>}
-            {editor.habit.type==='duration'&&<View style={s.units}>{(['minutes','hours'] as DurationUnit[]).map(unit=><TouchableOpacity key={unit} disabled={saving} accessibilityRole="radio" accessibilityState={{checked:editor.unit===unit}} onPress={()=>setEditor(current=>{if(!current||current.unit===unit)return current;const value=isCompleteDecimalInput(current.value)?String(Number(current.value)*(unit==='hours'?1/60:60)):current.value;return {...current,unit,value}})} style={[s.unit,{backgroundColor:editor.unit===unit?c.accent:c.soft}]}><Text style={{color:editor.unit===unit?c.onAccent:c.text,fontWeight:'700'}}>{t(unit)}</Text></TouchableOpacity>)}</View>}
-            <TextInput autoFocus editable={!saving} accessibilityLabel={t('value')} keyboardType="decimal-pad" inputMode="decimal" value={editor.value} onChangeText={value=>setEditor(current=>current&&({...current,value:sanitizeDecimalInput(value)}))} placeholder={t('value')} placeholderTextColor={c.muted} style={[s.input,{borderColor:c.line,color:c.text}]}/>
+            {editor.habit.type==='duration'&&<View style={s.units}>{(['minutes','hours'] as DurationUnit[]).map(unit=><TouchableOpacity key={unit} disabled={locked} accessibilityRole="radio" accessibilityState={{checked:editor.unit===unit}} onPress={()=>setEditor(current=>{if(committed.current||!current||current.unit===unit)return current;const value=isCompleteDecimalInput(current.value)?String(Number(current.value)*(unit==='hours'?1/60:60)):current.value;return {...current,unit,value}})} style={[s.unit,{backgroundColor:editor.unit===unit?c.accent:c.soft}]}><Text style={{color:editor.unit===unit?c.onAccent:c.text,fontWeight:'700'}}>{t(unit)}</Text></TouchableOpacity>)}</View>}
+            <TextInput autoFocus editable={!locked} accessibilityLabel={t('value')} keyboardType="decimal-pad" inputMode="decimal" value={editor.value} onChangeText={value=>{if(!committed.current)setEditor(current=>current&&({...current,value:sanitizeDecimalInput(value)}))}} placeholder={t('value')} placeholderTextColor={c.muted} style={[s.input,{borderColor:c.line,color:c.text}]}/>
           <View style={s.editorActions}>
-            {hasRecord&&<TouchableOpacity disabled={saving} accessibilityRole="button" onPress={()=>void persist(null)} style={[s.deleteButton,{backgroundColor:c.soft}]}><Ionicons name="trash-outline" size={18} color={c.danger}/><Text style={{color:c.danger,fontWeight:'700'}}>{t('deleteEntry')}</Text></TouchableOpacity>}
-            <TouchableOpacity disabled={saving} accessibilityRole="button" accessibilityState={{busy:saving,disabled:saving}} onPress={()=>void save()} style={[s.saveButton,{backgroundColor:c.accent,opacity:saving?.5:1}]}><Text style={[s.saveText,{color:c.onAccent}]}>{t('save')}</Text></TouchableOpacity>
+            {hasRecord&&<TouchableOpacity disabled={locked} accessibilityRole="button" onPress={()=>{if(!committed.current)void persist(null)}} style={[s.deleteButton,{backgroundColor:c.soft}]}><Ionicons name="trash-outline" size={18} color={c.danger}/><Text style={{color:c.danger,fontWeight:'700'}}>{t('deleteEntry')}</Text></TouchableOpacity>}
+            <TouchableOpacity disabled={saving} accessibilityRole="button" accessibilityState={{busy:saving,disabled:saving}} onPress={()=>void save()} style={[s.saveButton,{backgroundColor:c.accent,opacity:saving?.5:1}]}><Text style={[s.saveText,{color:c.onAccent}]}>{t(refreshOnly?'retry':'save')}</Text></TouchableOpacity>
           </View>
         </ScrollView>:<FlatList style={s.habitList} contentContainerStyle={s.habitListContent} data={dayHabits} keyExtractor={({habit})=>habit.id} initialNumToRender={12} maxToRenderPerBatch={10} windowSize={7} renderItem={({item:{habit,depth}})=>{const value=dayTotals.get(habit.id)??0,hasChildren=habit.children.length>0,isExpanded=expanded.has(habit.id);return <View style={[s.habitRow,{borderColor:c.line,marginLeft:Math.min(depth,5)*12}]}>
-            {hasChildren?<TouchableOpacity disabled={saving} accessibilityRole="button" accessibilityLabel={`${t(isExpanded?'collapse':'expand')} ${habit.name}`} accessibilityState={{expanded:isExpanded}} onPress={()=>toggleExpanded(habit.id)} style={s.rowAction}><Ionicons name={isExpanded?'chevron-down':'chevron-forward'} size={18} color={c.muted}/></TouchableOpacity>:<View style={{width:44}}/>}
+            {hasChildren?<TouchableOpacity disabled={locked} accessibilityRole="button" accessibilityLabel={`${t(isExpanded?'collapse':'expand')} ${habit.name}`} accessibilityState={{expanded:isExpanded}} onPress={()=>toggleExpanded(habit.id)} style={s.rowAction}><Ionicons name={isExpanded?'chevron-down':'chevron-forward'} size={18} color={c.muted}/></TouchableOpacity>:<View style={{width:44}}/>}
             <View style={s.habitMain}>
               <View style={[s.habitEmoji,{backgroundColor:value?`${habitAccent(habit,habits,c.accent)}20`:c.bg}]}><Text style={s.habitEmojiText}>{habit.emoji}</Text></View>
               <View style={s.habitCopy}><Text numberOfLines={1} style={[s.habitName,{color:c.text}]}>{habit.name}</Text>{hasChildren&&<Text style={{color:c.muted,fontSize:11}}>{t('total')}: {formatValue(habit.type,value)}</Text>}</View>
             </View>
-            <TouchableOpacity accessibilityRole="button" disabled={saving} accessibilityState={{disabled:saving,busy:saving}} accessibilityLabel={`${habit.name}, ${formatValue(habit.type,selectedDate?valueOn(habit,selectedDate):0)}`} accessibilityHint={hasChildren?t('ownRecordHint'):undefined} onPress={()=>habit.type==='boolean'?void persist(selectedDate&&valueOn(habit,selectedDate)?null:1,habit):openEditor(habit)} style={s.valueAction}>
+            <TouchableOpacity accessibilityRole="button" disabled={locked} accessibilityState={{disabled:locked,busy:saving}} accessibilityLabel={`${habit.name}, ${formatValue(habit.type,selectedDate?valueOn(habit,selectedDate):0)}`} accessibilityHint={hasChildren?t('ownRecordHint'):undefined} onPress={()=>{if(committed.current)return;if(habit.type==='boolean')void persist(selectedDate&&valueOn(habit,selectedDate)?null:1,habit);else openEditor(habit)}} style={s.valueAction}>
               <Text style={{color:selectedDate&&valueOn(habit,selectedDate)?c.accent:c.muted,fontWeight:'700'}}>{formatValue(habit.type,selectedDate?valueOn(habit,selectedDate):0)}</Text>
             </TouchableOpacity>
           </View>}}/>}

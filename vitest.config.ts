@@ -11,6 +11,7 @@ export default defineConfig({
         'src/features/import/aiImportPrompt.ts',
         'src/domain/**/*.ts',
         'src/features/insights/calendarScroll.ts',
+        'src/features/insights/useTimelineScroll.ts',
         'src/features/insights/calendarTimeline.ts',
         'src/features/insights/chartEntrance.ts',
         'src/features/insights/calendarEntry.ts',

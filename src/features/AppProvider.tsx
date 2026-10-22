@@ -2,7 +2,7 @@ import { EntryRefreshError } from './entryWriteError';
 import { BranchEdit } from '@/domain/branchDay';
 import { Ionicons } from '@expo/vector-icons';
 import React,{createContext,useCallback,useContext,useEffect,useMemo,useRef,useState} from 'react';
-import { StyleSheet,Text,useColorScheme,View } from 'react-native';
+import { Alert,StyleSheet,Text,useColorScheme,View } from 'react-native';
 import * as SQLite from 'expo-sqlite';
 import Storage from 'expo-sqlite/kv-store';
 import { migrate } from '@/data/migrations';
@@ -18,9 +18,17 @@ const Context=createContext<State|null>(null);
 
 export function AppProvider({children}:{children:React.ReactNode}){
   const systemTheme=useColorScheme()==='dark'?'dark':'light',[themeMode,setThemeModeState]=useState<ThemeMode>('system'),[themeReady,setThemeReady]=useState(false),[ready,setReady]=useState(false),startupPending=useRef(false),[repo,setRepo]=useState<HabitRepository|null>(null),[habits,setHabits]=useState<Habit[]>([]),[entries,setEntries]=useState<Entry[]>([]),[error,setError]=useState<string|null>(null),[toast,setToast]=useState<ToastState|null>(null),toastId=useRef(0);
+  const themeWrites=useRef(Promise.resolve()),themeRequest=useRef(0),persistedTheme=useRef<ThemeMode>('system');
   const pendingEntryWrites=useRef(new Map<string,()=>void>());
   const refresh=useCallback(async()=>{if(!repo)return;const [nextHabits,nextEntries]=await Promise.all([repo.habits(),repo.entries()]);setHabits(nextHabits);setEntries(nextEntries)},[repo]);
-  const setThemeMode=useCallback(async(mode:ThemeMode)=>{setThemeModeState(mode);await Storage.setItem('theme-mode',mode)},[]);
+  const setThemeMode=useCallback((mode:ThemeMode)=>{
+    const request=++themeRequest.current;setThemeModeState(mode);
+    const write=themeWrites.current.then(async()=>{
+      try{await Storage.setItem('theme-mode',mode);persistedTheme.current=mode}
+      catch{if(request===themeRequest.current){setThemeModeState(persistedTheme.current);Alert.alert(t('appearanceSaveFailed'),t('appearanceSaveFailedHelp'))}}
+    });
+    themeWrites.current=write;return write;
+  },[]);
   const showSuccess=useCallback((message:string)=>setToast({id:++toastId.current,message}),[]);
   const publishEntryWrite=useCallback(async(key:string)=>{
     try{await refresh()}catch{throw new EntryRefreshError()}
@@ -46,7 +54,7 @@ export function AppProvider({children}:{children:React.ReactNode}){
     await publishEntryWrite(key);
   },[repo,publishEntryWrite,habits,showSuccess]);
   useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(current=>current?.id===toast.id?null:current),2600);return()=>clearTimeout(timer)},[toast]);
-  useEffect(()=>{Storage.getItem('theme-mode').then(value=>{if(value==='system'||value==='light'||value==='dark')setThemeModeState(value)}).catch(()=>{}).finally(()=>setThemeReady(true))},[]);
+  useEffect(()=>{Storage.getItem('theme-mode').then(value=>{if(value==='system'||value==='light'||value==='dark'){persistedTheme.current=value;if(themeRequest.current===0)setThemeModeState(value)}}).catch(()=>{}).finally(()=>setThemeReady(true))},[]);
   const retryStartup=useCallback(async()=>{
     if(startupPending.current)return;
     startupPending.current=true;setError(null);setReady(false);
