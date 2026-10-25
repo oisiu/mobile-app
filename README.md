@@ -12,19 +12,7 @@ pnpm install --frozen-lockfile
 pnpm start
 ```
 
-Useful commands:
-
-```bash
-pnpm android
-pnpm ios
-pnpm build
-pnpm verify
-pnpm test
-pnpm run doctor
-pnpm run audit
-```
-
-See [Development](docs/DEVELOPMENT.md) for native setup and dependency guidance.
+See [Development](docs/DEVELOPMENT.md) for commands, native setup, and dependency guidance, and [Testing](docs/TESTING.md#required-gates) for required checks.
 
 ## Repository structure
 

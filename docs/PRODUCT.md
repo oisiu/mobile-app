@@ -8,19 +8,19 @@ Oisiu targets Android and iOS. It excludes web, cloud sync, timers, event stream
 
 ## Habit rules
 
-New root categories default to Boolean (Yes/No); quantity and duration are explicit alternatives. Individual quantity/duration analysis can switch to a derived Boolean view, where any stored record (including zero) counts as activity once per date across a branch. Original values remain unchanged.
+New roots default to Boolean (Yes/No); quantity and duration are alternatives. Their optional Activity analysis counts any stored record, including zero, once per branch/date without changing original values.
 
 New installations start empty. Users add their own habits from Home or import their data from More.
 
-- Habits may have one optional emoji and a palette color. Children inherit the nearest ancestor’s color unless overridden. Legacy emoji strings remain intact until the emoji is changed.
-- Habits form a tree with stable stored sibling order, arbitrary depth, and one value type per branch. Home supports dragging root categories into a new saved order.
-- Each leaf has at most one effective value per day. Past dates are editable; future dates are rejected. Number/duration saves replace the daily total; Boolean input toggles activity. Home supports reviewing branch records and moving them to another past/current day; destination conflicts block the move without overwriting.
-- Parent totals use the current hierarchy: Boolean OR, number SUM, and duration-seconds SUM. Direct parent input belongs to its hidden General child, separate from descendant records.
-- Existing compatible categories, including roots and descendants of other roots, can be regrouped under new or existing categories in the hierarchy editor while preserving their records and descendants. Changes apply together on Save.
-- Complete root-category hiding preserves entries while excluding the branch from main Home, Calendar, and all Insights. Hidden categories in More → Data supports editing and recovery; three quick taps on the Oi Siu title in Today temporarily toggle this section below the list with toast feedback. Leaving Home hides the section again. Explicit recovery through the eye button permanently restores a category until hidden again in the editor. Hiding is configured in the root editor.
-- Root categories can be hidden from general Analysis without archiving them. They remain in Today with their records and individual analysis; children cannot be hidden independently.
-- Root editing can permanently change the type of the whole category and its descendants after a historical-conversion warning. Boolean Yes records receive a chosen quantity/duration; numerical records become Boolean activity by record presence. Quantity and duration convert proportionally using a user-supplied duration per quantity unit. Missing dates remain empty.
-- Editing a descendant opens its root's hierarchy editor. New descendants inherit the root type. Archive preserves history; confirmed deletion removes the subtree and its records.
+- Habits form homogeneous trees of arbitrary depth with saved sibling order; Home supports root reordering.
+- Optional emoji and palette colors identify habits. Children inherit the nearest ancestor’s color unless overridden; unchanged legacy emojis remain valid.
+- Each leaf has at most one value per local day. Past/current dates are editable; future dates are rejected. Boolean input toggles activity; quantity/duration saves replace the daily total.
+- Parent totals use the current hierarchy: Boolean OR, quantity SUM, duration-seconds SUM. Direct parent input belongs to a hidden General child.
+- Hierarchy saves can regroup compatible categories and their complete subtrees without losing records. Descendant editing opens the root editor; new children inherit its type.
+- Branch records can move to another past/current date; destination conflicts reject the move without overwriting.
+- Root preferences independently hide a branch from general analysis or all main screens. Hidden categories remain recoverable in More and through Home’s temporary reveal; see [Category visibility](UI_UX.md#category-visibility).
+- Root editing can permanently convert a whole branch’s type after a historical-conversion warning; missing dates remain empty.
+- Archive preserves history; confirmed deletion removes the subtree and records.
 
 Persistence and transition details belong in [Database](DATABASE.md).
 
@@ -33,8 +33,8 @@ Persistence and transition details belong in [Database](DATABASE.md).
 | Insights | Browse weekly, monthly, or yearly category contributions, active days, Consistency curves, and History; open individual habits for detailed analysis |
 | More | Choose appearance and import/export data |
 
-Insights describes recorded patterns without causal claims. Consistency tracks gradually changing habit strength from daily branch activity across all types; History shows one stacked bar per period. Comparisons avoid duplicate parent/child contributions and count Boolean activity by unique date. Detailed controls and chart definitions are in [UI and UX](UI_UX.md).
+Insights describes recorded patterns without causal claims. Consistency tracks habit strength; History shows stacked period totals. Comparisons deduplicate parent/child records and Boolean dates. [UI and UX](UI_UX.md#insights) defines charts and controls.
 
 ## Data portability
 
-JSON supports additive safe merge; CSV provides a flat export. More can export all habits or selected root categories with their descendants and full recorded history, including hidden and archived habits. More also offers a copyable guide for converting another app's export with an external AI service. The user chooses that service and shares any source data independently; oisiu does not contact it. The import contract remains the same for manually prepared and externally converted files; see [Database](DATABASE.md#import-and-export).
+JSON supports safe additive merge; CSV provides a flat export. Export all habits or selected roots with complete descendant history, including hidden and archived habits. The optional AI conversion guide runs outside Oisiu: users choose the service and share source data themselves. All imports follow the same [transfer contract](DATABASE.md#import-and-export).

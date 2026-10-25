@@ -7,12 +7,12 @@ import { language,t } from '../src/i18n';
 import { AI_IMPORT_PROMPT } from '../src/features/import/aiImportPrompt';
 import { MAX_IMPORT_FILE_BYTES } from '../src/domain/import';
 
-const mock=vi.hoisted(()=>({app:{} as Record<string,unknown>,alert:vi.fn(),dismiss:vi.fn(),copy:vi.fn(),pick:vi.fn(),read:vi.fn(),write:vi.fn(),share:vi.fn(),link:vi.fn(),platform:{OS:'ios'},bottom:34}));
-vi.mock('react-native',()=>({View:'View',Text:'Text',Pressable:'Pressable',TouchableOpacity:'TouchableOpacity',ScrollView:'ScrollView',Modal:'Modal',KeyboardAvoidingView:'KeyboardAvoidingView',ActivityIndicator:'Spinner',Alert:{alert:mock.alert},Keyboard:{dismiss:mock.dismiss},Platform:mock.platform,StyleSheet:{create:(value:unknown)=>value,hairlineWidth:1}}));
+const mock=vi.hoisted(()=>({app:{} as Record<string,unknown>,alert:vi.fn(),dismiss:vi.fn(),copy:vi.fn(),pick:vi.fn(),read:vi.fn(),write:vi.fn(),remove:vi.fn(),share:vi.fn(),link:vi.fn(),platform:{OS:'ios'},bottom:34}));
+vi.mock('react-native',()=>({useWindowDimensions:()=>({width:390,height:844,scale:1,fontScale:1}),View:'View',Text:'Text',Pressable:'Pressable',TouchableOpacity:'TouchableOpacity',ScrollView:'ScrollView',Modal:'Modal',KeyboardAvoidingView:'KeyboardAvoidingView',ActivityIndicator:'Spinner',Alert:{alert:mock.alert},Keyboard:{addListener:()=>({remove:vi.fn()}),dismiss:mock.dismiss},Platform:mock.platform,StyleSheet:{create:(value:unknown)=>value,hairlineWidth:1}}));
 vi.mock('react-native-safe-area-context',()=>({useSafeAreaInsets:()=>({top:0,bottom:mock.bottom,left:0,right:0})}));
 vi.mock('@expo/vector-icons',()=>({Ionicons:'Icon'}));
 vi.mock('../src/features/AppProvider',()=>({useApp:()=>mock.app}));
-vi.mock('expo-file-system/legacy',()=>({cacheDirectory:'file:///cache/',readAsStringAsync:mock.read,writeAsStringAsync:mock.write}));
+vi.mock('expo-file-system/legacy',()=>({cacheDirectory:'file:///cache/',readAsStringAsync:mock.read,writeAsStringAsync:mock.write,deleteAsync:mock.remove}));
 vi.mock('expo-sharing',()=>({shareAsync:mock.share}));
 vi.mock('expo-document-picker',()=>({getDocumentAsync:mock.pick}));
 vi.mock('expo-clipboard',()=>({setStringAsync:mock.copy}));
@@ -39,15 +39,14 @@ afterEach(async()=>{if(renderer)await act(async()=>renderer.unmount())});
 it.each(['ios','android'])('keeps copy controls keyboard safe on %s',async platform=>{
   mock.platform.OS=platform;const root=await render();await press(action(root,'convertExport'));expect(modal(root).props.visible).toBe(true);
   await act(async()=>modal(root).props.onShow());expect(mock.dismiss).toHaveBeenCalledOnce();
-  expect(root.find(node=>node.type as unknown==='KeyboardAvoidingView').props.behavior).toBe(platform==='ios'?'padding':'height');
-  const sheet=modal(root).findAll(node=>node.type as unknown==='Pressable')[1];expect(sheet.props.style[1].paddingBottom).toBe(50);
+  const sheet=modal(root).findAll(node=>node.type as unknown==='Pressable')[1];expect(sheet.props.style[0].maxHeight+sheet.props.style[1].top).toBeLessThanOrEqual(844-mock.bottom-12);
   await press(sheet);expect(modal(root).props.visible).toBe(true);
   await press(action(root,'copyPrompt'));await flush();expect(mock.copy).toHaveBeenCalledWith(AI_IMPORT_PROMPT);expect(mock.dismiss).toHaveBeenCalledTimes(2);
   expect(mock.alert).toHaveBeenLastCalledWith(t('promptCopied'),t('promptCopiedHelp'));
 });
 it('uses a minimum safe bottom gap and reports clipboard failures without raw errors',async()=>{
   mock.bottom=0;mock.copy.mockRejectedValue(new Error('Private clipboard error'));const root=await render();
-  expect(modal(root).findAll(node=>node.type as unknown==='Pressable')[1].props.style[1].paddingBottom).toBe(32);
+  const panel=modal(root).findAll(node=>node.type as unknown==='Pressable')[1];expect(panel.props.style[0].maxHeight+panel.props.style[1].top).toBeLessThanOrEqual(844-12);
   await press(action(root,'copyPrompt'));await flush();expect(mock.alert).toHaveBeenLastCalledWith(t('copyFailed'),t('copyFailedHelp'));
 });
 it.each(['close','back','backdrop'])('dismisses the conversion guide with %s',async method=>{
@@ -139,11 +138,14 @@ it.each(['json','csv'] as const)('exports only the chosen category as %s and can
   await press(action(root,'exportJson'));await press(radios()[0]);await press(action(root,'exportSelected'));
   expect(JSON.parse(mock.write.mock.calls[1][1]).habits).toHaveLength(3);
 });
-it('blocks repeated exports and scope changes until sharing finishes',async()=>{
+it.each(['back','escape','outside'] as const)('blocks repeated exports and %s dismissal until sharing finishes',async method=>{
   let complete!:()=>void;mock.share.mockReturnValue(new Promise<void>(resolve=>{complete=resolve}));
   const root=await render();await act(async()=>{action(root,'exportJson').props.onPress()});await act(async()=>{void action(root,'exportSelected').props.onPress()});await press(action(root,'exportCsv'));
   expect(repo.export).toHaveBeenCalledOnce();expect(root.find(node=>node.type as unknown==='TouchableOpacity'&&node.props.accessibilityLabel===t('exportSelected')).props.disabled).toBe(true);
   expect(action(root,'exportJson').props.disabled).toBe(true);
+  const activeModal=root.findAll(node=>node.type as unknown==='Modal').find(node=>node.props.visible)!;
+  await act(async()=>{if(method==='back')activeModal.props.onRequestClose();else if(method==='escape')activeModal.find(node=>node.props.accessibilityViewIsModal).props.onAccessibilityEscape();else activeModal.findAll(node=>node.type as unknown==='Pressable')[0].props.onPress()});
+  expect(root.find(node=>node.type as unknown==='TouchableOpacity'&&node.props.accessibilityLabel===t('exportSelected')).props.disabled).toBe(true);expect(activeModal.props.visible).toBe(true);expect(repo.export).toHaveBeenCalledOnce();
   await act(async()=>complete());expect(action(root,'exportSelected')).toBeUndefined();
 });
 it('reports a stale category selection without exporting other habits',async()=>{
@@ -178,4 +180,54 @@ it('guards imports from picker through confirmation and pending write, then perm
 });
 it('blocks import while the repository is unavailable',async()=>{
  mock.app.repo=null;const root=await render();await press(action(root,'importJson'));expect(mock.pick).not.toHaveBeenCalled();expect(action(root,'importJson').props.disabled).toBe(true);
+});
+
+it.each(['json','csv'] as const)('retains the %s export during sharing and removes it afterward',async kind=>{
+  let complete!:()=>void;mock.share.mockReturnValue(new Promise<void>(resolve=>{complete=resolve}));
+  const root=await render();await press(action(root,kind==='json'?'exportJson':'exportCsv'));
+  await act(async()=>{void action(root,'exportSelected').props.onPress()});
+  expect(mock.remove).toHaveBeenCalledTimes(3);
+  await act(async()=>complete());
+  expect(mock.remove).toHaveBeenCalledTimes(6);
+  expect(mock.remove).toHaveBeenCalledWith(`file:///cache/oisiu-export.${kind}`,{idempotent:true});
+});
+it.each(['write','share'])('removes a potentially partial export when %s fails',async stage=>{
+  (stage==='write'?mock.write:mock.share).mockRejectedValue(new Error('Private failure'));
+  const root=await render();await press(action(root,'exportJson'));await press(action(root,'exportSelected'));
+  expect(mock.remove).toHaveBeenCalledTimes(6);
+});
+it.each(['success','cancel','size','read','json','picker'])('cleans picker cache before any confirmation after %s',async stage=>{
+  if(stage==='cancel')mock.pick.mockResolvedValue({canceled:true});
+  if(stage==='size')mock.pick.mockResolvedValue({canceled:false,assets:[{uri:'file:///cache/DocumentPicker/large.json',size:MAX_IMPORT_FILE_BYTES+1}]});
+  if(stage==='read')mock.read.mockRejectedValue(new Error('Private read failure'));
+  if(stage==='json')mock.read.mockResolvedValue('{broken');
+  if(stage==='picker')mock.pick.mockRejectedValue(new Error('Private picker failure'));
+  const root=await render();await press(action(root,'importJson'));
+  expect(mock.remove).toHaveBeenCalledTimes(6);
+  expect(mock.remove).toHaveBeenLastCalledWith('file:///cache/DocumentPicker',{idempotent:true});
+  expect(mock.remove.mock.invocationCallOrder.at(-1)).toBeGreaterThan(mock.pick.mock.invocationCallOrder[0]);
+  if(stage==='success')expect(mock.alert.mock.invocationCallOrder[0]).toBeGreaterThan(mock.remove.mock.invocationCallOrder.at(-1)!);
+  expect(mock.remove.mock.calls.every(([uri])=>uri.startsWith('file:///cache/'))).toBe(true);
+});
+it('clears old transfer files before deleting habits and reports cleanup failure',async()=>{
+  mock.remove.mockRejectedValue(new Error('Private filesystem failure'));
+  const root=await render();await press(action(root,'advancedSettings'));await press(action(root,'deleteAllData'));
+  for(let step=0;step<3;step++)await act(async()=>mock.alert.mock.calls.at(-1)![2][1].onPress());
+  await flush();expect(repo.deleteAllData).not.toHaveBeenCalled();
+  expect(mock.alert).toHaveBeenLastCalledWith(t('deleteDataFailed'),t('deleteDataFailedHelp'));
+  mock.remove.mockResolvedValue(undefined);await press(action(root,'deleteAllData'));
+  for(let step=0;step<3;step++)await act(async()=>mock.alert.mock.calls.at(-1)![2][1].onPress());
+  await flush();expect(repo.deleteAllData).toHaveBeenCalledOnce();
+  expect(mock.remove.mock.invocationCallOrder.at(-1)).toBeLessThan(repo.deleteAllData.mock.invocationCallOrder[0]);
+});
+it.each(['import','export'])('reports cleanup failure without claiming %s success',async operation=>{
+  mock.remove.mockResolvedValueOnce(undefined).mockResolvedValueOnce(undefined).mockResolvedValueOnce(undefined).mockRejectedValue(new Error('Private cleanup error'));
+  const root=await render();
+  if(operation==='import'){
+    await press(action(root,'importJson'));expect(repo.import).not.toHaveBeenCalled();
+    expect(mock.alert).toHaveBeenLastCalledWith(t('fileReadFailed'),t('fileReadHelp'));
+  }else{
+    await press(action(root,'exportJson'));await press(action(root,'exportSelected'));
+    expect(mock.alert).toHaveBeenLastCalledWith(t('exportFailed'),t('exportFailedHelp'));
+  }
 });

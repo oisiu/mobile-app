@@ -26,7 +26,7 @@ export default function Insights(){
   const total=pieRanked.reduce((sum,item)=>sum+item.active,0),window=buildInsightWindow(period,anchor,today),current=window.start===buildInsightWindow(period,today,today).start;
   const gridTitle=strengthWindowLabel(period,anchor,window.start,false);
   const percentage=(active:number)=>new Intl.NumberFormat(undefined,{style:'percent',maximumFractionDigits:1}).format(total?active/total:0);
-  const color=(index:number)=>habitChartColor(ranked[index].habit,allHabits);
+  const color=(index:number)=>habitChartColor(ranked[index].habit,allHabits,c.accent);
   const move=(amount:number)=>setAnchor(value=>{const next=shiftInsightAnchor(value,period,amount);return next>today?today:next});
 
   usePrefetchRoutes(ranked.map(item=>`/insight/${item.habit.id}`));
@@ -34,7 +34,7 @@ export default function Insights(){
     <View style={{minHeight:48,justifyContent:'center'}}><Text style={[s.title,{color:c.text}]}>{t('insights')}</Text></View><Text style={[s.intro,{color:c.muted}]}>{t('habitContributionHelp')}</Text>
     <View style={[s.periodControls,{backgroundColor:c.soft}]}>{(['week','month','year'] as const).map(option=><TouchableOpacity key={option} accessibilityLabel={t(option)} accessibilityRole="button" accessibilityState={{selected:period===option}} onPress={()=>{setPeriod(option);setAnchor(today)}} style={[s.periodButton,period===option&&{backgroundColor:c.card}]}><Text style={[s.periodText,{color:period===option?c.accent:c.muted}]}>{t(option)}</Text></TouchableOpacity>)}</View>
     <View style={[s.list,{backgroundColor:c.card}]}>
-      <PieCategoryFilter roots={[...ranked].sort((a,b)=>a.habit.sortOrder-b.habit.sortOrder).map(item=>({habit:item.habit,color:habitChartColor(item.habit,allHabits)}))} selected={pieRanked.map(item=>item.habit)} onChange={setPieIds} c={c}/>
+      <PieCategoryFilter roots={[...ranked].sort((a,b)=>a.habit.sortOrder-b.habit.sortOrder).map(item=>({habit:item.habit,color:habitChartColor(item.habit,allHabits,c.accent)}))} selected={pieRanked.map(item=>item.habit)} onChange={setPieIds} c={c}/>
       <View style={{flexDirection:'row',alignItems:'center'}}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('previousPeriod')} onPress={()=>move(-1)} style={{width:44,height:44,alignItems:'center',justifyContent:'center'}}><Ionicons name="chevron-back" size={20} color={c.text}/></TouchableOpacity>
         <Text accessibilityLiveRegion="polite" style={{flex:1,textAlign:'center',color:c.text,fontSize:13}}>{strengthWindowLabel(period,anchor,window.start,false)}</Text>
@@ -48,7 +48,7 @@ export default function Insights(){
           const start=pieRanked.slice(0,index).reduce((sum,previous)=>sum+previous.active,0)/total;
           const angle=(part:number)=>part*2*Math.PI-Math.PI/2;
           const point=(part:number)=>`${120+120*Math.cos(angle(part))} ${120+120*Math.sin(angle(part))}`;
-          const props={fill:habitChartColor(item.habit,allHabits),opacity:highlightedId&&highlightedId!==item.habit.id?.22:1,onPress:()=>setPieHighlight(highlightedId===item.habit.id?null:item.habit.id)};
+          const props={fill:habitChartColor(item.habit,allHabits,c.accent),opacity:highlightedId&&highlightedId!==item.habit.id?.22:1,onPress:()=>setPieHighlight(highlightedId===item.habit.id?null:item.habit.id)};
           return fraction===1?<Circle key={item.habit.id} cx={120} cy={120} r={120} {...props}/>:<Path key={item.habit.id} d={`M 120 120 L ${point(start)} A 120 120 0 ${fraction>.5?1:0} 1 ${point(start+fraction)} Z`} {...props}/>;
         })}
         {pieRanked.map((item,index)=>{
@@ -57,7 +57,7 @@ export default function Insights(){
           return <SvgText pointerEvents="none" key={'label-'+item.habit.id} x={120+Math.cos(angle)*radius} y={120+Math.sin(angle)*radius} textAnchor="middle" alignmentBaseline="central" fontSize={fraction<.08?9:14} fontWeight="700" fill="white" opacity={highlightedId&&highlightedId!==item.habit.id?.22:1}>{percentage(item.active)}</SvgText>;
         })}
       </Svg></View>
-      <OverviewLegend items={pieRanked.filter(item=>item.active>0).sort((a,b)=>a.habit.sortOrder-b.habit.sortOrder).map(item=>({habit:item.habit,color:habitChartColor(item.habit,allHabits)}))} highlightedId={highlightedId} onHighlight={setPieHighlight} c={c}/>
+      <OverviewLegend items={pieRanked.filter(item=>item.active>0).sort((a,b)=>a.habit.sortOrder-b.habit.sortOrder).map(item=>({habit:item.habit,color:habitChartColor(item.habit,allHabits,c.accent)}))} highlightedId={highlightedId} onHighlight={setPieHighlight} c={c}/>
       {!total&&<Text style={[s.empty,{color:c.muted}]}>{t('noActivityPeriod')}</Text>}
     </View>
     <View style={[s.list,{backgroundColor:c.card,marginTop:20,paddingVertical:20}]}>

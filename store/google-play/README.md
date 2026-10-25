@@ -1,6 +1,6 @@
 # Google Play listing and artwork
 
-This directory owns Android listing copy, export files, and design sources. Compare all artwork and release notes with the installed release before uploading; retained exports are not evidence that they match a new build.
+Owns Android listing copy, exports, and design sources. Before uploading, compare imagery/notes with the installed release; retained artwork may be outdated.
 
 ## Listing files
 
@@ -23,14 +23,14 @@ Release-note languages vary by version and do not imply equivalent app localizat
 
 ## Sources and reproduction
 
-The [approved contact sheet](sources/approved-contact-sheet.png) contains the four screenshot panels. [split-contact-sheet.cjs](tools/split-contact-sheet.cjs) uses `sharp` to split and fit them into the export dimensions without cropping. Preserve the original artwork when reproducing these exports.
+The [approved contact sheet](sources/approved-contact-sheet.png) holds four screenshot panels. [split-contact-sheet.cjs](tools/split-contact-sheet.cjs) uses `sharp` to split/fit exports without cropping; preserve original artwork.
 
-The feature graphic has illustrated phone screens; its [generation prompt](sources/feature-graphic-prompt.txt) is retained for future variants. The artwork does not establish that the current app matches the store imagery.
+The illustrated feature graphic’s [generation prompt](sources/feature-graphic-prompt.txt) supports future variants.
 
 ## Release submission
 
-Use the [GitHub release sequence](../../docs/DEVELOPMENT.md#github-release-sequence) for version preparation, signed AAB builds, closed testing, and production promotion. Preparation fills release notes from the English and Spanish workflow inputs, using general-update defaults when blank. Review both sections in the preparation PR before merging; merging automatically starts the build and testing submission. Keep each section within Google Play’s 500-character limit and verify the notes against the selected bundle.
+Use the [GitHub release sequence](../../docs/DEVELOPMENT.md#github-release-sequence) for version preparation, release-note inputs and limits, signed AAB builds, closed testing, and production promotion. Verify the listing and release notes against the selected bundle.
 
 ## Publication checks
 
-Check the [Google Play image requirements](https://support.google.com/googleplay/android-developer/answer/9866151?hl=en), current app behavior, asset rights, and synthetic data before publishing. Keep useful sources and final listing files in Git; exclude temporary captures and build artifacts. Follow the [documentation privacy guidance](../../docs/DEVELOPMENT.md#documentation-privacy).
+Before publishing, check [Play image requirements](https://support.google.com/googleplay/android-developer/answer/9866151?hl=en), current behavior, asset rights, synthetic data, and [documentation privacy](../../docs/DEVELOPMENT.md#documentation-privacy). Retain useful sources/final listings; exclude temporary captures/build artifacts.

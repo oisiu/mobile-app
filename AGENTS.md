@@ -16,17 +16,6 @@ Read the relevant document from the [README index](README.md#documentation) befo
 - Preserve unrelated working-tree changes and keep generated native/build files out of Git.
 - Update the document that owns a changed fact; avoid chronological task logs.
 
-## Layout
-
-- `app/`: Expo Router screens only
-- `src/domain/`: pure rules and types
-- `src/data/`: schema, migrations, and repositories
-- `src/features/`: use cases and UI
-- `src/{i18n,theme,utils}/`: shared app concerns
-- `tests/`: automated tests
-- `assets/`: runtime/build assets
-- `store/`: marketplace material
-
 ## Before handoff
 
 Run `pnpm run doctor`, `pnpm verify`, `pnpm test`, `pnpm run audit`, `pnpm build`, and `git diff --check`. Report unresolved failures and unperformed native checks in the handoff.

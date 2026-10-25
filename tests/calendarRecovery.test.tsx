@@ -8,7 +8,8 @@ import { light } from '../src/theme';
 import { t } from '../src/i18n';
 
 const mocks=vi.hoisted(()=>({app:{} as Record<string,unknown>,alert:vi.fn()}));
-vi.mock('react-native',()=>({View:'View',Text:'Text',Pressable:'Pressable',TouchableOpacity:'Button',ScrollView:'ScrollView',Modal:'Modal',KeyboardAvoidingView:'KeyboardAvoidingView',TextInput:'Input',FlatList:({data,renderItem,...props}:{data:unknown[];renderItem:(info:{item:unknown})=>React.ReactNode})=><>{React.createElement('List',props)}{data.map((item,index)=><React.Fragment key={index}>{renderItem({item})}</React.Fragment>)}</>,Platform:{OS:'android'},Alert:{alert:mocks.alert},StyleSheet:{create:(styles:unknown)=>styles,hairlineWidth:1}}));
+vi.mock('react-native-safe-area-context',()=>({useSafeAreaInsets:()=>({top:0,bottom:0,left:0,right:0})}));
+vi.mock('react-native',()=>({Keyboard:{addListener:()=>({remove:vi.fn()})},useWindowDimensions:()=>({width:390,height:844,scale:1,fontScale:1}),View:'View',Text:'Text',Pressable:'Pressable',TouchableOpacity:'Button',ScrollView:'ScrollView',Modal:'Modal',KeyboardAvoidingView:'KeyboardAvoidingView',TextInput:'Input',FlatList:({data,renderItem,...props}:{data:unknown[];renderItem:(info:{item:unknown})=>React.ReactNode})=><>{React.createElement('List',props)}{data.map((item,index)=><React.Fragment key={index}>{renderItem({item})}</React.Fragment>)}</>,Platform:{OS:'android'},Alert:{alert:mocks.alert},StyleSheet:{create:(styles:unknown)=>styles,hairlineWidth:1}}));
 vi.mock('@expo/vector-icons',()=>({Ionicons:'Icon'}));
 vi.mock('../src/features/AppProvider',()=>({useApp:()=>mocks.app,SuccessToast:'Toast'}));
 vi.mock('../src/features/SheetHandle',()=>({SheetHandle:'Handle'}));

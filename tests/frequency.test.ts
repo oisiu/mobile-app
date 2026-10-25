@@ -1,5 +1,5 @@
 import { describe,expect,it } from 'vitest';
-import { buildFrequency } from '../src/domain/frequency';
+import { buildFrequency,buildFrequencyBuckets } from '../src/domain/frequency';
 import { Entry,Habit } from '../src/domain/types';
 const now='2026-09-08T12:00:00Z';
 const habit:Habit={id:'a',name:'Reading',emoji:'📖',type:'boolean',parentId:null,isGeneral:false,sortOrder:0,archivedAt:null,createdAt:now,updatedAt:now};
@@ -30,4 +30,16 @@ describe('Frequency chart',()=>{
     const result=buildFrequency(habit,[habit,...children],[entry('2026-09-01',1,'b'),entry('2026-09-01',1,'c'),entry('2026-09-08',1,'b')],[bucket('2026-09-01','2026-09-08')]);
     expect(result.rows[1][0].count).toBe(2);
   });
+});
+
+it('shows ten elapsed years even without records, with empty years retaining zero counts',()=>{
+ const buckets=buildFrequencyBuckets([],'2026-09-08');
+ expect(buckets.map(bucket=>bucket.label)).toEqual(Array.from({length:10},(_,index)=>String(2017+index)));
+ expect(buckets[7].dates.size).toBe(366);expect(buckets[9].dates.size).toBe(251);
+ expect(buildFrequency(habit,[habit],[],buckets).rows.flat().every(cell=>cell.count===0&&cell.size===4)).toBe(true);
+});
+it('extends beyond ten years for older records and excludes future years',()=>{
+ const buckets=buildFrequencyBuckets([entry('2010-02-01'),entry('2030-01-01')],'2026-09-08');
+ expect(buckets[0].label).toBe('2010');expect(buckets.at(-1)?.label).toBe('2026');expect(buckets).toHaveLength(17);
+ expect([...buckets.at(-1)!.dates].at(-1)).toBe('2026-09-08');
 });
