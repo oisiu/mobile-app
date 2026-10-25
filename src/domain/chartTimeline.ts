@@ -14,3 +14,9 @@ export function buildTimelineBuckets(scale:BucketSize,today:string,count:number)
     return {key:start,label,dates};
   });
 }
+
+export function dayBucketContext(buckets:TimeBucket[],index:number):string|null{
+  const month=buckets[index].key.slice(0,7);
+  if(index>0&&month===buckets[index-1].key.slice(0,7))return null;
+  return new Intl.DateTimeFormat(undefined,{month:'short',year:'numeric'}).format(new Date(`${month}-01T12:00:00`));
+}

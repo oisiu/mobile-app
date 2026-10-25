@@ -11,7 +11,7 @@
 | `src/{i18n,theme,utils}/` | Application-wide support code |
 | `tests/` | Automated mobile tests |
 
-The repository root is the single Expo application and owns its manifest, lockfile, CI, and documentation. Runtime assets live in `assets/`; marketplace copy and artwork live in `store/`. Public policies and support pages are owned by the separate `oisiu/legal` repository. Do not scaffold empty future directories.
+The root owns the single Expo app, manifest, lockfile, CI, and documentation. Runtime assets live in `assets/`, marketplace material in `store/`, and public policies/support in the separate `oisiu/legal` repository. Do not scaffold empty future directories.
 
 ## Runtime boundaries
 
@@ -19,36 +19,48 @@ Current flow: **screens/components → AppProvider or HabitRepository → Expo S
 
 `HabitRepository` is the persistence and application-operation boundary. SQL stays in `src/data/`. Domain code imports no React, Expo, SQLite, or Drizzle modules.
 
-`AppProvider` opens and migrates the database, then publishes habit and entry snapshots together. Startup becomes ready only after the initial snapshot succeeds. Failed startup attempts close their connection and expose a guarded retry; appearance-read failures fall back to System.
+`AppProvider` opens/migrates SQLite and publishes habit/entry snapshots together. Readiness requires the initial snapshot. Failed startup connections close before guarded retry; appearance-read failures use System.
 
-Entry operations retain request-specific completion state until snapshot publication succeeds. Retrying a committed request refreshes without repeating writes or revalidating a moved source snapshot. Direct-entry forms lock committed drafts after refresh failure, and `useHabitMutation` provides the same recovery for habit editors. Write failures remain retryable; successful changes publish localized success messages. More guards imports from document picking through confirmation and publication, blocking duplicate imports and overlapping export or deletion. Navigation blocks repeated pushes until the source screen regains focus and clears canceled animation frames.
+Entry operations retain request completion state until publication succeeds. Committed retries refresh without repeating writes or revalidating moved records. Direct-entry forms lock committed drafts; `useHabitMutation` provides equivalent habit-editor recovery. Write failures remain retryable; success publishes localized feedback. More guards imports from picking through publication against duplicate or overlapping transfers/deletion. Navigation guards repeated pushes until focus returns and clears canceled animation frames.
 
-The provider also resolves System/Light/Dark once for the app. The preference uses Expo SQLite key-value storage, separate from the product schema. Preference writes are serialized so rapid selections persist in order; a failed latest write restores the last saved mode and shows localized retry guidance. Screens consume the resolved palette. The root holds the native splash until appearance and startup data are ready, or a startup error can be shown. It then renders the app or recovery screen and hides the splash after layout, without an intermediate loading logo. A pending startup retry keeps the recovery screen mounted with a disabled progress button. It applies the palette to the native root background. Its navigation ThemeProvider uses the same resolved appearance and palette; stack content and tab scenes explicitly use the palette background so transitions do not reveal light navigation surfaces in dark mode. Expo SplashScreen configures device-themed launch colors; Expo SystemUI enables Android automatic appearance.
+The provider resolves System/Light/Dark through separate Expo SQLite key-value storage. Serialized writes preserve selection order; a failed latest write restores the saved mode with retry guidance. The root, navigation ThemeProvider, stack content, and tab scenes share the resolved palette. Native SplashScreen stays until ready/recovery layout; pending retries retain recovery. SystemUI enables Android automatic appearance. See [Startup](UI_UX.md#startup) for presentation.
 
-Drizzle declares the schema; explicit SQL migrations create and upgrade it. `HabitRepository.editTree` accepts updates, preorder creations with temporary parent keys, staged deletions and existing-category attachments as one transaction. `createTree` includes a new root in that transaction. `domain/treeAttachments.ts` owns compatible candidate selection and attachment validation. `domain/habitTypeChange.ts` plans explicit historical type conversions; `editTree` applies them atomically with the hierarchy draft. See [Database](DATABASE.md) for integrity guarantees.
+Drizzle declares schema; explicit SQL migrations upgrade it. `HabitRepository.editTree` commits updates, preorder creations with temporary parent keys, staged deletions, attachments, and historical conversions atomically. `createTree` adds a new root in the same transaction. `domain/treeAttachments.ts` validates attachments; `domain/habitTypeChange.ts` plans conversions. [Database](DATABASE.md) owns integrity guarantees.
 
-The root shell renders one shared `AppBar` below its route stack; the nested Tabs navigator keeps screen state but hides its own bar. Footer destinations dismiss detail/editor stack routes back to the selected main screen. Detail and editor routes use `/insight/[id]` and `/habit/[id]`, respectively.
+The root renders one `AppBar` below the route stack. Nested Tabs retain state with their own bar hidden; footer destinations dismiss detail/editor routes to the selected main screen. Detail/editor routes are `/insight/[id]` and `/habit/[id]`.
+
+`features/AnchoredPopover.tsx` provides native modal presentation for selectors, day editing, attachments, exports, and conversion guidance. It measures triggers, constrains panels to safe areas, and handles the keyboard; callers own selection, drafts, and write guards.
 
 ## Rendering and analytics
 
-Home uses a horizontal `Animated.ScrollView` only for the date header. Its native-driven offset translates clipped value tracks in a separate virtualized vertical habit list; labels stay outside the horizontal scroller. A bounded date window and spacers preserve the scroll extent. The visible date/value matrix is recomputed when scrolling settles rather than for every scroll event; display values are memoized and never persisted.
+Home’s horizontal `Animated.ScrollView` holds only the date header. Its native offset translates clipped value tracks in a separate virtualized habit list, leaving labels fixed. Bounded dates/spacers preserve scroll extent; the matrix updates when scrolling settles. Display values are memoized, never persisted.
 
-Calendar day-sheet expansion is local UI state, reset to collapsed roots each time a day opens. Arrows reveal one hierarchy level at a time; totals continue to use the shared aggregation rules.
+Calendar day expansion is local, resets to collapsed roots on opening, and reveals one level per arrow. Month grids use vertical virtualization; Insight activity weeks scroll horizontally with history prepending. [UI and UX](UI_UX.md) owns interactions.
 
-The Calendar tab virtualizes month grids in a native vertical list. The Insight activity calendar uses native horizontal scrolling with history prepending. Their interaction rules belong in [UI and UX](UI_UX.md).
 
-`domain/aggregation.ts` builds a weakly cached hierarchy/entry index for each immutable provider snapshot. Repeated Home, Calendar, and Insights calculations reuse leaf, habit/date value, activity, and record-presence lookups without persisting derived data. `domain/insightsOverview.ts` computes week/month/year root rankings, elapsed-day denominators, and root active-day comparison series through the shared aggregation index. Visible children of archived roots are not promoted into overview categories. Comparison windows, selections and series are memoized so opening a filter does not rebuild them.
+`domain/aggregation.ts` weakly caches hierarchy, leaf, habit/date value, activity, and record-presence indexes per immutable snapshot. `domain/insightsOverview.ts` reuses them for root rankings, elapsed-day denominators, and comparison series; archived roots’ children are not promoted. Memoized windows, selections, and series avoid recalculation when filters open.
 
-Main screens prefetch reachable routes. Insight detail defers chart rendering until its opening transition ends, with a fallback for direct launches. Consistency and Calendar render first; lower sections load as the viewport approaches them, based on the visible viewport. Detail comparison and single-category selections are reconciled when categories disappear or become archived, falling back to the opened root if needed. Reveals respect Reduce Motion. Dialog drafts and pending-write state stay local to avoid re-rendering background charts; committed data refreshes still update them. Consistency comparison inputs are memoized. Calendar grids, day-sheet rows, and Insight calendar weeks use virtualized lists; the larger calendar starts at the selected week.
+Main screens prefetch routes. Insight detail defers charts until the opening transition ends, with a direct-launch fallback; Consistency/Calendar load first and lower sections mount near the viewport. Reveals respect Reduce Motion. Removed/archived selections reconcile to the opened root when necessary. Dialog drafts/write state stay local; committed refreshes update charts. Calendar grids, day rows, and Insight weeks are virtualized; enlarged calendars start at the selected week.
 
 `domain/habitAppearance.ts` owns emoji validation and nearest-ancestor color inheritance. Palette values and display accents live in `theme/habitColors.ts`; only explicit color choices are persisted.
 
-`domain/booleanAnalysis.ts` derives an immutable Boolean habit/entry snapshot for individual quantity/duration analysis. Calendar, History, streaks and Frequency use that snapshot; Consistency always uses the original positive-value records. Calendar thresholds use original aggregated values in either mode; calendar mutations retain original stored types and values. No derived activity is persisted.
+`domain/booleanAnalysis.ts` derives an immutable Activity snapshot for quantity/duration Calendar, History, streaks, and Frequency. Consistency and threshold intensity use original values; calendar writes retain original types/values.
 
-`domain/analytics.ts` owns common calendar periods and streaks. `domain/chartTimeline.ts` builds the Day/Week/Month/Quarter/Year buckets shared by the independent Consistency and History detail menus. `domain/habitStrength.ts` computes daily exponential habit strength and bucket averages; `domain/history.ts` computes History totals and axes. `domain/frequency.ts` computes weekday frequencies from elapsed-date buckets. Detail streaks use all recorded activity through today, and Frequency uses annual buckets across the selected branch's full history. `features/insights/useTimelineScroll.ts` guards overlapping drag/momentum history requests and preserves the viewport only when buckets are prepended; width changes from formatting do not shift it. Feature components coordinate filters and render derived results with native views and `react-native-svg`. Overview charts retain their shared Week/Month/Year navigation, with monthly buckets for Year. No analytics aggregates are persisted.
+Analytics ownership:
 
-Overview visibility is persisted as a root-only preference. `domain/insightsOverview.ts` excludes hidden roots from general rankings and comparisons; tree construction and individual analytics retain them.
+| Module | Responsibility |
+| --- | --- |
+| `domain/analytics.ts` | Calendar periods and all-history streaks through today |
+| `domain/chartTimeline.ts` | Detail Day/Week/Month/Quarter/Year buckets |
+| `domain/habitStrength.ts` | Daily exponential strength and bucket averages |
+| `domain/history.ts` | History totals and axes |
+| `domain/frequency.ts` | Annual weekday frequencies using elapsed-date denominators |
+| `features/insights/useTimelineScroll.ts` | Guard concurrent history requests; preserve viewport on prepends, not formatting width changes |
 
-`domain/habitVisibility.ts` derives a display snapshot without completely hidden branches or their entries for Calendar and Insights. The provider and repository retain the complete snapshot for persistence, export, hierarchy editing and the More hidden-category list. More exposes recovery through `HabitRepository.setHidden`, followed by a refresh; the root preference applies to descendants without storing inherited flags or aggregates.
+Feature components render derived results with native views and `react-native-svg`. Overview charts share Week/Month/Year navigation, with monthly Year buckets. Never persist analytics aggregates.
 
-`domain/calendarThreshold.ts` validates optional quantity/duration color rules and derives fixed calendar fill intensity. Thresholds are per-habit preferences persisted through repository operations and migration 7; derived day totals and fill values are never stored.
+Root-only overview visibility excludes categories from general rankings/comparisons while retaining tree and individual analytics.
+
+`domain/habitVisibility.ts` removes completely hidden branches/entries from Calendar and Insights display snapshots. The provider/repository keep complete data for exports, editing, and More’s recovery list. `HabitRepository.setHidden` plus refresh restores a root; descendants inherit visibility without stored flags.
+
+`domain/calendarThreshold.ts` validates per-habit quantity/duration thresholds and derives fill intensity. Repository operations and migration 7 persist preferences, never totals or fill values.

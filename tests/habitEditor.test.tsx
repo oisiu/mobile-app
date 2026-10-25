@@ -6,7 +6,8 @@ import { language,t } from '../src/i18n';
 import { light } from '../src/theme';
 import { Habit } from '../src/domain/types';
 const mocks=vi.hoisted(()=>({id:'new',habits:[] as Habit[],entries:[] as import('../src/domain/types').Entry[],archive:vi.fn(),remove:vi.fn(),deletionImpact:vi.fn(),create:vi.fn(),createTree:vi.fn(),editTree:vi.fn(),refresh:vi.fn(),leave:vi.fn(),back:vi.fn(),dismissTo:vi.fn(),guard:vi.fn(),alert:vi.fn()}));
-vi.mock('react-native',()=>({Keyboard:{dismiss:vi.fn()},Modal:'Modal',ActivityIndicator:'Spinner',ScrollView:'ScrollView',Text:'Text',TextInput:'TextInput',TouchableOpacity:'Button',View:'View',Alert:{alert:mocks.alert},StyleSheet:{create:(v:unknown)=>v,hairlineWidth:1}}));
+vi.mock('react-native-safe-area-context',()=>({useSafeAreaInsets:()=>({top:0,bottom:0,left:0,right:0})}));
+vi.mock('react-native',()=>({useWindowDimensions:()=>({width:390,height:844,scale:1,fontScale:1}),Keyboard:{addListener:()=>({remove:vi.fn()}),dismiss:vi.fn()},KeyboardAvoidingView:'KeyboardAvoidingView',Pressable:'Pressable',Platform:{OS:'ios'},Modal:'Modal',ActivityIndicator:'Spinner',ScrollView:'ScrollView',Text:'Text',TextInput:'TextInput',TouchableOpacity:'Button',View:'View',Alert:{alert:mocks.alert},StyleSheet:{create:(v:unknown)=>v,hairlineWidth:1}}));
 vi.mock('expo-router',()=>({useLocalSearchParams:()=>({id:mocks.id}),router:{back:mocks.back,dismissTo:mocks.dismissTo}}));
 vi.mock('../src/features/useDraftGuard',()=>({useDraftGuard:(dirty:boolean)=>{mocks.guard(dirty);return mocks.leave}}));
 vi.mock('../src/features/AppProvider',()=>({useApp:()=>({ready:true,habits:mocks.habits,entries:mocks.entries,repo:{archive:mocks.archive,remove:mocks.remove,deletionImpact:mocks.deletionImpact,create:mocks.create,createTree:mocks.createTree,editTree:mocks.editTree},refresh:mocks.refresh,showSuccess:vi.fn(),palette:light})}));
@@ -79,13 +80,13 @@ it.each([
   expect(renderer.root.findAll(node=>node.type as unknown==='Text'&&node.props.children===empty)).toHaveLength(1);
  }finally{vi.restoreAllMocks()}
 });
-it('defaults new roots to green and treats the untouched or reverted color as clean',async()=>{
+it('defaults new roots to automatic and treats the untouched or reverted color as clean',async()=>{
   await act(async()=>{renderer=create(<HabitEditor/>)});
-  expect(colorButton().props.accessibilityLabel).toBe(t('habitColor')+': '+t('green'));expect(mocks.guard).toHaveBeenLastCalledWith(false);
+  expect(colorButton().props.accessibilityLabel).toBe(t('habitColor')+': '+t('automaticColor'));expect(mocks.guard).toHaveBeenLastCalledWith(false);
   await act(async()=>colorButton().props.onPress());await act(async()=>button(t('blue')).props.onPress());expect(mocks.guard).toHaveBeenLastCalledWith(true);
-  await act(async()=>colorButton().props.onPress());await act(async()=>button(t('green')).props.onPress());expect(mocks.guard).toHaveBeenLastCalledWith(false);
-  await act(async()=>input(1).props.onChangeText('Green habit'));await act(async()=>button(t('save')).props.onPress());
-  expect(mocks.create).toHaveBeenCalledWith({name:'Green habit',emoji:'✨',color:'green',type:'boolean',parentId:null});
+  await act(async()=>colorButton().props.onPress());await act(async()=>button(t('automaticColor')).props.onPress());expect(mocks.guard).toHaveBeenLastCalledWith(false);
+  await act(async()=>input(1).props.onChangeText('Automatic habit'));await act(async()=>button(t('save')).props.onPress());
+  expect(mocks.create).toHaveBeenCalledWith({name:'Automatic habit',emoji:'✨',color:null,type:'boolean',parentId:null});
 });
 it('cancel returns to Home without saving or bypassing the draft guard',async()=>{
   await act(async()=>{renderer=create(<HabitEditor/>)});
@@ -369,7 +370,7 @@ it.each(['close','nativeBack','escape'] as const)('dismisses the move preview th
  await act(async()=>{
   if(method==='close')button(t('close')).props.onPress();
   else if(method==='nativeBack')renderer.root.find(node=>node.type as unknown==='Modal').props.onRequestClose();
-  else renderer.root.find(node=>node.type as unknown==='View'&&node.props.accessibilityViewIsModal).props.onAccessibilityEscape();
+  else renderer.root.find(node=>node.type as unknown==='Pressable'&&node.props.accessibilityViewIsModal).props.onAccessibilityEscape();
  });
  expect(mocks.guard).toHaveBeenLastCalledWith(false);expect(mocks.editTree).not.toHaveBeenCalled();
  await act(async()=>button(t('addExistingTo',{name:'Leisure'})).props.onPress());

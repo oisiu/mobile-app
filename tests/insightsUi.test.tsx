@@ -1,3 +1,4 @@
+import { AnchoredPopover,openPopover } from '../src/features/AnchoredPopover';
 import { HiddenCategories } from '../src/features/settings/HiddenCategories';
 import Home from '../app/(tabs)/index';
 import { OverviewLegend } from '../src/features/insights/OverviewLegend';
@@ -23,12 +24,13 @@ import Insights from '../app/(tabs)/insights';
 import Calendar from '../app/(tabs)/calendar';
 import { CalendarDayBackground } from '../src/features/CalendarDayBackground';
 
-const state=vi.hoisted(()=>({app:{} as Record<string,unknown>,chartReady:true,blur:null as null|(()=>void),alert:vi.fn(),path:'/',pending:null as string|null,push:vi.fn(),today:'2026-09-08',navigate:vi.fn(),dismissTo:vi.fn()}));
+const state=vi.hoisted(()=>({keyboardListeners:{} as Record<string,(event:{endCoordinates:{screenY:number}})=>void>,app:{} as Record<string,unknown>,chartReady:true,blur:null as null|(()=>void),alert:vi.fn(),path:'/',pending:null as string|null,push:vi.fn(),today:'2026-09-08',navigate:vi.fn(),dismissTo:vi.fn()}));
 vi.mock('expo-haptics',()=>({impactAsync:vi.fn().mockResolvedValue(undefined),ImpactFeedbackStyle:{Light:'Light'}}));
 vi.mock('../src/features/home/CategoryDragHandle',()=>({CategoryDragHandle:'DragHandle'}));
 vi.mock('react-native',()=>({
+  useWindowDimensions:()=>({width:390,height:844,scale:1,fontScale:1}),
   View:'View',Text:'Text',Pressable:'Pressable',TouchableOpacity:'TouchableOpacity',ScrollView:'ScrollView',Modal:'Modal',TextInput:'TextInput',KeyboardAvoidingView:'KeyboardAvoidingView',ActivityIndicator:'ActivityIndicator',
-  Keyboard:{dismiss:vi.fn()},Platform:{OS:'ios'},Alert:{alert:state.alert},AccessibilityInfo:{isReduceMotionEnabled:async()=>true},
+  Keyboard:{addListener:(name:string,callback:(event:{endCoordinates:{screenY:number}})=>void)=>{state.keyboardListeners[name]=callback;return {remove:vi.fn()}},dismiss:vi.fn()},Platform:{OS:'ios'},Alert:{alert:state.alert},AccessibilityInfo:{isReduceMotionEnabled:async()=>true},
   StyleSheet:{create:(styles:unknown)=>styles,hairlineWidth:0.5},
   Animated:{View:'AnimatedView',ScrollView:'ScrollView',multiply:()=>0,event:()=>vi.fn(),Value:class{setValue(){} stopAnimation(){}},timing:()=>({start(){}})},
   FlatList:({data,renderItem,initialScrollIndex=0,...props}:{data:unknown[];renderItem:(item:unknown)=>React.ReactNode;initialScrollIndex?:number;ListFooterComponent?:React.ReactNode})=>React.createElement('List',props,data.slice(Math.max(0,initialScrollIndex-2),initialScrollIndex+8).map((item,index)=><React.Fragment key={index}>{renderItem({item,index})}</React.Fragment>),props.ListFooterComponent),
@@ -44,7 +46,7 @@ vi.mock('../src/domain/entries',async importOriginal=>{const actual=await import
 vi.mock('../src/domain/habitStrength',async importOriginal=>{const actual=await importOriginal<typeof import('../src/domain/habitStrength')>();return {...actual,habitStrength:vi.fn(actual.habitStrength),strengthSummary:vi.fn(actual.strengthSummary)}});
 vi.mock('../src/domain/aggregation',async importOriginal=>{const actual=await importOriginal<typeof import('../src/domain/aggregation')>();return {...actual,aggregate:vi.fn(actual.aggregate)}});
 vi.mock('../src/domain/insightsOverview',async importOriginal=>{const actual=await importOriginal<typeof import('../src/domain/insightsOverview')>();return {...actual,buildRootActivitySeries:vi.fn(actual.buildRootActivitySeries)}});
-vi.mock('expo-file-system/legacy',()=>({}));
+vi.mock('expo-file-system/legacy',()=>({cacheDirectory:'file:///cache/',deleteAsync:vi.fn().mockResolvedValue(undefined)}));
 vi.mock('expo-sharing',()=>({}));
 vi.mock('expo-document-picker',()=>({}));
 vi.mock('expo-clipboard',()=>({}));
@@ -274,12 +276,11 @@ describe('Shared presentation interactions',()=>{
     await act(async()=>{await state.alert.mock.calls.at(-1)![2][1].onPress()});expect(erase).toHaveBeenCalledOnce();expect(refresh).toHaveBeenCalledOnce();
     expect(state.alert.mock.calls.at(-1)![0]).toBe(t('deleteDataSuccess'));
   });
-  it('keeps prompt actions outside the scrolling text in a keyboard avoiding view',async()=>{
-    const root=await render(<Settings/>),modal=root.findByType('Modal' as React.ElementType),avoid=modal.findByType('KeyboardAvoidingView' as React.ElementType);
-    expect(avoid.props.behavior).toBe('padding');
-    const scroll=avoid.findByType('ScrollView' as React.ElementType);expect(scroll.props.keyboardShouldPersistTaps).toBe('handled');
+  it('keeps prompt actions outside the scrolling text in the anchored popover',async()=>{
+    const root=await render(<Settings/>),modal=root.findByType('Modal' as React.ElementType),panel=modal.find(node=>node.props.accessibilityViewIsModal);
+    const scroll=panel.findByType('ScrollView' as React.ElementType);expect(scroll.props.keyboardShouldPersistTaps).toBe('handled');
     expect(scroll.findAllByType('TouchableOpacity' as React.ElementType)).toHaveLength(0);
-    expect(avoid.findAllByType('TouchableOpacity' as React.ElementType)).toHaveLength(2);
+    expect(panel.findAllByType('TouchableOpacity' as React.ElementType)).toHaveLength(2);
   });
   it('shows a localized deletion error and allows retry without refreshing',async()=>{
     const erase=vi.fn().mockRejectedValue(new Error('Synthetic private error')),refresh=vi.fn();state.app={...state.app,repo:{deleteAllData:erase},refresh};const root=await render(<Settings/>);
@@ -785,6 +786,22 @@ it('removes shared time controls while retaining independent chart menus and Cal
  expect(root.findAll(node=>node.props.accessibilityHint===t('openCalendarDay')).length).toBeGreaterThan(0);
 });
 
+it.each([1,37])('keeps Frequency weekdays fixed on the right and opens at the latest of %i years',async years=>{
+ const scrollToEnd=vi.fn(),startYear=Number(state.today.slice(0,4))-years+1,visibleYears=Math.max(10,years),firstVisible=Number(state.today.slice(0,4))-visibleYears+1;
+ state.app={...state.app,entries:[{id:'old',habitId:habit.id,localDate:`${startYear}-01-01`,value:1,occurredAt:'',timezone:'UTC',createdAt:'',updatedAt:''}]};
+ await act(async()=>{renderer=create(<InsightDetailScreen/>,{createNodeMock:()=>({scrollToEnd})})});
+ const root=renderer.root;await act(async()=>root.findAllByType('ScrollView' as React.ElementType)[0].props.onScroll({nativeEvent:{contentOffset:{y:800}}}));
+ const frequency=root.find(node=>typeof node.type==='function'&&node.type.name==='Frequency'),scroll=frequency.findByType('ScrollView' as React.ElementType);
+ expect(scrollToEnd).toHaveBeenCalledWith({animated:false});
+ const weekdays=Array.from({length:7},(_,i)=>new Intl.DateTimeFormat(undefined,{weekday:'short'}).format(new Date(2024,0,1+i)));
+ expect(scroll.findAllByType('Text' as React.ElementType).map(node=>node.props.children)).toEqual(Array.from({length:visibleYears},(_,index)=>String(firstVisible+index)));
+ const axis=scroll.parent!.findAllByType('View' as React.ElementType).find(node=>node.props.style?.width===48)!;
+ expect(axis.findAllByType('Text' as React.ElementType).map(node=>node.props.children)).toEqual(weekdays);
+ expect(scroll.parent!.children.indexOf(axis)).toBeGreaterThan(scroll.parent!.children.indexOf(scroll));
+ expect(scroll.props.contentContainerStyle).toMatchObject({flexGrow:1,justifyContent:'flex-end'});
+ scrollToEnd.mockClear();await act(async()=>{scroll.props.onLayout();scroll.props.onContentSizeChange()});expect(scrollToEnd).toHaveBeenCalledTimes(2);
+});
+
 it('uses complete history for streaks and annual frequency without including future or unrelated records',async()=>{
  const record=(localDate:string,habitId=habit.id,value=1)=>({id:habitId+localDate,habitId,localDate,value,occurredAt:state.today,timezone:'UTC',createdAt:state.today,updatedAt:state.today});
  const other={...habit,id:'other',name:'Other'};
@@ -795,8 +812,8 @@ it('uses complete history for streaks and annual frequency without including fut
  const frequencyLabels=()=>root.findAll(node=>node.type===('View' as React.ElementType)&&node.props.accessibilityLabel?.match(/: \d+ \/ \d+ /)).map(node=>node.props.accessibilityLabel as string);
  const frequencyTotal=()=>frequencyLabels().reduce((sum,label)=>sum+Number(label.match(/: (\d+) \/ /)![1]),0);
  expect(streakCounts()).toEqual([4,2]);expect(frequencyTotal()).toBe(6);
- expect(frequencyLabels()).toHaveLength(21);
- expect(frequencyLabels().every(label=>/^(2024|2025|2026),/.test(label))).toBe(true);
+ expect(frequencyLabels()).toHaveLength(70);
+ expect(frequencyLabels().every(label=>/^(2017|2018|2019|2020|2021|2022|2023|2024|2025|2026),/.test(label))).toBe(true);
  const possible=(year:string)=>frequencyLabels().filter(label=>label.startsWith(year+',')).reduce((sum,label)=>sum+Number(label.match(/\/ (\d+) /)![1]),0);
  expect(possible('2024')).toBe(366);expect(possible('2025')).toBe(365);expect(possible('2026')).toBe(251);
  for(const label of ['consistencyGrouping','historyGrouping'] as const){
@@ -805,6 +822,35 @@ it('uses complete history for streaks and annual frequency without including fut
   await press(menu.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.accessibilityLabel===t('year'))[0]);
   expect(streakCounts()).toEqual([4,2]);expect(frequencyTotal()).toBe(6);
  }
+});
+
+it.each(['boolean','number'] as const)('combines Calendar selections, prioritizes child colors, and edits only the chosen %s habit',async type=>{
+ const parent={...habit,type,color:'green' as const},child={...parent,id:'child',parentId:habit.id,name:'Child',color:'blue' as const},sibling={...child,id:'sibling',name:'Sibling',color:'purple' as const,sortOrder:1},general={...parent,id:'general',parentId:habit.id,isGeneral:true};
+ const record=(habitId:string)=>({id:habitId,habitId,value:1,localDate:state.today,occurredAt:state.today,timezone:'UTC',createdAt:'',updatedAt:''});
+ state.app={...state.app,habits:[parent,general,child,sibling],entries:[record(child.id),record(sibling.id),record(general.id)]};
+ const root=await render(<InsightDetailScreen/>);await act(async()=>{await new Promise(resolve=>setTimeout(resolve,10))});
+ const cell=()=>root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.accessibilityHint===t('openCalendarDay')&&node.props.accessibilityLabel?.includes(state.today+':'))[0];
+ expect(cell().findByType(CalendarDayBackground).props.colors).toEqual([habitAccentPalette.blue,habitAccentPalette.purple]);
+ const header=root.find(node=>typeof node.type==='function'&&node.type.name==='ChartHeader'&&node.props.chart==='calendar');
+ await act(async()=>header.props.onFilter());
+ const filter=root.findAll(node=>node.type===('Modal' as React.ElementType)&&node.props.visible)[0];
+ const choice=(name:string)=>filter.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.accessibilityRole==='checkbox'&&node.findAll(child=>child.type===('Text' as React.ElementType)&&child.props.children===name).length>0)[0];
+ await press(choice(child.name));expect(choice(child.name).props.accessibilityState.checked).toBe(true);
+ expect(filter.props.visible).toBe(true);expect(root.findByType(StrengthChart).props.selected).toHaveLength(1);
+ await act(async()=>filter.props.onRequestClose());
+ expect(cell().findByType(CalendarDayBackground).props.colors).toEqual([habitAccentPalette.blue,habitAccentPalette.purple]);
+ await press(cell());const modal=root.findAll(node=>node.type===('Modal' as React.ElementType)&&node.props.visible)[0];await act(async()=>modal.props.onShow());
+ const target=modal.find(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.accessibilityRole==='radio'&&node.props.accessibilityLabel===child.name);
+ await press(target);expect(state.app.changeEntry).not.toHaveBeenCalled();
+ const dayCell=()=>modal.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.accessibilityLabel?.includes(state.today+':'))[0];
+ expect(dayCell().findByType(CalendarDayBackground).props.colors).toEqual([habitAccentPalette.blue,habitAccentPalette.purple]);
+ await press(dayCell());
+ if(type==='number'){
+  const editor=root.findByType(CalendarEntryModal);expect(editor.props.habit.id).toBe(child.id);
+  await act(async()=>editor.props.setEditor((current:{value:string})=>({...current,value:'3'})));
+  await act(async()=>editor.props.onSave());
+ }
+ expect(state.app.changeEntry).toHaveBeenCalledExactlyOnceWith(child.id,state.today,type==='number'?3:null);
 });
 
 it.each(['number','duration'] as const)('uses fixed soft calendar colors below the original %s threshold in both modes',async type=>{
@@ -826,10 +872,72 @@ it('removes the Activity mode selector after a quantity habit is permanently con
  state.app={...state.app,habits:[habit],entries:(state.app.entries as import('../src/domain/types').Entry[]).map(e=>({...e,value:1}))};await act(async()=>renderer.update(<InsightDetailScreen/>));expect(button(root,t('activity'))).toBeUndefined();
 });
 
+it('preserves the last selected pie category and supports add, remove, All and empty filters',async()=>{
+ const other={...habit,id:'other',name:'Other'},onChange=vi.fn(),roots=[{habit,color:light.accent},{habit:other,color:light.accent}];
+ const root=await render(<PieCategoryFilter roots={roots} selected={[habit]} onChange={onChange} c={light}/>);
+ await press(button(root,t('selectMultiple')+' '+t('habitContribution')));
+ const choice=(name:string)=>root.find(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.accessibilityRole==='checkbox'&&node.props.accessibilityLabel===name);
+ await press(choice(habit.name));expect(onChange).not.toHaveBeenCalled();
+ await press(choice(other.name));expect(onChange).toHaveBeenLastCalledWith(new Set([habit.id,other.id]));
+ await act(async()=>renderer.update(<PieCategoryFilter roots={roots} selected={[habit,other]} onChange={onChange} c={light}/>));
+ await press(choice(habit.name));expect(onChange).toHaveBeenLastCalledWith(new Set([other.id]));
+ const all=root.find(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.findAll(child=>child.type===('Text' as React.ElementType)&&child.props.children===t('allCategories')).length>0);
+ await press(all);expect(onChange).toHaveBeenLastCalledWith(null);
+ await act(async()=>root.findByType('Modal' as React.ElementType).props.onRequestClose());expect(root.findByType('Modal' as React.ElementType).props.visible).toBe(false);
+ await act(async()=>renderer.update(<PieCategoryFilter roots={[]} selected={[]} onChange={onChange} c={light}/>));
+ expect(button(root,t('selectMultiple')+' '+t('habitContribution')).props.disabled).toBe(true);
+});
+
+it('repositions popovers above the keyboard and restores the trigger position when it closes',async()=>{
+ const root=await render(<AnchoredPopover visible onClose={()=>{}} anchor={{x:300,y:650,width:70,height:36}} c={light}><></></AnchoredPopover>);
+ const panel=()=>root.find(node=>node.props.accessibilityViewIsModal);
+ expect(panel().props.style[1]).toEqual({bottom:202});
+ await act(async()=>state.keyboardListeners.keyboardDidShow({endCoordinates:{screenY:500}}));
+ expect(panel().props.style[1].bottom).toBeGreaterThanOrEqual(844-500+12);
+ expect(844-panel().props.style[1].bottom-panel().props.style[0].maxHeight).toBeGreaterThanOrEqual(12);
+ await act(async()=>state.keyboardListeners.keyboardDidHide({endCoordinates:{screenY:844}}));
+ expect(panel().props.style[1]).toEqual({bottom:202});
+});
+
+it('measures the pressed control before opening a shared popover',()=>{
+ const opened=vi.fn();
+ openPopover({currentTarget:{measureInWindow:(callback:(x:number,y:number,width:number,height:number)=>void)=>callback(20,200,80,44)}} as unknown as Parameters<typeof openPopover>[0],opened);
+ expect(opened).toHaveBeenCalledWith({x:20,y:200,width:80,height:44});
+});
+
+it.each([{y:120,position:{top:164}},{y:740,position:{bottom:112}}])('anchors grouping popovers within the viewport at y=$y and dismisses without changes',async({y,position})=>{
+ await act(async()=>{renderer=create(<InsightDetailScreen/>,{createNodeMock:()=>({measureInWindow:(callback:(x:number,y:number,width:number,height:number)=>void)=>callback(280,y,70,36)})})});
+ const root=renderer.root;
+ await press(button(root,t('consistencyGrouping')));
+ const modal=root.findAllByType('Modal' as React.ElementType).find(node=>node.props.visible&&node.findAll(node=>node.props.accessibilityRole==='radiogroup'&&node.props.accessibilityLabel===t('consistencyGrouping')).length>0)!;
+ expect(modal.props.animationType).toBe('fade');
+ const panel=modal.find(node=>node.props.accessibilityViewIsModal);
+ expect(panel.props.style[1]).toEqual(position);expect(panel.props.style[0].left).toBe(30);
+ await act(async()=>modal.props.onRequestClose());
+ expect(root.findByType(StrengthChart).props.bucketSize).toBe('day');
+ expect(root.findAll(node=>node.props.accessibilityRole==='radiogroup'&&node.props.accessibilityLabel===t('consistencyGrouping'))).toHaveLength(0);
+});
+
+it('adds month and year context to daily Consistency labels including the current month',async()=>{
+ const dates=['2025-12-31','2026-01-01','2026-01-02','2026-02-01','2026-02-08'];
+ const buckets=dates.map(key=>({key,label:String(Number(key.slice(-2))),dates:new Set([key])}));
+ const root=await render(<StrengthChart habit={habit} selected={[{habit,color:light.accent}]} habits={[habit]} entries={[]} today="2026-02-08" buckets={buckets} bucketSize="day" c={light} timeline/>);
+ const labels=root.findAllByType('SvgText' as React.ElementType);
+ for(const context of labels.filter(node=>node.props.y===194)){
+  const day=labels.find(node=>node.props.y===178&&node.props.x===context.props.x);
+  expect(day).toBeDefined();expect(context.props.textAnchor).toBe('middle');expect(day?.props.textAnchor).toBe('middle');
+ }
+ expect(labels.filter(node=>node.props.y===178).map(node=>node.props.children)).toEqual(['31','1','2','1','8']);
+ const plot=root.findAllByType('Svg' as React.ElementType).find(node=>node.props.accessible);
+ expect(plot!.props.width-labels.filter(node=>node.props.y===178).at(-1)!.props.x).toBe(14);
+ expect(labels.filter(node=>node.props.y===194).map(node=>node.props.children)).toEqual([dates[0],dates[1],dates[3]].map(key=>new Intl.DateTimeFormat(undefined,{month:'short',year:'numeric'}).format(new Date(`${key}T12:00:00`))));
+});
+
 it('starts the consistency timeline at the latest dates without jumping on width changes',async()=>{
  const scrollToEnd=vi.fn(),scrollTo=vi.fn(),load=vi.fn();
  await act(async()=>{renderer=create(<StrengthChart habit={habit} selected={[{habit,color:light.accent}]} habits={[habit]} entries={[]} today={state.today} buckets={[{key:state.today,label:'8',dates:new Set([state.today])}]} bucketSize="day" c={light} timeline onLoadEarlier={load}/>,{createNodeMock:()=>({scrollToEnd,scrollTo})})});
  const scroll=renderer.root.findByType('ScrollView' as React.ElementType);
+ expect(scroll.props.bounces).toBe(false);expect(scroll.props.overScrollMode).toBe('never');
  await act(async()=>scroll.props.onContentSizeChange(1000));expect(scrollToEnd).toHaveBeenCalledWith({animated:false});
  await act(async()=>scroll.props.onScroll({nativeEvent:{contentOffset:{x:40}}}));
  await act(async()=>scroll.props.onContentSizeChange(2000));expect(scrollTo).not.toHaveBeenCalled();
@@ -858,6 +966,22 @@ it('groups History independently, preserves its selection, and loads older bars'
  expect(chart().props.buckets).toHaveLength(120);expect(chart().props.buckets.slice(-60)).toEqual(buckets);
 });
 
+it('centers History month/year context beneath daily buckets and fits short timelines to the viewport',async()=>{
+ const dates=['2025-12-31','2026-01-01','2026-01-02','2026-02-01','2026-02-08'];
+ const buckets=dates.map(key=>({key,label:String(Number(key.slice(-2))),dates:new Set([key])}));
+ const series=[{habit,color:light.accent,values:[1,0,1,1,1]}];
+ const root=await render(<HistoryChart series={series} buckets={buckets} bucketSize="day" type="boolean" c={light} timeline/>);
+ const labels=root.findAllByType('SvgText' as React.ElementType),days=labels.filter(node=>node.props.y===177),context=labels.filter(node=>node.props.y===193);
+ expect(days.map(node=>node.props.children)).toEqual(['31','1','2','1','8']);
+ expect(context.map(node=>node.props.children)).toEqual([dates[0],dates[1],dates[3]].map(key=>new Intl.DateTimeFormat(undefined,{month:'short',year:'numeric'}).format(new Date(`${key}T12:00:00`))));
+ for(const label of context){expect(label.props.textAnchor).toBe('middle');expect(days.some(day=>day.props.x===label.props.x)).toBe(true)}
+ await act(async()=>renderer.update(<HistoryChart series={[{...series[0],values:[1]}]} buckets={[buckets[0]]} bucketSize="day" type="boolean" c={light} timeline/>));
+ const outer=root.findAllByType('View' as React.ElementType).find(node=>node.props.onLayout)!;
+ await act(async()=>outer.props.onLayout({nativeEvent:{layout:{width:420}}}));
+ const scroll=root.findByType('ScrollView' as React.ElementType),plot=root.findAllByType('Svg' as React.ElementType).find(node=>node.props.accessible)!;
+ expect(plot.props.width).toBe(420-scroll.props.style.marginLeft);
+});
+
 it.each(['number','duration','boolean'] as const)('labels the whole History stack in the displayed %s unit and keeps scrolling anchored',async type=>{
  const scrollToEnd=vi.fn(),scrollTo=vi.fn(),load=vi.fn();
  const multiplier=type==='duration'?3600:1;
@@ -870,6 +994,7 @@ it.each(['number','duration','boolean'] as const)('labels the whole History stac
  expect(labels.filter(node=>node.props.y===177).map(node=>node.props.children)).toEqual(['Jan','Apr','Jul']);
  if(type==='duration')expect(root.findAllByType('Text' as React.ElementType).map(node=>node.props.children)).toContain(t('hours'));
  const scroll=root.findByType('ScrollView' as React.ElementType);
+ expect(scroll.props.showsHorizontalScrollIndicator).toBe(false);expect(scroll.props.bounces).toBe(false);expect(scroll.props.overScrollMode).toBe('never');
  await act(async()=>scroll.props.onContentSizeChange(1000));expect(scrollToEnd).toHaveBeenCalledOnce();
  await act(async()=>scroll.props.onScroll({nativeEvent:{contentOffset:{x:40}}}));
  await act(async()=>scroll.props.onContentSizeChange(2000));expect(scrollTo).not.toHaveBeenCalled();
@@ -897,7 +1022,8 @@ it.each(['archived','deleted'] as const)('removes %s categories from detail sele
  state.app={...state.app,habits:[habit,child]};
  const root=await render(<InsightDetailScreen/>);
  await act(async()=>root.findAllByType('ScrollView' as React.ElementType)[0].props.onScroll({nativeEvent:{contentOffset:{y:800}}}));
- for(const chart of ['score','history'] as const){
+ await act(async()=>{await new Promise(resolve=>setTimeout(resolve,10))});
+ for(const chart of ['score','history','calendar'] as const){
   const header=root.findAll(node=>typeof node.type==='function'&&node.type.name==='ChartHeader'&&node.props.chart===chart)[0];
   await act(async()=>header.props.onFilter());
   const modal=root.findAll(node=>node.type===('Modal' as React.ElementType)&&node.props.visible)[0];
@@ -908,6 +1034,7 @@ it.each(['archived','deleted'] as const)('removes %s categories from detail sele
  state.app={...state.app,habits:action==='deleted'?[habit]:[habit,{...child,archivedAt:state.today}]};
  await act(async()=>renderer.update(<InsightDetailScreen/>));
  expect(root.findByType(StrengthChart).props.selected.map((item:{habit:Habit})=>item.habit.id)).toEqual([habit.id]);
+ expect(root.find(node=>typeof node.type==='function'&&node.type.name==='ActivityCalendar').props.selected.map((item:Habit)=>item.id)).toEqual([habit.id]);
  expect(root.findByType(HistoryChart).props.series.map((item:{habit:Habit})=>item.habit.id)).toEqual([habit.id]);
  state.app={...state.app,habits:[habit,child]};await act(async()=>renderer.update(<InsightDetailScreen/>));
  expect(root.findByType(StrengthChart).props.selected.map((item:{habit:Habit})=>item.habit.id)).toEqual([habit.id]);

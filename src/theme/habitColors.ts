@@ -8,9 +8,6 @@ export function habitAccent(habit:Habit,habits:Habit[],fallback:string):string {
   const color=inheritedHabitColor(habit,habits);return color?habitAccentPalette[color]:fallback;
 }
 
-const chartFallbacks=[habitAccentPalette.green,habitAccentPalette.blue,habitAccentPalette.red,habitAccentPalette.purple,habitAccentPalette.orange,habitAccentPalette.teal,habitAccentPalette.pink,habitAccentPalette.gray];
-export function habitChartColor(habit:Habit,habits:Habit[]):string{
-  // Ranking and period changes must not swap automatic series colors.
-  const roots=habits.filter(item=>item.parentId===null&&!item.isGeneral&&!item.archivedAt).sort((a,b)=>a.sortOrder-b.sortOrder||a.id.localeCompare(b.id));
-  return habitAccent(habit,habits,chartFallbacks[Math.max(0,roots.findIndex(item=>item.id===habit.id))%chartFallbacks.length]);
+export function habitChartColor(habit:Habit,habits:Habit[],primary:string):string{
+  return habitAccent(habit,habits,primary);
 }

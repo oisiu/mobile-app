@@ -4,16 +4,14 @@ import { habitAccent,habitAccentPalette,habitChartColor } from '../src/theme/hab
 import { Habit } from '../src/domain/types';
 const h=(id:string,parentId:string|null=null,color?:Habit['color']):Habit=>({id,parentId,color,name:id,emoji:'',type:'boolean',sortOrder:0,isGeneral:false,archivedAt:null,createdAt:'',updatedAt:''});
 describe('Habit appearance',()=>{
-  it('keeps automatic chart colors tied to root order rather than ranking or input order',()=>{
-    const first={...h('a'),sortOrder:0},second={...h('b'),sortOrder:1},child=h('child','a'),archived={...h('old'),archivedAt:'2026-01-01',sortOrder:-1};
-    const habits=[second,child,archived,first],original=[...habits];
-    expect(habitChartColor(first,habits)).toBe(habitChartColor(first,[first,second]));
-    expect(habitChartColor(second,habits)).toBe(habitChartColor(second,[first,second]));
-    expect(habitChartColor(first,habits)).not.toBe(habitChartColor(second,habits));
-    expect(habits).toEqual(original);
-    expect(habitChartColor({...first,color:'pink'},habits)).toBe(habitAccentPalette.pink);
-    expect(habitChartColor(h('missing'),[])).toBeTruthy();
-    expect(habitChartColor(h('b'),[h('b'),h('a')])).toBe(habitChartColor(h('b'),[h('a'),h('b')]));
+  it('uses the current theme primary for automatic charts and preserves selected or inherited colors',()=>{
+    const root=h('root'),child=h('child','root'),habits=[root,child];
+    for(const primary of ['#280003','#E8D5BE']){
+      expect(habitChartColor(root,habits,primary)).toBe(primary);
+      expect(habitChartColor(child,habits,primary)).toBe(primary);
+      expect(habitChartColor({...root,color:'pink'},habits,primary)).toBe(habitAccentPalette.pink);
+      expect(habitChartColor(child,[{...root,color:'blue'},child],primary)).toBe(habitAccentPalette.blue);
+    }
   });
   it.each(['','✨','👍🏽','🇪🇸','👨‍👩‍👧‍👦','❤️','1️⃣','🏳️‍🌈','👩🏽‍💻','🏴\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}'])('accepts one complete emoji %s',emoji=>expect(isSingleEmoji(emoji)).toBe(true));
   it.each(['✨✨','👍🏽🇪🇸','hi','1','🇪','🏽','👨‍','🙂 text',' 🙂','🙂\n'])('rejects multiple or incomplete emoji %s',emoji=>expect(isSingleEmoji(emoji)).toBe(false));

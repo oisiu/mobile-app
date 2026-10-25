@@ -1,3 +1,4 @@
+import { buildTimelineBuckets } from './chartTimeline';
 import { aggregate } from './aggregation';
 import { TimeBucket } from './analytics';
 import { Entry,Habit } from './types';
@@ -18,4 +19,10 @@ export function buildFrequency(habit:Habit,habits:Habit[],entries:Entry[],bucket
     cell.size=4+18*cell.intensity;
   }
   return {rows};
+}
+
+export function buildFrequencyBuckets(entries:Entry[],today:string){
+  const year=Number(today.slice(0,4));
+  const first=entries.reduce((earliest,entry)=>entry.localDate<=today?Math.min(earliest,Number(entry.localDate.slice(0,4))):earliest,year-9);
+  return buildTimelineBuckets('year',today,year-first+1);
 }
