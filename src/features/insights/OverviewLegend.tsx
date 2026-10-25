@@ -1,5 +1,6 @@
+import { Text } from '@/theme/Typography';
 import React from 'react';
-import { Text,TouchableOpacity,View } from 'react-native';
+import { TouchableOpacity,View } from 'react-native';
 import { Habit } from '@/domain/types';
 import { light } from '@/theme';
 import { t } from '@/i18n';

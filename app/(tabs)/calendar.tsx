@@ -1,3 +1,4 @@
+import { Text,TextInput } from '@/theme/Typography';
 import { AnchoredPopover,openPopover,PopoverAnchor } from '@/features/AnchoredPopover';
 import { EntryRefreshError,entryErrorTitle } from '@/features/entryWriteError';
 import { visibleHabitSnapshot } from '@/domain/habitVisibility';
@@ -6,7 +7,7 @@ import { habitAccent,habitChartColor } from '@/theme/habitColors';
 import { mainTitle } from '@/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React,{useMemo,useRef,useState} from 'react';
-import { Alert,FlatList,ScrollView,StyleSheet,Text,TextInput,TouchableOpacity,View } from 'react-native';
+import { Alert,FlatList,ScrollView,StyleSheet,TouchableOpacity,View } from 'react-native';
 import { DurationUnit,durationInputToSeconds,isCompleteDecimalInput,sanitizeDecimalInput,todayLocal } from '@/domain/entries';
 import { aggregate,aggregationIndex,formatValue } from '@/domain/aggregation';
 import { Habit,HabitNode } from '@/domain/types';

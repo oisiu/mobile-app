@@ -21,7 +21,7 @@ See [Development](docs/DEVELOPMENT.md) for commands, native setup, and dependenc
 | `app/` | Expo Router screens and navigation |
 | `src/` | Domain, data, features, localization, theme, and utilities |
 | `tests/` | Automated tests |
-| `assets/` | Images bundled with the app |
+| `assets/` | Images and fonts bundled with the app |
 | `store/` | Marketplace listings, artwork, screenshots, and release notes |
 | `docs/` | Product and engineering documentation |
 

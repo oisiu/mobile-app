@@ -1,5 +1,6 @@
+import { Text,TextInput } from '@/theme/Typography';
 import React,{useState} from 'react';
-import { Text,TextInput,TouchableOpacity,View } from 'react-native';
+import { TouchableOpacity,View } from 'react-native';
 import { HabitType } from '@/domain/types';
 import { light,dark } from '@/theme';
 import { t } from '@/i18n';

@@ -1,5 +1,6 @@
+import { Text,TextInput } from '@/theme/Typography';
 import React from 'react';
-import { Text,TextInput,TouchableOpacity,View } from 'react-native';
+import { TouchableOpacity,View } from 'react-native';
 import { HabitType } from '@/domain/types';
 import { typeChangeTargets } from '@/domain/habitTypeChange';
 import { CalendarDraft,changeCalendarUnit } from '@/features/insights/calendarEntry';

@@ -4,6 +4,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   test: {
+    setupFiles: ['./tests/typographySetup.ts'],
     coverage: {
       provider: 'v8',
       include: [
@@ -33,6 +34,8 @@ export default defineConfig({
         'src/features/AppBar.tsx',
         'src/features/SheetHandle.tsx',
         'src/theme/index.ts',
+        'src/theme/Typography.tsx',
+        'src/theme/SvgTypography.tsx',
       ],
       exclude: ['src/domain/types.ts'],
       reporter: ['text', 'json-summary', 'lcov'],

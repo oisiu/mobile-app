@@ -27,7 +27,7 @@ The [suite](../tests/) covers domain rules, real SQLite migrations/rollback, saf
 
 Popover checks cover trigger placement, safe-area/keyboard bounds, reopening/cleanup, inside/outside taps, Back/escape, and pending-write dismissal. Shared popovers, filters, and attachments are in enforced coverage.
 
-UI checks cover draft/navigation guards, duplicate writes, refresh-only recovery, hidden-category restoration, and transfer failures. Analytics cover independent grouping/history, weekly boundaries, totals/streaks/frequency, Activity mode, thresholds, and accessible values. Calendar checks cover multi-selection, branch/color deduplication, descendant color priority, original-value thresholds, selection recovery, and editing targets.
+UI checks cover draft/navigation guards, duplicate writes, refresh-only recovery, hidden-category restoration, and transfer failures. Analytics cover independent grouping/history, weekly boundaries, totals/streaks/frequency, Activity mode, thresholds, and accessible values. Loading checks cover persistent chart axes/date grids, disabled Calendar editing before readiness, Reduce Motion fallback and changes, animation cleanup, compact History spacing, and fixed bar widths. Typography checks cover bundled font selection and native/SVG prop forwarding. Calendar checks cover multi-selection, branch/color deduplication, descendant color priority, original-value thresholds, selection recovery, and editing targets.
 
 `pnpm test:release` (also in test/coverage gates) mocks release preparation, stage order, and credential handling. Windows shell gates use Git’s Bash. `pnpm test:release:signing` needs JDK tools/`zip` to sign and verify a synthetic archive.
 

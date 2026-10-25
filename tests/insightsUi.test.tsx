@@ -8,6 +8,7 @@ import { PieCategoryFilter } from '../src/features/insights/PieCategoryFilter';
 import { CalendarEntryModal } from '../src/features/insights/CalendarEntryModal';
 import { habitAccentPalette } from '../src/theme/habitColors';
 import React from 'react';
+import { AccessibilityInfo,Animated } from 'react-native';
 import { act,create,ReactTestRenderer,ReactTestInstance } from 'react-test-renderer';
 import { afterEach,beforeEach,describe,expect,it,vi } from 'vitest';
 import { Habit } from '../src/domain/types';
@@ -30,9 +31,9 @@ vi.mock('../src/features/home/CategoryDragHandle',()=>({CategoryDragHandle:'Drag
 vi.mock('react-native',()=>({
   useWindowDimensions:()=>({width:390,height:844,scale:1,fontScale:1}),
   View:'View',Text:'Text',Pressable:'Pressable',TouchableOpacity:'TouchableOpacity',ScrollView:'ScrollView',Modal:'Modal',TextInput:'TextInput',KeyboardAvoidingView:'KeyboardAvoidingView',ActivityIndicator:'ActivityIndicator',
-  Keyboard:{addListener:(name:string,callback:(event:{endCoordinates:{screenY:number}})=>void)=>{state.keyboardListeners[name]=callback;return {remove:vi.fn()}},dismiss:vi.fn()},Platform:{OS:'ios'},Alert:{alert:state.alert},AccessibilityInfo:{isReduceMotionEnabled:async()=>true},
+  Keyboard:{addListener:(name:string,callback:(event:{endCoordinates:{screenY:number}})=>void)=>{state.keyboardListeners[name]=callback;return {remove:vi.fn()}},dismiss:vi.fn()},Platform:{OS:'ios'},Alert:{alert:state.alert},AccessibilityInfo:{isReduceMotionEnabled:async()=>true,addEventListener:()=>({remove:vi.fn()})},
   StyleSheet:{create:(styles:unknown)=>styles,hairlineWidth:0.5},
-  Animated:{View:'AnimatedView',ScrollView:'ScrollView',multiply:()=>0,event:()=>vi.fn(),Value:class{setValue(){} stopAnimation(){}},timing:()=>({start(){}})},
+  Animated:{View:'AnimatedView',ScrollView:'ScrollView',multiply:()=>0,event:()=>vi.fn(),Value:class{setValue(){} stopAnimation(){} interpolate(){return 1} addListener(){return 'listener'} removeListener(){}},timing:()=>({start(){}})},
   FlatList:({data,renderItem,initialScrollIndex=0,...props}:{data:unknown[];renderItem:(item:unknown)=>React.ReactNode;initialScrollIndex?:number;ListFooterComponent?:React.ReactNode})=>React.createElement('List',props,data.slice(Math.max(0,initialScrollIndex-2),initialScrollIndex+8).map((item,index)=><React.Fragment key={index}>{renderItem({item,index})}</React.Fragment>),props.ListFooterComponent),
 }));
 vi.mock('react-native-svg',()=>({default:'Svg',Circle:'Circle',Line:'Line',Polyline:'Polyline',Text:'SvgText',Rect:'Rect',Defs:'Defs',Pattern:'Pattern',Path:'Path'}));
@@ -75,7 +76,7 @@ beforeEach(()=>{
   vi.stubGlobal('cancelIdleCallback',clearTimeout);
   state.app={habits:[habit],entries:[],palette:light,changeEntry:vi.fn().mockResolvedValue(undefined)};
 });
-afterEach(async()=>{if(renderer)await act(async()=>renderer.unmount());vi.unstubAllGlobals()});
+afterEach(async()=>{if(renderer)await act(async()=>renderer.unmount());vi.unstubAllGlobals();vi.restoreAllMocks()});
 
 describe('Score axis',()=>{
   it('recalculates pie percentages from selected roots while leaving other charts and the grid unchanged',async()=>{
@@ -482,7 +483,7 @@ it.each([28,29,30,31])('keeps the final day readable on %i-day monthly axes',asy
 });
 
 it('labels every third monthly History bucket while retaining all twelve bars',async()=>{
-  const buckets=Array.from({length:12},(_,index)=>({key:`2026-${String(index+1).padStart(2,'0')}`,label:`m${index+1}`,dates:new Set([`2026-${String(index+1).padStart(2,'0')}-01`])}));
+  const buckets=Array.from({length:12},(_,index)=>({key:`2026-09-${String(index+1).padStart(2,'0')}`,label:`m${index+1}`,dates:new Set([`2026-${String(index+1).padStart(2,'0')}-01`])}));
   const root=await render(<HistoryChart series={[{habit,color:light.accent,values:buckets.map(()=>1)}]} buckets={buckets} bucketSize="month" type="boolean" c={light}/>);
   expect(root.findAllByType('Rect' as React.ElementType)).toHaveLength(12);
   expect(root.findAllByType('SvgText' as React.ElementType).filter(node=>node.props.y===177).map(node=>node.props.children)).toEqual(['m1','m4','m7','m10']);
@@ -859,10 +860,10 @@ it.each(['number','duration'] as const)('uses fixed soft calendar colors below t
  const root=await render(<InsightDetailScreen/>);
  await act(async()=>{await new Promise(resolve=>setTimeout(resolve,10))});
  const cell=()=>root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.accessibilityHint===t('openCalendarDay')&&node.props.accessibilityLabel?.startsWith('Reading, '+state.today+':'))[0];
- const fill=cell().props.style.backgroundColor;expect(fill.endsWith('4D')).toBe(true);expect(cell().props.accessibilityLabel).toContain(t('calendarBelowThreshold'));
- await press(button(root,t('activity')));expect(cell().props.style.backgroundColor).toBe(fill);
+ const fill=cell().findByType(CalendarDayBackground).props.colors[0];expect(fill.endsWith('4D')).toBe(true);expect(cell().props.accessibilityLabel).toContain(t('calendarBelowThreshold'));
+ await press(button(root,t('activity')));expect(cell().findByType(CalendarDayBackground).props.colors[0]).toBe(fill);
  await press(cell());const modal=root.findAll(node=>node.type===('Modal' as React.ElementType)&&node.props.visible)[0];
- await act(async()=>modal.props.onShow());expect(day(modal).props.style.backgroundColor).toBe(fill);
+ await act(async()=>modal.props.onShow());expect(day(modal).findByType(CalendarDayBackground).props.colors[0]).toBe(fill);
  expect(state.app.changeEntry).not.toHaveBeenCalled();
 });
 
@@ -1047,4 +1048,146 @@ it('uses guarded navigation and exposes pending state when creating a habit from
  state.pending='/habit/new';await act(async()=>renderer.update(<Home/>));
  expect(button(root,t('add')).props.disabled).toBe(true);
  expect(button(root,t('add')).props.accessibilityState).toEqual({disabled:true,busy:true});
+});
+
+it('keeps the first card slots mounted while transition and calendar loading finish',async()=>{
+ state.chartReady=false;
+ let revealCalendar=()=>{};
+ vi.stubGlobal('requestIdleCallback',(callback:()=>void)=>{revealCalendar=callback;return 1});
+ vi.stubGlobal('cancelIdleCallback',vi.fn());
+ const root=await render(<InsightDetailScreen/>);
+ const slots=root.findAll(node=>node.type===('View' as React.ElementType)&&[376,266].includes(node.props.style?.minHeight));
+ expect(slots).toHaveLength(2);
+ expect(slots[0].findAll(node=>node.props.accessibilityRole==='progressbar').length).toBeGreaterThan(0);
+ expect(slots[1].findAll(node=>node.props.accessibilityState?.busy).length).toBeGreaterThan(0);
+ state.chartReady=true;
+ await act(async()=>renderer.update(<InsightDetailScreen/>));
+ expect(slots[0].findAllByType(StrengthChart)).toHaveLength(1);
+ expect(slots[1].findAllByType('ActivityIndicator' as React.ElementType)).toHaveLength(0);
+ expect(slots[1].findAll(node=>node.props.accessibilityState?.busy).length).toBeGreaterThan(0);
+ await act(async()=>revealCalendar());
+ expect(slots[1].findAll(node=>node.props.accessibilityRole==='progressbar')).toHaveLength(0);
+
+});
+
+it('keeps real Consistency axes visible without calculating data during loading',async()=>{
+ state.chartReady=false;
+ const root=await render(<InsightDetailScreen/>),chart=root.findByType(StrengthChart);
+ expect(chart.props.loading).toBe(true);
+ expect(habitStrength).not.toHaveBeenCalled();expect(strengthSummary).not.toHaveBeenCalled();
+ expect(chart.findAllByType('Polyline' as React.ElementType)).toHaveLength(0);
+ expect(chart.findAllByType('SvgText' as React.ElementType).some(node=>node.props.children==='100%')).toBe(true);
+ expect(chart.findAllByType('Line' as React.ElementType)).toHaveLength(6);
+ state.chartReady=true;await act(async()=>renderer.update(<InsightDetailScreen/>));
+ expect(root.findByType(StrengthChart)).toBe(chart);
+ expect(chart.findAllByType('Polyline' as React.ElementType)).toHaveLength(1);
+
+});
+
+it('draws the Consistency line quickly while axes stay visible',async()=>{
+ const motion=vi.spyOn(AccessibilityInfo,'isReduceMotionEnabled').mockResolvedValue(false);
+ const timing=vi.spyOn(Animated,'timing');
+ const listener=vi.spyOn(Animated.Value.prototype,'addListener');
+ const root=await render(<InsightDetailScreen/>),chart=root.findByType(StrengthChart);
+ const before=chart.findByType('Polyline' as React.ElementType).props.points;
+ expect(before).not.toBe('');
+
+ await act(async()=>listener.mock.calls[0][0]({value:.5}));
+ const halfway=chart.findByType('Polyline' as React.ElementType).props.points;
+ expect(halfway).not.toBe(before);
+
+ await act(async()=>listener.mock.calls[0][0]({value:1}));
+ expect(chart.findByType('Polyline' as React.ElementType).props.points).not.toBe(halfway);
+
+ expect(timing).toHaveBeenCalledWith(expect.anything(),{toValue:1,delay:600,duration:600,useNativeDriver:false});
+ const calls=timing.mock.calls.length;
+ await act(async()=>renderer.update(<InsightDetailScreen/>));
+ expect(timing).toHaveBeenCalledTimes(calls);
+ motion.mockRestore();timing.mockRestore();listener.mockRestore();
+});
+
+it('shows real Calendar dates before activity is ready and enables editing after fills arrive',async()=>{
+ state.chartReady=false;
+ const record={id:'record',habitId:habit.id,localDate:state.today,value:1,occurredAt:state.today,timezone:'UTC',createdAt:state.today,updatedAt:state.today};
+ state.app={...state.app,entries:[record]};
+ let revealCalendar=()=>{};
+ vi.stubGlobal('requestIdleCallback',(callback:()=>void)=>{revealCalendar=callback;return 1});
+ const root=await render(<InsightDetailScreen/>);
+ const cell=root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.accessibilityLabel===`Reading, ${state.today}`)[0];
+ expect(cell).toBeDefined();expect(cell.props.disabled).toBe(true);
+ expect(cell.findAllByType(CalendarDayBackground)).toHaveLength(0);
+ await press(cell);expect(root.findAllByType('Modal' as React.ElementType).filter(node=>node.props.visible)).toHaveLength(0);
+ state.chartReady=true;await act(async()=>renderer.update(<InsightDetailScreen/>));
+ await act(async()=>revealCalendar());
+ expect(cell.props.disabled).toBe(false);
+ expect(cell.props.accessibilityLabel).toContain(t('active'));
+ expect(cell.findByType(CalendarDayBackground).props.colors).toEqual([light.accent]);
+ await press(cell);expect(root.findAllByType('Modal' as React.ElementType).some(node=>node.props.visible)).toBe(true);
+});
+
+it.each(['day','week','month','quarter','year'] as const)('keeps History %s bars at 16 points and preserves compact period spacing',async scale=>{
+ const buckets=Array.from({length:24},(_,index)=>({key:`2026-09-${String(index+1).padStart(2,'0')}`,label:'Sep',dates:new Set(['2026-09-01'])}));
+ const root=await render(<HistoryChart timeline showValues series={[{habit,color:light.accent,values:buckets.map(()=>1)}]} buckets={buckets} bucketSize={scale} type="boolean" c={light}/>);
+ const bars=root.findAllByType('Rect' as React.ElementType);
+ expect(bars).toHaveLength(24);expect(bars.every(bar=>bar.props.width===16)).toBe(true);
+ const spacing=scale==='week'?46:scale==='year'?40:28;
+ expect(bars[1].props.x-bars[0].props.x).toBeCloseTo(spacing-4/24);
+});
+
+it('expands History spacing for readable totals without widening its bars',async()=>{
+ const buckets=Array.from({length:24},(_,index)=>({key:String(index),label:'Sep',dates:new Set(['2026-09-01'])}));
+ const root=await render(<HistoryChart timeline showValues series={[{habit,color:light.accent,values:buckets.map(()=>9999)}]} buckets={buckets} bucketSize="month" type="number" c={light}/>);
+ const bars=root.findAllByType('Rect' as React.ElementType);
+ expect(bars[1].props.x-bars[0].props.x).toBeGreaterThan(28);
+ expect(bars.every(bar=>bar.props.width===16)).toBe(true);
+});
+
+it.each(['enabled','unavailable'] as const)('shows the whole Consistency line immediately when Reduce Motion is %s',async mode=>{
+ const motion=vi.spyOn(AccessibilityInfo,'isReduceMotionEnabled');
+ if(mode==='enabled')motion.mockResolvedValue(true);else motion.mockRejectedValue(new Error('unavailable'));
+ const timing=vi.spyOn(Animated,'timing');
+ const buckets=Array.from({length:20},(_,index)=>({key:`2026-09-${String(index+1).padStart(2,'0')}`,label:String(index),dates:new Set(['2026-09-01'])}));
+ const root=await render(<StrengthChart animateEntrance timeline habit={habit} selected={[{habit,color:light.accent}]} habits={[habit]} entries={[]} today={state.today} buckets={buckets} bucketSize="day" c={light}/>);
+ expect(root.findByType('Polyline' as React.ElementType).props.points.split(' ')).toHaveLength(20);
+ expect(timing).not.toHaveBeenCalled();
+});
+
+it('completes the draw when Reduce Motion changes and removes animation subscriptions on unmount',async()=>{
+ vi.spyOn(AccessibilityInfo,'isReduceMotionEnabled').mockResolvedValue(false);
+ const remove=vi.fn(),subscribe=vi.spyOn(AccessibilityInfo,'addEventListener').mockReturnValue({remove} as unknown as ReturnType<typeof AccessibilityInfo.addEventListener>);
+ const stop=vi.spyOn(Animated.Value.prototype,'stopAnimation'),removeListener=vi.spyOn(Animated.Value.prototype,'removeListener');
+ const buckets=Array.from({length:20},(_,index)=>({key:`2026-09-${String(index+1).padStart(2,'0')}`,label:String(index),dates:new Set(['2026-09-01'])}));
+ const root=await render(<StrengthChart animateEntrance timeline habit={habit} selected={[{habit,color:light.accent}]} habits={[habit]} entries={[]} today={state.today} buckets={buckets} bucketSize="day" c={light}/>);
+ const before=root.findByType('Polyline' as React.ElementType).props.points;
+ await act(async()=>(subscribe.mock.calls[0][1] as unknown as (value:boolean)=>void)(true));
+ expect(root.findByType('Polyline' as React.ElementType).props.points).not.toBe(before);
+ expect(root.findByType('Polyline' as React.ElementType).props.points.split(' ')).toHaveLength(20);
+ await act(async()=>renderer.unmount());
+ expect(stop).toHaveBeenCalled();expect(remove).toHaveBeenCalledOnce();expect(removeListener).toHaveBeenCalledWith('listener');
+});
+
+
+it('does not start the draw after unmount while its motion preference is pending',async()=>{
+ let resolveMotion:(value:boolean)=>void=()=>{};
+ vi.spyOn(AccessibilityInfo,'isReduceMotionEnabled').mockReturnValue(new Promise(resolve=>{resolveMotion=resolve}));
+ const timing=vi.spyOn(Animated,'timing');
+ const buckets=[{key:'2026-09-01',label:'1',dates:new Set(['2026-09-01'])}];
+ await render(<StrengthChart animateEntrance habit={habit} selected={[{habit,color:light.accent}]} habits={[habit]} entries={[]} today={state.today} buckets={buckets} bucketSize="day" c={light}/>);
+ await act(async()=>renderer.unmount());
+ await act(async()=>resolveMotion(false));
+ expect(timing).not.toHaveBeenCalled();
+});
+
+it('fades Calendar activity fills with native opacity while date boxes remain mounted',async()=>{
+ state.chartReady=false;
+ vi.spyOn(AccessibilityInfo,'isReduceMotionEnabled').mockResolvedValue(false);
+ const timing=vi.spyOn(Animated,'timing');
+ let revealCalendar=()=>{};
+ vi.stubGlobal('requestIdleCallback',(callback:()=>void)=>{revealCalendar=callback;return 1});
+ const root=await render(<InsightDetailScreen/>);
+ const cell=root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.accessibilityLabel===`Reading, ${state.today}`)[0];
+ state.chartReady=true;await act(async()=>renderer.update(<InsightDetailScreen/>));
+ await act(async()=>revealCalendar());
+ expect(cell.props.disabled).toBe(false);
+ expect(timing).toHaveBeenCalledWith(expect.anything(),{toValue:1,duration:400,useNativeDriver:true});
 });

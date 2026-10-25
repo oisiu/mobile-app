@@ -1,6 +1,7 @@
+import { Text } from '@/theme/Typography';
 import { Ionicons } from '@expo/vector-icons';
 import { router,usePathname } from 'expo-router';
-import { Pressable,StyleSheet,Text,View } from 'react-native';
+import { Pressable,StyleSheet,View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/features/AppProvider';
 import { t } from '@/i18n';
