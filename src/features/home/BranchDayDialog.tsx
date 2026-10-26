@@ -1,8 +1,9 @@
+import { Text,TextInput } from '@/theme/Typography';
 import { EntryRefreshError,entryErrorTitle } from '../entryWriteError';
 import { Ionicons } from '@expo/vector-icons';
 import { BranchDatePicker } from './BranchDatePicker';
 import React,{useRef,useState} from 'react';
-import { Alert,KeyboardAvoidingView,Modal,Platform,Pressable,ScrollView,StyleSheet,Switch,Text,TextInput,View } from 'react-native';
+import { Alert,KeyboardAvoidingView,Modal,Platform,Pressable,ScrollView,StyleSheet,Switch,View } from 'react-native';
 import { useApp } from '../AppProvider';
 import { branchRecords,validBranchDate } from '../../domain/branchDay';
 import { Habit } from '../../domain/types';

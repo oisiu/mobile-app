@@ -1,3 +1,5 @@
+import { Text } from '@/theme/Typography';
+import { SvgText } from '@/theme/SvgTypography';
 import { visibleHabitSnapshot } from '@/domain/habitVisibility';
 import { OverviewLegend } from '@/features/insights/OverviewLegend';
 import { PieCategoryFilter } from '@/features/insights/PieCategoryFilter';
@@ -6,8 +8,8 @@ import { habitChartColor } from '@/theme/habitColors';
 import { mainTitle } from '@/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React,{useMemo,useState} from 'react';
-import { ActivityIndicator,ScrollView,StyleSheet,Text,TouchableOpacity,View } from 'react-native';
-import Svg,{Circle,Path,Text as SvgText} from 'react-native-svg';
+import { ActivityIndicator,ScrollView,StyleSheet,TouchableOpacity,View } from 'react-native';
+import Svg,{Circle,Path} from 'react-native-svg';
 import { buildInsightWindow,shiftInsightAnchor } from '@/domain/analytics';
 import { strengthWindowLabel } from '@/domain/strengthWindow';
 import { todayLocal } from '@/domain/entries';

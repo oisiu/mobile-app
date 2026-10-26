@@ -1,8 +1,9 @@
+import { Text } from '@/theme/Typography';
 import { EntryRefreshError } from './entryWriteError';
 import { BranchEdit } from '@/domain/branchDay';
 import { Ionicons } from '@expo/vector-icons';
 import React,{createContext,useCallback,useContext,useEffect,useMemo,useRef,useState} from 'react';
-import { Alert,StyleSheet,Text,useColorScheme,View } from 'react-native';
+import { Alert,StyleSheet,useColorScheme,View } from 'react-native';
 import * as SQLite from 'expo-sqlite';
 import Storage from 'expo-sqlite/kv-store';
 import { migrate } from '@/data/migrations';

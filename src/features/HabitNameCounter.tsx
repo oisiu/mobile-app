@@ -1,4 +1,5 @@
-import { Text } from 'react-native';
+import { Text } from '@/theme/Typography';
+import {  } from 'react-native';
 import { habitNameLimit } from '@/domain/habitName';
 import { t } from '@/i18n';
 import { dark,light } from '@/theme';

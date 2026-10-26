@@ -1,5 +1,6 @@
+import { Text,TextInput } from '@/theme/Typography';
 import React from 'react';
-import { KeyboardAvoidingView,Modal,Platform,Pressable,ScrollView,StyleSheet,Text,TextInput,TouchableOpacity,View } from 'react-native';
+import { KeyboardAvoidingView,Modal,Platform,Pressable,ScrollView,StyleSheet,TouchableOpacity,View } from 'react-native';
 import { CalendarDraft,changeCalendarUnit } from './calendarEntry';
 import { Habit } from '@/domain/types';
 import { sanitizeDecimalInput } from '@/domain/entries';

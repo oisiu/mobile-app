@@ -24,7 +24,7 @@ After any Expo SDK change, regenerate with `pnpm expo prebuild --platform androi
 
 Android `app/build/`, `app/.cxx/`, `build/`, `.gradle/`, and `.kotlin/` are disposable caches/output; remove only with builds stopped. Rebuilding recreates them and takes longer. Retain signing files/release bundles through their release lifecycle.
 
-`assets/app/icon.png` supplies launcher and attribution-free native splash artwork; `app.json` sets launch size. Credit PalFly in More → Help & about. Splash changes need native regeneration/rebuild; verify Android masking within the central safe area on device. [Startup](UI_UX.md#startup) owns splash timing.
+`assets/app/icon.png` supplies launcher artwork. The native splash uses `assets/app/logo-rounded.png`, derived from `assets/app/logo.png` with transparent rounded corners, a flat background matching the splash, and the original “Powered by PalFly” credit; `app.json` sets a compact launch size to preserve padding and keep the artwork inside Android’s circular splash safe area. `assets/app/logo-rounded-dark.png` matches the dark splash background and uses a light mark for contrast. Launcher artwork stays independent of splash artwork. PalFly is also credited in More → Help & about. Splash changes need native regeneration/rebuild; verify Android masking within the central safe area on device. [Startup](UI_UX.md#startup) owns splash timing.
 
 ## Android connection troubleshooting
 

@@ -1,8 +1,10 @@
+import { Text } from '@/theme/Typography';
+import { SvgText } from '@/theme/SvgTypography';
 import { dayBucketContext } from '@/domain/chartTimeline';
 import { useTimelineScroll } from './useTimelineScroll';
 import React,{useState} from 'react';
-import { ScrollView,Text,View } from 'react-native';
-import Svg,{Line,Rect,Text as SvgText} from 'react-native-svg';
+import { ScrollView,View } from 'react-native';
+import Svg,{Line,Rect} from 'react-native-svg';
 import { historyAxis } from '@/domain/history';
 import { BucketSize,TimeBucket } from '@/domain/analytics';
 import { Habit } from '@/domain/types';
@@ -15,7 +17,7 @@ export function HistoryChart({series,buckets,bucketSize,type,c,showLegend=true,h
   const format=(value:number)=>new Intl.NumberFormat(undefined,{maximumFractionDigits:Math.min(12,Math.max(0,-Math.floor(Math.log10(axis.step)))),notation:axis.max>=10000?'compact':'standard'}).format(value);
   const valueLabel=(value:number)=>new Intl.NumberFormat(undefined,{maximumSignificantDigits:4,notation:value>=10000?'compact':'standard'}).format(value);
   const timelineScroll=useTimelineScroll(buckets,onLoadEarlier);
-  const spacing=Math.max(bucketSize==='day'?28:bucketSize==='week'?58:40,...totals.map(value=>valueLabel(value/axis.divisor).length*6+10));
+  const spacing=Math.max(bucketSize==='day'?28:bucketSize==='week'?46:bucketSize==='month'||bucketSize==='quarter'?28:40,...totals.map(value=>valueLabel(value/axis.divisor).length*6+10));
   const left=Math.max(28,...axis.ticks.map(value=>format(value).length*6+12)),plotStart=timeline?(bucketSize==='day'?34:0):left;
   const plotWidth=timeline?Math.max(width-left,buckets.length*spacing+plotStart):width;
   const right=Math.max(plotStart+1,plotWidth-4),slot=(right-plotStart)/Math.max(1,buckets.length);
@@ -24,7 +26,7 @@ export function HistoryChart({series,buckets,bucketSize,type,c,showLegend=true,h
   const plot=<Svg accessible accessibilityLabel={t('history')+', '+t(axis.unit)+'. '+buckets.flatMap((bucket,index)=>bucket.dates.size?[bucket.key+': '+series.map(item=>item.habit.name+': '+item.values[index]/axis.divisor).join(', ')]:[]).join('; ')} width={plotWidth} height={202} viewBox={'0 0 '+plotWidth+' 202'}>
       {axis.ticks.map(value=>{const y=160-value/axis.max*140;return <React.Fragment key={value}><Line x1={plotStart} y1={y} x2={right} y2={y} stroke={c.line}/>{!timeline&&<SvgText x={left-6} y={y+3} fill={c.muted} fontSize={11} textAnchor="end">{format(value)}</SvgText>}</React.Fragment>})}
       {buckets.map((bucket,index)=>{
-        const x=plotStart+slot*(index+.5),dayContext=bucketSize==='day'?dayBucketContext(buckets,index):null,barWidth=Math.min(20,slot*.63);
+        const x=plotStart+slot*(index+.5),dayContext=bucketSize==='day'?dayBucketContext(buckets,index):null,barWidth=16;
         return <React.Fragment key={bucket.key}>{series.map((item,seriesIndex)=>{
           const value=item.values[index]/axis.divisor,height=value/axis.max*140,stacked=series.slice(0,seriesIndex+1).reduce((sum,part)=>sum+part.values[index]/axis.divisor/axis.max*140,0);
           return value>0?<Rect onPress={onHighlight?()=>onHighlight(highlightedId===item.habit.id?null:item.habit.id):undefined} key={item.habit.id} x={x-barWidth/2} y={160-stacked} width={barWidth} height={height} opacity={highlightedId&&highlightedId!==item.habit.id?.22:1} stroke={highlightedId===item.habit.id?c.text:undefined} strokeWidth={highlightedId===item.habit.id?1.5:0} fill={item.color}/>:null;

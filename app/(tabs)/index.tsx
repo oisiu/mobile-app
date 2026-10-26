@@ -1,3 +1,4 @@
+import { Text } from '@/theme/Typography';
 import { EntryRefreshError,entryErrorTitle } from '@/features/entryWriteError';
 import { HiddenCategories } from '@/features/settings/HiddenCategories';
 import { CategoryDragHandle } from '@/features/home/CategoryDragHandle';
@@ -8,7 +9,7 @@ import { CalendarEntryModal } from '@/features/insights/CalendarEntryModal';
 import { calendarDraft,calendarEntry,calendarInputValue,CalendarDraft } from '@/features/insights/calendarEntry';
 import { homeDateWindow } from '@/features/home/dateWindow';
 import { depthBackground,mainTitle } from '@/theme';
-import React,{useCallback,useMemo,useRef,useState} from 'react'; import { ActivityIndicator,Alert,Animated,FlatList,Pressable,ScrollView,StyleSheet,Text,TouchableOpacity,View } from 'react-native'; import * as Haptics from 'expo-haptics'; import { useFocusEffect } from 'expo-router'; import { Ionicons } from '@expo/vector-icons';
+import React,{useCallback,useMemo,useRef,useState} from 'react'; import { ActivityIndicator,Alert,Animated,FlatList,Pressable,ScrollView,StyleSheet,TouchableOpacity,View } from 'react-native'; import * as Haptics from 'expo-haptics'; import { useFocusEffect } from 'expo-router'; import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '@/features/AppProvider'; import { buildTree } from '@/domain/tree'; import { aggregate,formatValue } from '@/domain/aggregation'; import { HabitNode } from '@/domain/types'; import { addDays,shortDay } from '@/utils/dates'; import { todayLocal } from '@/domain/entries'; import { t } from '@/i18n'; import { usePrefetchRoutes,useResponsiveNavigation } from '@/features/useResponsiveNavigation';
 const HABIT_COLUMN_WIDTH=157;
 

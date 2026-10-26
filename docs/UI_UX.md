@@ -4,7 +4,7 @@ Owns interaction and presentation. [Product](PRODUCT.md) defines scope, [Databas
 
 ## Shared presentation
 
-Use system fonts, tight large headings, cream/beige surfaces, mahogany accents, rounded controls, and quiet separators. Dark mode uses warm charcoal, lighter nested surfaces, cream text/actions, and readable secondary labels. Respect safe areas, large text, narrow screens, and accessibility; keep feedback immediate and motion restrained. Footer destinations retain distinct icon/label colors; selection fills the icon without changing the background. Appearance labels are localized; destructive confirmations identify affected habits/records.
+Use locally bundled Manrope for app text, inputs, and chart labels (regular, semibold, bold, and extra bold), tight large headings, cream/beige surfaces, mahogany accents, rounded controls, and quiet separators. Dark mode uses warm charcoal, lighter nested surfaces, cream text/actions, and readable secondary labels. Respect safe areas, large text, narrow screens, and accessibility; keep feedback immediate and motion restrained. Footer destinations retain distinct icon/label colors; selection fills the icon without changing the background. Appearance labels are localized; destructive confirmations identify affected habits/records.
 
 Appearance supports System, Light, and Dark. See [Startup](#startup) for loading and recovery behavior.
 
@@ -49,7 +49,7 @@ Confirm impact before staging descendant deletions; Save commits them with hiera
 
 Insight detail places Back, the wrapping habit title, and an accessible edit button in its header.
 
-Navigation immediately exposes accessible progress and rejects repeated taps. Detail shows its header/static placeholders during transition, then Consistency/Calendar; enlarged calendars render the selected weeks first. Reduce Motion disables fades.
+Navigation immediately exposes accessible progress and rejects repeated taps. Detail shows its header, Consistency axes, Calendar dates, and lower-section placeholders during transition, then fills in analytics; enlarged calendars render the selected weeks first. Reduce Motion disables fades.
 
 Quantity/duration roots and children may set a positive, non-inherited calendar threshold in the hierarchy draft. Blank removes it; duration uses value-preserving Minutes/Hours and integer seconds. Threshold edits participate in draft guards and the save transaction.
 
@@ -105,7 +105,7 @@ Detail sections appear in this order:
 | Best streaks | Up to five longest active-date ranges across all recorded history through today, with dates above full-width bars. |
 | Frequency | Weekday activity across all recorded history, grouped into annual columns. Circle size and shade reflect active days divided by elapsed matching weekdays in each column. Future dates are excluded. |
 
-Consistency/Calendar become interactive first. Fixed-height skeletons preserve layout until scrolling approaches History and lower sections, which mount in order.
+Consistency/Calendar become interactive first. Each keeps the same reserved card slot throughout loading, replacing its skeleton immediately without a blank fade. Localized card titles and information buttons remain available during loading; Consistency also shows its fixed summary labels while values load. Consistency keeps its real percentage axis, date labels, and gridlines visible while summary values load, then draws the real line from left to right across the visible timeline once; Reduce Motion shows it immediately. Calendar renders real date boxes immediately with an accessible busy state and editing disabled until activity is ready, then fades activity backgrounds in; Reduce Motion applies them immediately. Static skeletons show history bars, streaks, or frequency dots. Fixed-height skeletons preserve layout until scrolling approaches History and lower sections, which mount in order.
 
 Detail has no shared time selector: Consistency/History have independent Day/Week/Month/Quarter/Year menus, initially Day and reset when opening another habit; Calendar keeps its navigation. Best streaks/Frequency use all history through today without period controls.
 
@@ -113,7 +113,7 @@ Consistency, Calendar, and History have independent multi-selection, initially t
 
 Consistency/History place grouping to the right of the habit selector using compact icon-free, chevron-free pills and shared popovers. The habit selector uses remaining width before truncating; controls wrap below titles on narrow screens. Timeline labels are numeric days with centered abbreviated month/year beneath the first bucket and every month boundary; Monday day/abbreviated-month for weeks, abbreviated months for months, quarter-start months for quarters, and years for years. Show year boundaries below weekly/monthly/quarterly labels. Current buckets end today.
 
-Both timelines open at the latest data and scroll horizontally into earlier buckets with hidden scrollbars, no overscroll, readable spacing, and preserved position on prepend. Axes and legends stay outside scrolling. History sums typed values or unique Boolean dates with comparison attribution. Each nonzero stack shows one compact total in its unit; zero buckets retain position without labels. Include direct entries at all depths and archived descendants without duplication. Bars open no readout/list; omit the active-day caption but retain duration units. Detail legends show emojis/names below charts.
+Both timelines open at the latest data and scroll horizontally into earlier buckets with hidden scrollbars, no overscroll, readable spacing, and preserved position on prepend. Axes and legends stay outside scrolling. History sums typed values or unique Boolean dates with comparison attribution. Week, Month, and Quarter use compact spacing, expanding when totals need more room. Each nonzero stack shows one compact total in its unit; zero buckets retain position without labels. Include direct entries at all depths and archived descendants without duplication. Bars open no readout/list; omit the active-day caption but retain duration units. Detail legends show emojis/names below charts.
 
 ### Consistency timeline
 

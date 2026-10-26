@@ -1,5 +1,6 @@
+import { Text } from '@/theme/Typography';
 import React from 'react';
-import { Text,TouchableOpacity,View } from 'react-native';
+import { TouchableOpacity,View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AnchoredPopover,PopoverAnchor } from './AnchoredPopover';
 import { light } from '@/theme';

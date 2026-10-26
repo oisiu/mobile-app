@@ -1,9 +1,10 @@
+import { Text } from '@/theme/Typography';
 import { openPopover,PopoverAnchor } from '../AnchoredPopover';
 import { OverviewLegend } from './OverviewLegend';
 import { HistoryChart } from './HistoryChart';
 import { buildRootActivitySeries,OverviewPeriod } from '@/domain/insightsOverview';
 import React,{useMemo,useState} from 'react';
-import { ScrollView,StyleSheet,Text,TouchableOpacity,View } from 'react-native';
+import { ScrollView,StyleSheet,TouchableOpacity,View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StrengthChart } from './StrengthChart';
 import { SelectionPopover } from '../SelectionPopover';

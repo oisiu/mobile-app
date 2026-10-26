@@ -1,5 +1,6 @@
+import { Text } from '@/theme/Typography';
 import React,{useState} from 'react';
-import { Pressable,Text,View } from 'react-native';
+import { Pressable,View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { addDays,addMonths } from '../../utils/dates';
 import { todayLocal } from '../../domain/entries';

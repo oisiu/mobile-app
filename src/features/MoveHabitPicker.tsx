@@ -1,6 +1,7 @@
+import { Text,TextInput } from '@/theme/Typography';
 import { AnchoredPopover,openPopover,PopoverAnchor } from './AnchoredPopover';
 import React,{useMemo,useState} from 'react';
-import { ScrollView,StyleSheet,Text,TextInput,TouchableOpacity,View } from 'react-native';
+import { ScrollView,StyleSheet,TouchableOpacity,View } from 'react-native';
 import { attachmentCandidates } from '@/domain/treeAttachments';
 import { buildTree } from '@/domain/tree';
 import { Habit,HabitNode } from '@/domain/types';

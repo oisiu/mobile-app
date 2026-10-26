@@ -1,6 +1,7 @@
+import { Text } from '@/theme/Typography';
 import { openPopover,PopoverAnchor } from '../AnchoredPopover';
 import React,{useState} from 'react';
-import { ScrollView,Text,TouchableOpacity,View } from 'react-native';
+import { ScrollView,TouchableOpacity,View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SelectionPopover } from '../SelectionPopover';
 import { Habit } from '@/domain/types';

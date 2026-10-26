@@ -1,5 +1,6 @@
+import { Text } from '@/theme/Typography';
 import React,{useState} from 'react';
-import { Alert,StyleSheet,Text,TouchableOpacity,View } from 'react-native';
+import { Alert,StyleSheet,TouchableOpacity,View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useResponsiveNavigation } from '@/features/useResponsiveNavigation';
 import { useApp } from '@/features/AppProvider';

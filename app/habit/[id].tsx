@@ -1,3 +1,4 @@
+import { Text,TextInput } from '@/theme/Typography';
 import { habitNameError,habitNameLimit } from '@/domain/habitName';
 import { HabitNameCounter } from '@/features/HabitNameCounter';
 import { HabitTypeChange,validHistoryValue } from '@/domain/habitTypeChange';
@@ -13,7 +14,7 @@ import { HabitColor,isSingleEmoji } from '@/domain/habitAppearance';
 import { useHabitMutation } from '@/features/useHabitMutation';
 import { useDraftGuard } from '@/features/useDraftGuard';
 import React,{useRef,useState} from 'react';
-import { ActivityIndicator,Alert,ScrollView,StyleSheet,Text,TextInput,TouchableOpacity,View } from 'react-native';
+import { ActivityIndicator,Alert,ScrollView,StyleSheet,TouchableOpacity,View } from 'react-native';
 import { router,useLocalSearchParams } from 'expo-router';
 import { Entry,Habit,HabitNode,HabitType } from '@/domain/types';
 import { buildTree,descendants,topLevelAncestor } from '@/domain/tree';
