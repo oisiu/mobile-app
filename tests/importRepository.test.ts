@@ -1,9 +1,9 @@
 import { descendants } from '../src/domain/tree';
-import { afterEach,describe,expect,it,vi } from 'vitest';
-import { DatabaseSync } from 'node:sqlite';
+import { describe,expect,it,vi } from 'vitest';
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { HabitRepository } from '../src/data/repository';
+import type { HabitRepository } from '../src/data/repository';
 import { migrate } from '../src/data/migrations';
+import { openTestRepository } from './support/testDatabase';
 import { aggregate } from '../src/domain/aggregation';
 import { planImport,validateImport } from '../src/domain/import';
 import { Entry,ExportData,Habit } from '../src/domain/types';
@@ -12,14 +12,7 @@ const now='2025-01-01T00:00:00.000Z',date='2025-01-01';
 const h=(id:string,parentId:string|null=null,sortOrder=0,isGeneral=false):Habit=>({id,parentId,sortOrder,isGeneral,name:id,emoji:'•',type:'number',archivedAt:null,createdAt:now,updatedAt:now});
 const e=(id:string,habitId:string,value=5):Entry=>({id,habitId,value,localDate:date,occurredAt:now,timezone:'UTC',createdAt:now,updatedAt:now});
 const doc=(habits:Habit[],entries:Entry[]=[]):ExportData=>({version:1,exportedAt:now,habits,entries});
-const databases:DatabaseSync[]=[];
-afterEach(()=>{databases.splice(0).forEach(db=>db.close())});
-async function setup(){
-  const sqlite=new DatabaseSync(':memory:');databases.push(sqlite);
-  const db={execAsync:async(sql:string)=>{sqlite.exec(sql)},getFirstAsync:async(sql:string,params:(string|number|null)[]=[])=>sqlite.prepare(sql).get(...params),getAllAsync:async(sql:string,params:(string|number|null)[]=[])=>sqlite.prepare(sql).all(...params),runAsync:async(sql:string,params:(string|number|null)[]=[])=>sqlite.prepare(sql).run(...params),withTransactionAsync:async(action:()=>Promise<void>)=>{sqlite.exec('BEGIN');try{await action();sqlite.exec('COMMIT')}catch(error){sqlite.exec('ROLLBACK');throw error}}};
-  await migrate(db as unknown as SQLiteDatabase);
-  return {repo:new HabitRepository(db as unknown as SQLiteDatabase),sqlite,db};
-}
+const setup=openTestRepository;
 describe('Safe import integrity',()=>{
   it('persists root reordering with sequential positions while preserving descendants and entries',async()=>{
     const {repo}=await setup();await repo.import(doc([h('first'),h('general','first',-1,true),h('child','first'),h('second',null,1),h('third',null,2)],[e('record','child')]));
@@ -153,6 +146,21 @@ it('upgrades the six-color constraint without changing trees or entries',async()
   const exported=await repo.export();expect(()=>validateImport(exported)).not.toThrow();await repo.import(exported);
 });
 
+it('upgrades existing habits for soft wine and round-trips the new color',async()=>{
+  const {repo,sqlite,db}=await setup();
+  await repo.import(doc([{...h('root'),color:'purple',calendarThreshold:2,hideFromOverview:true},h('general','root',-1,true),{...h('child','root'),color:'pink'}],[e('record','child')]));
+  sqlite.exec("ALTER TABLE habits RENAME COLUMN color TO newer_color; ALTER TABLE habits ADD COLUMN color TEXT CHECK(color IS NULL OR color IN ('red','orange','yellow','lime','green','teal','cyan','blue','purple','pink','brown','gray')); UPDATE habits SET color=newer_color; ALTER TABLE habits DROP COLUMN newer_color; DELETE FROM schema_versions WHERE version=8;");
+  const before=await repo.export();
+  expect(()=>sqlite.prepare("UPDATE habits SET color='wine' WHERE id='root'").run()).toThrow();
+  await migrate(db as unknown as SQLiteDatabase);await migrate(db as unknown as SQLiteDatabase);
+  const after=await repo.export();expect(after.habits).toEqual(before.habits);expect(after.entries).toEqual(before.entries);
+  expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([]);
+  expect(sqlite.prepare('SELECT COUNT(*) n FROM schema_versions WHERE version=8').get()).toEqual({n:1});
+  await repo.update('root',{color:'wine'});
+  const exported=await repo.export();expect(exported.habits.find(habit=>habit.id==='root')?.color).toBe('wine');
+  const copy=await setup();await copy.repo.import(exported);expect((await copy.repo.export()).habits).toEqual(exported.habits);
+});
+
 it('rolls back a failed palette upgrade before retrying',async()=>{
   const {repo,sqlite,db}=await setup();await repo.import(doc([{...h('root'),color:'green'}],[e('record','root')]));
   sqlite.exec('ALTER TABLE habits DROP COLUMN calendar_threshold; ALTER TABLE habits DROP COLUMN is_hidden; ALTER TABLE habits DROP COLUMN hide_from_overview; DELETE FROM schema_versions WHERE version>=4;');
@@ -165,6 +173,37 @@ it('rolls back a failed palette upgrade before retrying',async()=>{
   expect((await repo.export()).habits).toEqual(before.habits);expect(await repo.entries()).toEqual(before.entries);
   expect(sqlite.prepare('SELECT MAX(version) version FROM schema_versions').get()).toEqual({version:3});
   await migrate(db as unknown as SQLiteDatabase);expect((await repo.export()).habits).toEqual(before.habits);
+});
+
+it('upgrades a legacy numeric Alcohol leaf once, preserving its records in General',async()=>{
+ const {repo,sqlite,db}=await setup();
+ await repo.import(doc([{...h('vices'),name:'Vices',emoji:'🚬'},h('vices-general','vices',-1,true),{...h('alcohol','vices'),name:'Alcohol',emoji:'🍺'}],[e('record','alcohol',3)]));
+ sqlite.exec('ALTER TABLE habits DROP COLUMN calendar_threshold; ALTER TABLE habits DROP COLUMN is_hidden; ALTER TABLE habits DROP COLUMN hide_from_overview; ALTER TABLE habits DROP COLUMN color; DELETE FROM schema_versions WHERE version>=2;');
+ await migrate(db as unknown as SQLiteDatabase);await migrate(db as unknown as SQLiteDatabase);
+ const habits=await repo.habits(),children=habits.filter(h=>h.parentId==='alcohol'),general=children.find(h=>h.isGeneral)!;
+ expect(children.filter(h=>!h.isGeneral).map(h=>h.name)).toEqual(['Beer','Cocktails','Wine','Shots']);
+ expect(children.filter(h=>!h.isGeneral).map(h=>h.sortOrder)).toEqual([0,1,2,3]);
+ expect(await repo.entries()).toEqual([{...e('record','alcohol',3),habitId:general.id}]);
+ expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([]);
+});
+
+it('rolls back a failed soft-wine migration, then retries without changing stored preferences or history',async()=>{
+ const {repo,sqlite,db}=await setup();
+ await repo.import(doc([{...h('root'),color:'purple',calendarThreshold:2,isHidden:true}],[e('record','root')]));
+ sqlite.exec('DELETE FROM schema_versions WHERE version=8;');
+ const before=await repo.export(),exec=db.execAsync;
+ const failure=vi.spyOn(db,'execAsync').mockImplementation(async sql=>{
+  if(sql.startsWith('ALTER TABLE habits RENAME COLUMN color TO previous_color')){
+   sqlite.exec('ALTER TABLE habits RENAME COLUMN color TO previous_color;');throw new Error('Synthetic wine migration failure');
+  }
+  await exec(sql);
+ });
+ await expect(migrate(db as unknown as SQLiteDatabase)).rejects.toThrow('Synthetic wine migration failure');failure.mockRestore();
+ expect(sqlite.prepare('SELECT MAX(version) version FROM schema_versions').get()).toEqual({version:7});
+ expect((await repo.export()).habits).toEqual(before.habits);expect(await repo.entries()).toEqual(before.entries);
+ await migrate(db as unknown as SQLiteDatabase);
+ expect((await repo.export()).habits).toEqual(before.habits);expect(await repo.entries()).toEqual(before.entries);
+ await repo.update('root',{color:'wine'});expect((await repo.habits())[0].color).toBe('wine');
 });
 
 it('persists visibility through creation, tree edits, export and import without changing records',async()=>{
@@ -189,7 +228,7 @@ it('upgrades existing habits to visible defaults and runs visibility migration o
   sqlite.exec('ALTER TABLE habits DROP COLUMN calendar_threshold; ALTER TABLE habits DROP COLUMN is_hidden; ALTER TABLE habits DROP COLUMN hide_from_overview; DELETE FROM schema_versions WHERE version>=5;');
   await migrate(db as unknown as SQLiteDatabase);await migrate(db as unknown as SQLiteDatabase);
   expect((await repo.export()).habits).toEqual(before.habits);expect(await repo.entries()).toEqual(before.entries);
-  expect(sqlite.prepare('SELECT MAX(version) version FROM schema_versions').get()?.version).toBe(7);
+  expect(sqlite.prepare('SELECT MAX(version) version FROM schema_versions').get()?.version).toBe(8);
 });
 
 it('persists complete hiding and one-tap recovery while retaining branch records and overview visibility',async()=>{
@@ -228,7 +267,7 @@ it('persists, clears, exports and imports independent calendar thresholds',async
 });
 it('upgrades version 6 without changing records and rejects invalid thresholds before writes',async()=>{
  const {repo,db,sqlite}=await setup();await repo.import(doc([h('numeric')],[e('record','numeric')]));
- sqlite.exec('ALTER TABLE habits DROP COLUMN calendar_threshold; DELETE FROM schema_versions WHERE version=7;');
+ sqlite.exec('ALTER TABLE habits DROP COLUMN calendar_threshold; DELETE FROM schema_versions WHERE version>=7;');
  await migrate(db as unknown as SQLiteDatabase);await migrate(db as unknown as SQLiteDatabase);
  expect(await repo.entries()).toEqual([e('record','numeric')]);expect((await repo.habits())[0].calendarThreshold).toBeUndefined();
  await expect(repo.create({name:'Invalid',emoji:'📖',type:'boolean',parentId:null,calendarThreshold:1})).rejects.toThrow();
@@ -237,13 +276,13 @@ it('upgrades version 6 without changing records and rejects invalid thresholds b
  expect((await repo.habits())[0].name).toBe('numeric');
  for(const threshold of [0,-1,Infinity])expect(()=>validateImport(doc([{...h('invalid'),calendarThreshold:threshold}]))).toThrow();
  expect(()=>validateImport(doc([{...h('duration'),type:'duration',calendarThreshold:.5}]))).toThrow();
- expect(sqlite.prepare('SELECT MAX(version) version FROM schema_versions').get()?.version).toBe(7);
+ expect(sqlite.prepare('SELECT MAX(version) version FROM schema_versions').get()?.version).toBe(8);
 });
 it('rolls back thresholds, new descendants and redirected records on a hierarchy write failure',async()=>{
  const {repo,db}=await setup();await repo.import(doc([{...h('root'),calendarThreshold:10}],[e('record','root')]));
  const before=await repo.export(),run=db.runAsync;
  vi.spyOn(db,'runAsync').mockImplementation(async(sql,params)=>{
-  if(sql==='UPDATE habits SET calendar_threshold=? WHERE id=?')throw new Error('Synthetic threshold failure');
+  if(sql.startsWith('INSERT INTO habits')&&params?.includes('Child'))throw new Error('Synthetic threshold failure');
   return run(sql,params);
  });
  await expect(repo.editTree('root',[{id:'root',name:'Changed',emoji:'📖',calendarThreshold:20}],[{key:'child',parentKey:'root',name:'Child',emoji:'📖',calendarThreshold:5}],[])).rejects.toThrow('Synthetic threshold failure');
@@ -329,6 +368,55 @@ it('preserves draft insertion positions among existing, new and attached sibling
  expect(saved.habits.filter(item=>item.parentId==='root'&&!item.isGeneral).map(item=>[item.name,item.sortOrder])).toEqual([['First',0],['source',1],['existing',2],['Last',3]]);
  expect(saved.habits.filter(item=>item.parentId==='existing'&&!item.isGeneral).map(item=>[item.name,item.sortOrder])).toEqual([['Nested first',0],['nested',1]]);
  expect(saved.entries).toEqual([e('record','nested')]);expect(()=>validateImport(saved)).not.toThrow();
+});
+
+it('saves reordered existing children alongside new and attached siblings while preserving subtrees and records',async()=>{
+ const {repo,sqlite}=await setup();
+ await repo.import(doc([h('root'),h('general','root',-1,true),h('first','root'),h('first-general','first',-1,true),h('deep','first'),h('other','first',1),h('second','root',1),h('source',null,1)],[e('record','deep')]));
+ const before=await repo.export();
+ await repo.editTree('root',[
+  {id:'second',name:'second',emoji:'•',index:0},{id:'first',name:'first',emoji:'•',index:3},
+  {id:'other',name:'other',emoji:'•',index:0},{id:'deep',name:'deep',emoji:'•',index:1},
+ ],[{key:'new',parentKey:'root',name:'New',emoji:'✨',index:1}],[],[{id:'source',parentKey:'root',expectedParentId:null,index:2}]);
+ const saved=await repo.export(),siblings=(parent:string)=>saved.habits.filter(h=>h.parentId===parent&&!h.isGeneral).sort((a,b)=>a.sortOrder-b.sortOrder);
+ expect(siblings('root').map(h=>h.name)).toEqual(['second','New','source','first']);expect(siblings('root').map(h=>h.sortOrder)).toEqual([0,1,2,3]);
+ expect(siblings('first').map(h=>h.id)).toEqual(['other','deep']);expect(siblings('first').map(h=>h.sortOrder)).toEqual([0,1]);
+ expect(saved.entries).toEqual(before.entries);expect(saved.habits.filter(h=>h.isGeneral).every(h=>h.sortOrder===-1)).toBe(true);
+ expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([]);expect(()=>validateImport(saved)).not.toThrow();
+});
+
+it('treats active rows beneath an archived ancestor as archived for writes and attachments',async()=>{
+ const {repo}=await setup();
+ await repo.import(doc([h('root'),h('root-general','root',-1,true),{...h('archived','root'),archivedAt:now},h('archived-general','archived',-1,true),h('leaf','archived'),h('source',null,1)],[e('record','leaf')]));
+ const before=await repo.export();
+ await expect(repo.create({name:'New',emoji:'',parentId:'leaf',type:'number'})).rejects.toThrow('Invalid creation destination');
+ await expect(repo.move('source','leaf',0)).rejects.toThrow('Invalid move destination');
+ await expect(repo.saveEntry({habitId:'leaf',value:8,localDate:date})).rejects.toThrow('Archived habits cannot receive entries');
+ await expect(repo.editTree('root',[],[{key:'new',name:'New',emoji:'',parentKey:'leaf'}],[])).rejects.toThrow('Invalid draft hierarchy');
+ await expect(repo.editTree('root',[],[],[],[{id:'source',parentKey:'leaf',expectedParentId:null}])).rejects.toThrow('Invalid attachment destination');
+ await expect(repo.editTree('source',[],[],[],[{id:'leaf',parentKey:'source',expectedParentId:'archived'}])).rejects.toThrow('Invalid or changed category attachment');
+ expect((await repo.export()).habits).toEqual(before.habits);expect(await repo.entries()).toEqual(before.entries);
+ await repo.archive('archived',false);
+ await repo.saveEntry({habitId:'leaf',value:8,localDate:date});expect((await repo.entries())[0].value).toBe(8);
+});
+
+it('rejects invalid existing-child positions and rolls back a failed reorder with its field edits',async()=>{
+ const {repo,db}=await setup();await repo.import(doc([h('root'),h('general','root',-1,true),h('first','root'),h('second','root',1)],[e('record','first')]));
+ const before=await repo.export();
+ for(const index of [-1,.5,NaN])await expect(repo.editTree('root',[{id:'first',name:'Changed',emoji:'•',index}],[],[])).rejects.toThrow('Invalid draft position');
+ for(const id of ['root','general'])await expect(repo.editTree('root',[{id,name:id,emoji:'•',index:0}],[],[])).rejects.toThrow();
+ const run=db.runAsync;vi.spyOn(db,'runAsync').mockImplementation(async(sql,params)=>{if(sql.startsWith('UPDATE habits SET sort_order'))throw new Error('Synthetic reorder failure');return run(sql,params)});
+ await expect(repo.editTree('root',[{id:'second',name:'Changed',emoji:'•',index:0},{id:'first',name:'first',emoji:'•',index:1}],[],[])).rejects.toThrow('Synthetic reorder failure');
+ expect((await repo.export()).habits).toEqual(before.habits);expect(await repo.entries()).toEqual(before.entries);
+});
+
+it('rejects conflicting final positions atomically and uses attachment positions for updated attached habits',async()=>{
+ const {repo}=await setup();await repo.import(doc([h('root'),h('general','root',-1,true),h('first','root'),h('second','root',1),h('source',null,1)],[e('record','first')]));
+ const before=await repo.export();
+ await expect(repo.editTree('root',[{id:'first',name:'Changed',emoji:'•',index:0},{id:'second',name:'second',emoji:'•',index:0}],[{key:'new',parentKey:'root',name:'New',emoji:'✨',index:1}],[])).rejects.toThrow('Conflicting draft positions');
+ expect((await repo.export()).habits).toEqual(before.habits);expect(await repo.entries()).toEqual(before.entries);
+ await repo.editTree('root',[{id:'source',name:'Source edited',emoji:'•',index:99}],[],[],[{id:'source',parentKey:'root',expectedParentId:null,index:0}]);
+ expect((await repo.habits()).filter(h=>h.parentId==='root'&&!h.isGeneral).sort((a,b)=>a.sortOrder-b.sortOrder).map(h=>h.id)).toEqual(['source','first','second']);
 });
 
 it('rejects invalid insertion positions and rolls back a failed sibling-order write',async()=>{

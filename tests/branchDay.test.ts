@@ -1,25 +1,19 @@
 import { afterEach,describe,expect,it,vi } from 'vitest';
-import { DatabaseSync } from 'node:sqlite';
 import { branchRecords,planBranchEdit,validBranchDate } from '../src/domain/branchDay';
-import { HabitRepository } from '../src/data/repository';
-import { migrate } from '../src/data/migrations';
 import { Entry,Habit } from '../src/domain/types';
-import type { SQLiteDatabase } from 'expo-sqlite';
+import { openTestRepository } from './support/testDatabase';
 vi.mock('expo-sqlite',()=>({}));
 const date='2026-09-10',destination='2026-09-09';
 const habit=(id:string,parentId:string|null=null,isGeneral=false):Habit=>({id,parentId,isGeneral,name:id,emoji:'',type:'boolean',sortOrder:0,archivedAt:null,createdAt:date,updatedAt:date});
 const entry=(habitId:string,localDate=date,value=1):Entry=>({id:habitId+localDate,habitId,localDate,value,occurredAt:date,timezone:'UTC',createdAt:date,updatedAt:date});
 const sport=habit('sport'),gym=habit('gym','sport'),legs=habit('legs','gym'),arms=habit('arms','gym'),general=habit('general','sport',true);
 const habits=[sport,gym,legs,arms,general,habit('other')];
-const databases:DatabaseSync[]=[];
-afterEach(()=>{databases.splice(0).forEach(db=>db.close());vi.restoreAllMocks();vi.resetModules()});
+afterEach(()=>{vi.restoreAllMocks();vi.resetModules()});
 async function setup(records:Entry[],type:Habit['type']='boolean'){
-  const sqlite=new DatabaseSync(':memory:');databases.push(sqlite);
-  const db={execAsync:async(sql:string)=>{sqlite.exec(sql)},getFirstAsync:async(sql:string)=>sqlite.prepare(sql).get(),getAllAsync:async(sql:string,params:(string|number|null)[]=[])=>sqlite.prepare(sql).all(...params),runAsync:vi.fn(async(sql:string,params:(string|number|null)[]=[])=>sqlite.prepare(sql).run(...params)),withTransactionAsync:async(action:()=>Promise<void>)=>{sqlite.exec('BEGIN');try{await action();sqlite.exec('COMMIT')}catch(error){sqlite.exec('ROLLBACK');throw error}}};
-  await migrate(db as unknown as SQLiteDatabase);
+  const opened=await openTestRepository(),{sqlite}=opened;
   for(const h of habits)sqlite.prepare('INSERT INTO habits(id,parent_id,name,emoji,type,sort_order,is_general,archived_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)').run(h.id,h.parentId,h.name,h.emoji,type,h.sortOrder,Number(h.isGeneral),h.archivedAt,h.createdAt,h.updatedAt);
   for(const e of records)sqlite.prepare('INSERT INTO entries VALUES(?,?,?,?,?,?,?,?)').run(e.id,e.habitId,e.value,e.occurredAt,e.localDate,e.timezone,e.createdAt,e.updatedAt);
-  return {repo:new HabitRepository(db as unknown as SQLiteDatabase),db,sqlite};
+  return {...opened,db:{...opened.db,runAsync:vi.spyOn(opened.db,'runAsync')}};
 }
 describe('Branch day planning',()=>{
   it('finds full paths, General, zeros and archived records without other dates or branches',()=>{

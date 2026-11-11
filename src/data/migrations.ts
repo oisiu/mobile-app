@@ -35,4 +35,7 @@ export async function migrate(db:SQLiteDatabase){
     await db.execAsync("ALTER TABLE habits ADD COLUMN calendar_threshold REAL CHECK(calendar_threshold IS NULL OR (type!='boolean' AND is_general=0 AND calendar_threshold>0 AND (type!='duration' OR calendar_threshold=CAST(calendar_threshold AS INTEGER)))); INSERT INTO schema_versions VALUES(7,datetime('now')); ");
   });
 
+  if((row?.version??0)<8)await db.withTransactionAsync(async()=>{
+    await db.execAsync("ALTER TABLE habits RENAME COLUMN color TO previous_color; ALTER TABLE habits ADD COLUMN color TEXT CHECK(color IS NULL OR color IN ('red','orange','yellow','lime','green','teal','cyan','blue','purple','wine','pink','brown','gray')); UPDATE habits SET color=previous_color; ALTER TABLE habits DROP COLUMN previous_color; INSERT INTO schema_versions VALUES(8,datetime('now'));");
+  });
 }

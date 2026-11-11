@@ -2,15 +2,15 @@ import { Text,TextInput } from '@/theme/Typography';
 import React,{useState} from 'react';
 import { TouchableOpacity,View } from 'react-native';
 import { HabitType } from '@/domain/types';
+import { calendarThresholdInput } from '@/domain/calendarThreshold';
 import { light,dark } from '@/theme';
 import { t } from '@/i18n';
 
 export function CalendarThresholdInput({type,value,onChange,c,name}:{type:HabitType;value:number|null;onChange:(value:number|null)=>void;c:typeof light|typeof dark;name:string}){
   const [unit,setUnit]=useState<'minutes'|'hours'>('minutes');
-  const factor=type==='duration'?(unit==='hours'?3600:60):1;
   const [text,setText]=useState(()=>value==null?'':String(value/(type==='duration'?60:1)));
   if(type==='boolean')return null;
-  const change=(text:string)=>{setText(text);const amount=Number(text.replace(',','.'));onChange(text.trim()===''?null:type==='duration'?Math.round(amount*factor):amount)};
+  const change=(text:string)=>{setText(text);onChange(calendarThresholdInput(type,text,unit))};
   return <View style={{marginTop:12,padding:12,borderRadius:14,backgroundColor:c.card}}>
     <Text style={{color:c.text,fontWeight:'600'}}>{t('calendarThreshold')}</Text>
     <Text style={{color:c.muted,fontSize:12,marginTop:4}}>{t('calendarThresholdHelp')}</Text>

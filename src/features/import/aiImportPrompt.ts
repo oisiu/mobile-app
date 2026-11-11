@@ -40,7 +40,7 @@ Required top-level shape:
 
 Conversion rules:
 - Use a unique, stable string ID for every habit and entry. Prefix IDs with the source app name to reduce collision risk.
-- Optional color is null (automatic/inherited) or "red", "orange", "yellow", "lime", "green", "teal", "cyan", "blue", "purple", "pink", "brown", or "gray". Omit it if the source has no matching preference. Preserve legacy emoji strings; for new identities prefer one complete emoji or an empty string.
+- Optional color is null (automatic/inherited) or "red", "orange", "yellow", "lime", "green", "teal", "cyan", "blue", "purple", "wine", "pink", "brown", or "gray". Omit it if the source has no matching preference. Preserve legacy emoji strings; for new identities prefer one complete emoji or an empty string.
 - parentId is null for a top-level habit or the ID of its parent.
 - type must be "boolean", "number", or "duration". Every habit in one branch must use the same type.
 - Boolean values are 0 or 1. Number values are non-negative decimals. Duration values are non-negative whole seconds.
@@ -95,7 +95,7 @@ Estructura obligatoria (conserva las claves y los valores técnicos en inglés):
 
 Reglas de conversión:
 - Usa un ID de texto único y estable para cada hábito y registro. Añade como prefijo el nombre de la app de origen para reducir las colisiones.
-- El color opcional es null (automático/heredado) o "red", "orange", "yellow", "lime", "green", "teal", "cyan", "blue", "purple", "pink", "brown" o "gray". Omítelo si el origen no tiene una preferencia equivalente. Conserva los emojis antiguos; para nuevas identidades usa preferiblemente un emoji completo o una cadena vacía.
+- El color opcional es null (automático/heredado) o "red", "orange", "yellow", "lime", "green", "teal", "cyan", "blue", "purple", "wine", "pink", "brown" o "gray". Omítelo si el origen no tiene una preferencia equivalente. Conserva los emojis antiguos; para nuevas identidades usa preferiblemente un emoji completo o una cadena vacía.
 - parentId es null para un hábito principal, o el ID de su padre.
 - type debe ser "boolean", "number" o "duration". Todos los hábitos de una rama deben tener el mismo tipo.
 - Los valores booleanos son 0 o 1. Los numéricos son decimales no negativos. Las duraciones son segundos enteros no negativos.

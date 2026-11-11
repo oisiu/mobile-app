@@ -2,7 +2,8 @@ import React from 'react';
 import { act,create,ReactTestRenderer } from 'react-test-renderer';
 import { afterEach,beforeEach,expect,it,vi } from 'vitest';
 import { Entry,Habit } from '../src/domain/types';
-import { AppProvider,useApp } from '../src/features/AppProvider';
+import { AppProvider,SuccessToast,useApp } from '../src/features/AppProvider';
+import { t } from '../src/i18n';
 
 const mocks=vi.hoisted(()=>({saveEntry:vi.fn(),clearEntry:vi.fn(),editBranchDay:vi.fn(),habits:vi.fn(),entries:vi.fn(),open:vi.fn(),migrate:vi.fn(),close:vi.fn(),storage:vi.fn(),storeTheme:vi.fn(),alert:vi.fn()}));
 vi.mock('react-native',()=>({Alert:{alert:mocks.alert},StyleSheet:{create:(value:unknown)=>value},Text:'Text',View:'View',useColorScheme:()=> 'light'}));
@@ -15,7 +16,7 @@ vi.mock('../src/data/repository',()=>({HabitRepository:class{saveEntry=mocks.sav
 let renderer:ReactTestRenderer,current:ReturnType<typeof useApp>;
 let snapshots:{habits:Habit[];entries:Entry[]}[];
 function Consumer(){const value=useApp();React.useEffect(()=>{current=value;snapshots.push({habits:value.habits,entries:value.entries})},[value]);return null}
-const deferred=<T,>()=>{let resolve!:(value:T)=>void;const promise=new Promise<T>(yes=>{resolve=yes});return {promise,resolve}};
+const deferred=<T,>()=>{let resolve!:(value:T)=>void,reject!:(error:Error)=>void;const promise=new Promise<T>((yes,no)=>{resolve=yes;reject=no});return {promise,resolve,reject}};
 beforeEach(async()=>{
   Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});snapshots=[];mocks.storeTheme.mockReset().mockResolvedValue(undefined);mocks.alert.mockClear();
   mocks.open.mockReset().mockResolvedValue({closeAsync:mocks.close});mocks.close.mockReset().mockResolvedValue(undefined);mocks.migrate.mockReset().mockResolvedValue(undefined);mocks.storage.mockReset().mockResolvedValue(null);
@@ -28,7 +29,8 @@ afterEach(async()=>{await act(async()=>renderer.unmount())});
 it('starts both refresh reads together and never publishes a mixed snapshot',async()=>{
   const habits=deferred<Habit[]>(),entries=deferred<Entry[]>();
   mocks.habits.mockReturnValueOnce(habits.promise);mocks.entries.mockReturnValueOnce(entries.promise);
-  const start=snapshots.length,refresh=current.refresh();
+  const start=snapshots.length;let refresh!:Promise<void>;
+  await act(async()=>{refresh=current.refresh();await Promise.resolve()});
   expect(mocks.habits).toHaveBeenCalledTimes(2);expect(mocks.entries).toHaveBeenCalledTimes(2);
   const nextHabits=[{id:'new'}] as Habit[],nextEntries=[{habitId:'new'}] as Entry[];
   await act(async()=>habits.resolve(nextHabits));
@@ -119,4 +121,71 @@ it('restores persisted appearance after a failed preference write and remains re
  expect(current.themeMode).toBe('dark');expect(mocks.alert).toHaveBeenCalledOnce();
  await act(async()=>current.setThemeMode('light'));
  expect(current.themeMode).toBe('light');expect(mocks.storeTheme).toHaveBeenCalledTimes(3);
+});
+
+
+it('serializes concurrent refreshes so every caller reads after the previous publication',async()=>{
+ const firstHabits=deferred<Habit[]>(),firstEntries=deferred<Entry[]>(),secondEntries=deferred<Entry[]>();
+ const oldHabits=[{...entryHabit,name:'Earlier'}],newHabits=[{...entryHabit,name:'Latest'}];
+ mocks.habits.mockReturnValueOnce(firstHabits.promise).mockResolvedValueOnce(newHabits);
+ mocks.entries.mockReturnValueOnce(firstEntries.promise).mockReturnValueOnce(secondEntries.promise);
+ const start=snapshots.length;let first!:Promise<void>,second!:Promise<void>;
+ await act(async()=>{first=current.refresh();second=current.refresh();await Promise.resolve()});
+ expect(mocks.habits).toHaveBeenCalledTimes(2);expect(mocks.entries).toHaveBeenCalledTimes(2);
+ await act(async()=>{firstHabits.resolve(oldHabits);firstEntries.resolve([record]);await first});
+ expect(current.habits).toEqual(oldHabits);expect(current.entries).toEqual([record]);
+ await act(async()=>{secondEntries.resolve([{...record,value:9}]);await second});
+ expect(mocks.habits).toHaveBeenCalledTimes(3);expect(mocks.entries).toHaveBeenCalledTimes(3);
+ expect(current.habits).toEqual(newHabits);expect(current.entries).toEqual([{...record,value:9}]);
+ expect(snapshots.slice(start)).toEqual([{habits:oldHabits,entries:[record]},{habits:newHabits,entries:[{...record,value:9}]}]);
+});
+
+it('continues queued refreshes after an earlier read fails',async()=>{
+ const firstEntries=deferred<Entry[]>();mocks.entries.mockReturnValueOnce(firstEntries.promise).mockResolvedValueOnce([record]);
+ mocks.habits.mockResolvedValue([entryHabit]);
+ let first!:Promise<void>,second!:Promise<void>;
+ await act(async()=>{first=current.refresh();second=current.refresh();await Promise.resolve()});
+ const failed=expect(first).rejects.toThrow('Read failed');
+ await act(async()=>{firstEntries.reject(new Error('Read failed'));await failed;await second});
+ expect(current.entries).toEqual([record]);expect(current.habits).toEqual([entryHabit]);
+});
+
+it.each(['BRANCH_DAY_CHANGED','BRANCH_CONFLICT','BRANCH_DATE','BRANCH_VALUE'] as const)('translates a %s rejection without marking the write committed',async code=>{
+ mocks.editBranchDay.mockRejectedValueOnce(new Error(code));
+ await act(async()=>{await expect(current.changeBranchDay('root',record.localDate,[record],[{id:record.id,value:3}],record.localDate)).rejects.toThrow(t(({BRANCH_DAY_CHANGED:'branchChangedError',BRANCH_CONFLICT:'branchConflictHelp',BRANCH_DATE:'branchDateError',BRANCH_VALUE:'invalidNumber'} as const)[code]))});
+ expect(current.toast).toBeNull();
+ await act(async()=>current.changeBranchDay('root',record.localDate,[record],[{id:record.id,value:3}],record.localDate));
+ expect(mocks.editBranchDay).toHaveBeenCalledTimes(2);
+});
+
+it('does not roll back a newer appearance choice when an earlier queued write fails',async()=>{
+ const earlier=deferred<void>();mocks.storeTheme.mockReturnValueOnce(earlier.promise);
+ let dark!:Promise<void>,light!:Promise<void>;
+ await act(async()=>{dark=current.setThemeMode('dark');light=current.setThemeMode('light')});
+ await act(async()=>{earlier.reject(new Error('Earlier failed'));await Promise.all([dark,light])});
+ expect(current.themeMode).toBe('light');expect(mocks.alert).not.toHaveBeenCalled();
+});
+
+it('preserves a user-selected appearance when the saved setting arrives late',async()=>{
+ await act(async()=>renderer.unmount());const saved=deferred<string>();mocks.storage.mockReturnValueOnce(saved.promise);
+ await act(async()=>{renderer=create(<AppProvider><Consumer/></AppProvider>)});
+ await act(async()=>current.setThemeMode('light'));await act(async()=>saved.resolve('dark'));
+ expect(current.themeMode).toBe('light');expect(current.themeReady).toBe(true);
+ mocks.storeTheme.mockRejectedValueOnce(new Error('Next write failed'));
+ await act(async()=>current.setThemeMode('dark'));
+ expect(current.themeMode).toBe('light');
+});
+
+it('shows the latest success message for its full duration and removes toast timers on unmount',async()=>{
+ vi.useFakeTimers();
+ try{
+  await act(async()=>renderer.update(<AppProvider><Consumer/><SuccessToast/></AppProvider>));
+  await act(async()=>current.showSuccess('First'));
+  await act(async()=>{vi.advanceTimersByTime(2000)});
+  await act(async()=>current.showSuccess('Second'));
+  await act(async()=>{vi.advanceTimersByTime(600)});expect(current.toast?.message).toBe('Second');
+  await act(async()=>{vi.advanceTimersByTime(2000)});expect(current.toast).toBeNull();
+  await act(async()=>current.showSuccess('Last'));expect(vi.getTimerCount()).toBe(1);
+  await act(async()=>renderer.unmount());expect(vi.getTimerCount()).toBe(0);
+ }finally{vi.useRealTimers()}
 });

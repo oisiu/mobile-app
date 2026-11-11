@@ -1,6 +1,6 @@
 import { Text,TextInput } from '@/theme/Typography';
 import { AnchoredPopover,openPopover,PopoverAnchor } from './AnchoredPopover';
-import React,{useMemo,useState} from 'react';
+import React,{useMemo,useRef,useState} from 'react';
 import { ScrollView,StyleSheet,TouchableOpacity,View } from 'react-native';
 import { attachmentCandidates } from '@/domain/treeAttachments';
 import { buildTree } from '@/domain/tree';
@@ -11,6 +11,7 @@ import { dark,light } from '@/theme';
 export function MoveHabitPicker({habits,type,excluded,parentName,parentPath,onSelect,c}:{habits:Habit[];type:Habit['type'];excluded:Set<string>;parentName:string;parentPath?:string;onSelect:(habit:HabitNode)=>void;c:typeof light|typeof dark}){
   const [popoverAnchor,setPopoverAnchor]=useState<PopoverAnchor|null>(null);
   const [open,setOpen]=useState(false),[query,setQuery]=useState(''),[selected,setSelected]=useState<string|null>(null);
+  const committed=useRef(false);
   const labelName=parentName.trim()||t('newCategory'),destination=parentPath||labelName;
   const candidates=useMemo(()=>open?attachmentCandidates(habits,type,excluded):[],[open,habits,type,excluded]);
   const path=(habit:Habit):string=>{const parent=habits.find(h=>h.id===habit.parentId);return parent?path(parent)+' / '+habit.name:habit.name};
@@ -18,13 +19,13 @@ export function MoveHabitPicker({habits,type,excluded,parentName,parentPath,onSe
   const matches=candidates.filter(h=>path(h).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   const close=()=>{setOpen(false);setSelected(null);setQuery('')};
   const confirm=()=>{
-    if(!chosen)return;
+    if(!chosen||committed.current)return;
     const find=(nodes:HabitNode[]):HabitNode|undefined=>{for(const node of nodes){if(node.id===chosen.id)return node;const child=find(node.children);if(child)return child}};
     const node=find(buildTree(habits));
-    if(node){onSelect(node);close()}
+    if(node){committed.current=true;onSelect(node);close()}
   };
   return <>
-    <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('addExistingTo',{name:labelName})} accessibilityHint={t('moveHabitHereHint')} onPress={event=>openPopover(event,anchor=>{setPopoverAnchor(anchor);setOpen(true)})} style={[s.trigger,{backgroundColor:c.card,borderColor:c.line}]}><Text style={{color:c.accent,fontSize:20}}>↳</Text><Text style={{color:c.accent,fontSize:10,textAlign:'center'}}>{t('moveHereShort')}</Text></TouchableOpacity>
+    <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('addExistingTo',{name:labelName})} accessibilityHint={t('moveHabitHereHint')} onPress={event=>openPopover(event,anchor=>{committed.current=false;setPopoverAnchor(anchor);setOpen(true)})} style={[s.trigger,{backgroundColor:c.soft}]}><Text style={{color:c.accent,fontSize:13,fontWeight:'600'}}>{t('addExistingHabit')}</Text></TouchableOpacity>
     {open&&<AnchoredPopover visible onClose={close} anchor={popoverAnchor} c={c} maxWidth={390} maxHeight={620}>
       <View style={{flexShrink:1}}>
         <View style={s.header}><Text accessibilityRole="header" style={[s.title,{color:c.text}]}>{t('moveHabitHere')}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel={t('close')} onPress={close} style={s.close}><Text style={{color:c.accent,fontSize:17}}>{t('close')}</Text></TouchableOpacity></View>
@@ -44,4 +45,4 @@ export function MoveHabitPicker({habits,type,excluded,parentName,parentPath,onSe
   </>;
 }
 
-const s=StyleSheet.create({trigger:{width:44,minHeight:48,borderRadius:12,borderWidth:1,alignItems:'center',justifyContent:'center'},header:{flexDirection:'row',alignItems:'center',gap:12},title:{flex:1,fontSize:24,fontWeight:'700'},close:{minHeight:44,alignItems:'center',justifyContent:'center'},destination:{fontSize:18,fontWeight:'600',marginTop:16},help:{fontSize:14,lineHeight:21,marginVertical:12},search:{minHeight:48,borderWidth:1,borderRadius:12,paddingHorizontal:14,marginVertical:8,fontSize:16},list:{paddingBottom:32,gap:10},option:{flexDirection:'row',alignItems:'center',gap:12,padding:14,borderRadius:14,borderWidth:1,minHeight:64},emoji:{fontSize:24},name:{fontSize:16,fontWeight:'600'},preview:{padding:16,borderRadius:14,borderWidth:1,marginTop:8},path:{fontSize:16,lineHeight:23,marginTop:8},confirm:{minHeight:48,borderRadius:14,alignItems:'center',justifyContent:'center',marginTop:8}});
+const s=StyleSheet.create({trigger:{minHeight:44,paddingHorizontal:12,borderRadius:12,alignItems:'center',justifyContent:'center'},header:{flexDirection:'row',alignItems:'center',gap:12},title:{flex:1,fontSize:24,fontWeight:'700'},close:{minHeight:44,alignItems:'center',justifyContent:'center'},destination:{fontSize:18,fontWeight:'600',marginTop:16},help:{fontSize:14,lineHeight:21,marginVertical:12},search:{minHeight:48,borderWidth:1,borderRadius:12,paddingHorizontal:14,marginVertical:8,fontSize:16},list:{paddingBottom:32,gap:10},option:{flexDirection:'row',alignItems:'center',gap:12,padding:14,borderRadius:14,borderWidth:1,minHeight:64},emoji:{fontSize:24},name:{fontSize:16,fontWeight:'600'},preview:{padding:16,borderRadius:14,borderWidth:1,marginTop:8},path:{fontSize:16,lineHeight:23,marginTop:8},confirm:{minHeight:48,borderRadius:14,alignItems:'center',justifyContent:'center',marginTop:8}});

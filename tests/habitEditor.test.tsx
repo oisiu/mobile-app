@@ -7,6 +7,7 @@ import { light } from '../src/theme';
 import { Habit } from '../src/domain/types';
 const mocks=vi.hoisted(()=>({id:'new',habits:[] as Habit[],entries:[] as import('../src/domain/types').Entry[],archive:vi.fn(),remove:vi.fn(),deletionImpact:vi.fn(),create:vi.fn(),createTree:vi.fn(),editTree:vi.fn(),refresh:vi.fn(),leave:vi.fn(),back:vi.fn(),dismissTo:vi.fn(),guard:vi.fn(),alert:vi.fn()}));
 vi.mock('react-native-safe-area-context',()=>({useSafeAreaInsets:()=>({top:0,bottom:0,left:0,right:0})}));
+vi.mock('@expo/vector-icons',()=>({Ionicons:'Icon'}));
 vi.mock('react-native',()=>({useWindowDimensions:()=>({width:390,height:844,scale:1,fontScale:1}),Keyboard:{addListener:()=>({remove:vi.fn()}),dismiss:vi.fn()},KeyboardAvoidingView:'KeyboardAvoidingView',Pressable:'Pressable',Platform:{OS:'ios'},Modal:'Modal',ActivityIndicator:'Spinner',ScrollView:'ScrollView',Text:'Text',TextInput:'TextInput',TouchableOpacity:'Button',View:'View',Alert:{alert:mocks.alert},StyleSheet:{create:(v:unknown)=>v,hairlineWidth:1}}));
 vi.mock('expo-router',()=>({useLocalSearchParams:()=>({id:mocks.id}),router:{back:mocks.back,dismissTo:mocks.dismissTo}}));
 vi.mock('../src/features/useDraftGuard',()=>({useDraftGuard:(dirty:boolean)=>{mocks.guard(dirty);return mocks.leave}}));
@@ -17,6 +18,22 @@ afterEach(async()=>{await act(async()=>renderer.unmount())});
 const colorButton=()=>renderer.root.findAll(node=>node.type as unknown==='Button'&&typeof node.props.accessibilityState?.expanded==='boolean')[0];
 const input=(index:number)=>renderer.root.findAll(node=>node.type as unknown==='TextInput')[index];
 const button=(text:string)=>renderer.root.findAll(node=>node.type as unknown==='Button').find(node=>node.props.accessibilityLabel===text||node.findAll(child=>child.type as unknown==='Text').some(child=>child.props.children===text))!;
+it.each([
+ ['en-US','Yes/No','Exercise done: ✓','Hide from overview','Hide completely'],
+ ['es-ES','Sí/No','Ejercicio hecho: ✓','Ocultar del resumen','Ocultar completamente'],
+])('localizes the concise type and visibility controls for %s',async(locale,yesNo,example,overview,hidden)=>{
+ const options=new Intl.DateTimeFormat().resolvedOptions();
+ vi.spyOn(Intl.DateTimeFormat.prototype,'resolvedOptions').mockReturnValue({...options,locale});vi.resetModules();
+ try{
+  const {HabitTypeConversion}=await import('../src/features/HabitTypeConversion');
+  const {HabitVisibility}=await import('../src/features/habitEditor/HabitVisibility');
+  await act(async()=>{renderer=create(<><HabitTypeConversion from="boolean" type="boolean" onType={vi.fn()} draft={{date:'',value:'',unit:'minutes'}} onDraft={vi.fn()} hasHistory={false} c={light}/><HabitVisibility hideFromOverview={false} onOverviewChange={vi.fn()} isHidden={false} onHiddenChange={vi.fn()} c={light}/></>)});
+  const texts=renderer.root.findAll(node=>node.type as unknown==='Text').map(node=>node.props.children);
+  expect(texts).toContain(yesNo);expect(texts).toContain(example);
+  expect(button(overview).props.accessibilityRole).toBe('switch');expect(button(hidden).props.accessibilityRole).toBe('switch');
+ }finally{vi.restoreAllMocks()}
+});
+
 it('creates a colored root with a complete family emoji without a code-unit limit',async()=>{
   await act(async()=>{renderer=create(<HabitEditor/>)});
   expect(input(0).props.maxLength).toBeUndefined();expect(input(0).props.accessibilityLabel).toBe(t('habitEmoji'));
@@ -32,6 +49,36 @@ it('creates a colored root with a complete family emoji without a code-unit limi
   await act(async()=>button(t('save')).props.onPress());
   expect(mocks.create).toHaveBeenCalledWith({name:'Family',emoji:'👨‍👩‍👧‍👦',color:'pink',type:'boolean',parentId:null});expect(mocks.dismissTo).toHaveBeenCalledWith('/(tabs)');expect(mocks.back).not.toHaveBeenCalled();
 });
+it('reorders child subtrees in the draft, restores clean state on undo, and saves nested sibling positions',async()=>{
+  const root:Habit={id:'root',parentId:null,name:'Root',emoji:'✨',type:'boolean',sortOrder:0,isGeneral:false,archivedAt:null,createdAt:'',updatedAt:''};
+  mocks.id='root';mocks.habits=[root,{...root,id:'first',name:'First',parentId:'root'},{...root,id:'second',name:'Second',parentId:'root',sortOrder:1},{...root,id:'deep',name:'Deep',parentId:'first'},{...root,id:'other',name:'Other',parentId:'first',sortOrder:1}];
+  await act(async()=>{renderer=create(<HabitEditor/>)});
+  const names=()=>renderer.root.findAll(node=>node.type as unknown==='TextInput'&&node.props.accessibilityLabel===t('habitName')).map(node=>node.props.value);
+  expect(button(t('moveUp')+' First').props.disabled).toBe(true);
+  expect(button(t('moveDown')+' Second').props.disabled).toBe(true);
+  await act(async()=>button(t('moveDown')+' First').props.onPress());
+  expect(names()).toEqual(['Root','Second','First','Deep','Other']);expect(mocks.editTree).not.toHaveBeenCalled();expect(mocks.guard).toHaveBeenLastCalledWith(true);
+  await act(async()=>button(t('moveUp')+' First').props.onPress());
+  expect(mocks.guard).toHaveBeenLastCalledWith(false);
+  await act(async()=>button(t('moveUp')+' Other').props.onPress());
+  await act(async()=>button(t('moveUp')+' Second').props.onPress());
+  await act(async()=>button(t('save')).props.onPress());
+  expect(mocks.editTree.mock.calls[0][1]).toEqual([
+    expect.objectContaining({id:'root'}),expect.objectContaining({id:'second',index:0}),expect.objectContaining({id:'first',index:1}),expect.objectContaining({id:'other',index:0}),expect.objectContaining({id:'deep',index:1}),
+  ]);
+});
+
+it('discards child reordering when canceling the editor',async()=>{
+  const root:Habit={id:'root',parentId:null,name:'Root',emoji:'✨',type:'boolean',sortOrder:0,isGeneral:false,archivedAt:null,createdAt:'',updatedAt:''};
+  mocks.id='root';mocks.habits=[root,{...root,id:'first',name:'First',parentId:'root'},{...root,id:'second',name:'Second',parentId:'root',sortOrder:1}];
+  await act(async()=>{renderer=create(<HabitEditor/>)});
+  await act(async()=>button(t('moveUp')+' Second').props.onPress());
+  await act(async()=>button(t('cancel')).props.onPress());
+  expect(mocks.dismissTo).toHaveBeenCalledWith('/(tabs)');expect(mocks.editTree).not.toHaveBeenCalled();
+  await act(async()=>{renderer.update(<HabitEditor key="reopened"/>)});
+  expect(button(t('moveUp')+' First').props.disabled).toBe(true);expect(mocks.guard).toHaveBeenLastCalledWith(false);
+});
+
 it('rejects multiple emojis with localized feedback and retains the draft',async()=>{
   await act(async()=>{renderer=create(<HabitEditor/>)});
   await act(async()=>{input(0).props.onChangeText('✨✨');input(1).props.onChangeText('Name')});
@@ -49,15 +96,15 @@ it('preserves a legacy emoji during color editing and lets children reset to inh
   expect(mocks.editTree).toHaveBeenCalledWith('root',[{id:'root',name:'Root',emoji:'✨✨',color:'purple',calendarThreshold:null},{id:'child',name:'Child',emoji:'👍🏽',color:null,calendarThreshold:null}],[],[]);
 });
 
-it.each([['en-US','Habit color','Automatic','Blue'],['es-ES','Color del hábito','Automático','Azul']])('localizes the collapsed color button and options for %s',async(locale,label,automatic,blue)=>{
+it.each([['en-US','Habit color','Automatic','Soft wine'],['es-ES','Color del hábito','Automático','Vino suave']])('localizes the collapsed color button and options for %s',async(locale,label,automatic,wine)=>{
   const options=new Intl.DateTimeFormat().resolvedOptions();
   vi.spyOn(Intl.DateTimeFormat.prototype,'resolvedOptions').mockReturnValue({...options,locale});vi.resetModules();
   const {HabitColorPicker}=await import('../src/features/HabitColorPicker');
   const onChange=vi.fn();
-  await act(async()=>{renderer=create(<HabitColorPicker value="blue" onChange={onChange} c={light}/>)});
-  expect(colorButton().props.accessibilityLabel).toBe(label+': '+blue);
+  await act(async()=>{renderer=create(<HabitColorPicker value="wine" onChange={onChange} c={light}/>)});
+  expect(colorButton().props.accessibilityLabel).toBe(label+': '+wine);
   await act(async()=>colorButton().props.onPress());
-  expect(renderer.root.findAll(node=>node.type as unknown==='Button'&&node.props.accessibilityRole==='radio')).toHaveLength(13);
+  expect(renderer.root.findAll(node=>node.type as unknown==='Button'&&node.props.accessibilityRole==='radio')).toHaveLength(14);
   const option=renderer.root.find(node=>node.type as unknown==='Button'&&node.props.accessibilityRole==='radio'&&node.props.accessibilityLabel===automatic);
   await act(async()=>option.props.onPress());
   expect(onChange).toHaveBeenCalledWith(null);expect(colorButton().props.accessibilityState.expanded).toBe(false);
@@ -65,8 +112,8 @@ it.each([['en-US','Habit color','Automatic','Blue'],['es-ES','Color del hábito'
 });
 
 it.each([
- ['en-US','Move a habit into Leisure','Move a habit here','Search habits','No compatible categories available.'],
- ['es-ES','Mover un hábito dentro de Leisure','Mover un hábito aquí','Buscar hábitos','No hay categorías compatibles disponibles.'],
+ ['en-US','Add an existing habit to Leisure','Add existing habit','Search habits','No compatible categories available.'],
+ ['es-ES','Añadir un hábito existente a Leisure','Añadir hábito existente','Buscar hábitos','No hay categorías compatibles disponibles.'],
 ])('localizes the move picker and its empty state for %s',async(locale,label,title,search,empty)=>{
  const options=new Intl.DateTimeFormat().resolvedOptions();
  vi.spyOn(Intl.DateTimeFormat.prototype,'resolvedOptions').mockReturnValue({...options,locale});vi.resetModules();
@@ -170,6 +217,21 @@ it('retains an invalid duration draft across unit changes and rejects non-finite
  await act(async()=>button(t('save')).props.onPress());expect(mocks.create).not.toHaveBeenCalled();
 });
 
+it('rejects fractional-second and pasted non-decimal calendar thresholds without losing the draft',async()=>{
+ await act(async()=>{renderer=create(<HabitEditor/>)});
+ await act(async()=>{input(1).props.onChangeText('Practice');button(t('duration')).props.onPress()});
+ const threshold=()=>renderer.root.find(node=>node.type as unknown==='TextInput'&&node.props.accessibilityLabel===t('calendarThresholdFor',{name:'Practice'}));
+ for(const value of ['0.01','1e2','0x10']){
+  await act(async()=>threshold().props.onChangeText(value));await act(async()=>button(t('save')).props.onPress());
+  expect(mocks.create).not.toHaveBeenCalled();expect(mocks.alert).toHaveBeenLastCalledWith(t('invalidCalendarThreshold'));expect(threshold().props.value).toBe(value);
+ }
+ await act(async()=>threshold().props.onChangeText('0.01'));await act(async()=>button(t('hours')).props.onPress());
+ expect(threshold().props.value).toBe('0.01');
+ await act(async()=>button(t('save')).props.onPress());expect(mocks.create).not.toHaveBeenCalled();
+ await act(async()=>threshold().props.onChangeText(String(1/3600)));
+ await act(async()=>button(t('save')).props.onPress());expect(mocks.create.mock.calls[0][0].calendarThreshold).toBe(1);
+});
+
 const category=(id:string,type:Habit['type']='boolean',parentId:string|null=null):Habit=>({id,name:id,emoji:'✨',type,parentId,isGeneral:false,sortOrder:0,archivedAt:null,createdAt:'',updatedAt:''});
 it('shows live root and child name counts without truncating the draft',async()=>{
  await act(async()=>{renderer=create(<HabitEditor/>)});
@@ -208,9 +270,11 @@ it('validates child names while retaining unchanged legacy names',async()=>{
  await act(async()=>button(t('save')).props.onPress());expect(mocks.alert).toHaveBeenLastCalledWith(t('habitNameTooLong',{limit:25}));expect(mocks.editTree).not.toHaveBeenCalled();
  await act(async()=>input(3).props.onChangeText('Valid child'));await act(async()=>button(t('save')).props.onPress());expect(mocks.editTree).toHaveBeenCalledOnce();
 });
-it.each([false,true])('confirms discarding a dirty draft before archive/restore (archived: %s)',async archived=>{
+it.each([false,true])('only offers restoring archived habits and guards unsaved changes (archived: %s)',async archived=>{
  mocks.id='Root';mocks.habits=[{...category('Root'),archivedAt:archived?'2026-01-01':null}];
- await act(async()=>{renderer=create(<HabitEditor/>)});await act(async()=>input(1).props.onChangeText('Unsaved name'));
+ await act(async()=>{renderer=create(<HabitEditor/>)});
+ if(!archived){expect(button(t('archive'))).toBeUndefined();expect(button(t('restore'))).toBeUndefined();return}
+ await act(async()=>input(1).props.onChangeText('Unsaved name'));
  let action!:Promise<void>;await act(async()=>{action=button(t(archived?'restore':'archive')).props.onPress()});
  expect(mocks.archive).not.toHaveBeenCalled();expect(mocks.alert).toHaveBeenLastCalledWith(t('archiveDraftTitle'),t('archiveDraftHelp'),expect.any(Array),expect.any(Object));
  await act(async()=>{mocks.alert.mock.calls.at(-1)![2][0].onPress();await action});expect(mocks.archive).not.toHaveBeenCalled();expect(input(1).props.value).toBe('Unsaved name');
@@ -240,33 +304,33 @@ it('keeps an invalid new-child draft open without treating validation as a commi
  await act(async()=>input(3).props.onChangeText('Child'));
  await act(async()=>button(t('save')).props.onPress());expect(mocks.createTree).toHaveBeenCalledOnce();expect(mocks.dismissTo).toHaveBeenCalledOnce();
 });
-it.each(['archive','delete'] as const)('guards duplicate %s writes and retries refresh without repeating the mutation',async action=>{
- mocks.id='Root';mocks.habits=[category('Root')];mocks.refresh.mockRejectedValueOnce(new Error('Refresh failed'));
+it.each(['restore','delete'] as const)('guards duplicate %s writes and retries refresh without repeating the mutation',async action=>{
+ mocks.id='Root';mocks.habits=[{...category('Root'),archivedAt:action==='restore'?'2026-01-01':null}];mocks.refresh.mockRejectedValueOnce(new Error('Refresh failed'));
  await act(async()=>{renderer=create(<HabitEditor/>)});
- const start=()=>button(t(action==='archive'?'archive':'delete')).props.onPress();
- if(action==='archive')await act(async()=>{await Promise.all([start(),start()])});
+ const start=()=>button(t(action==='restore'?'restore':'delete')).props.onPress();
+ if(action==='restore')await act(async()=>{await Promise.all([start(),start()])});
  else{
   await act(async()=>{await Promise.all([start(),start()])});expect(mocks.deletionImpact).toHaveBeenCalledOnce();
   const confirm=mocks.alert.mock.calls[0][2][1].onPress;
   await act(async()=>{await Promise.all([confirm(),confirm()])});
  }
- expect(action==='archive'?mocks.archive:mocks.remove).toHaveBeenCalledOnce();
+ expect(action==='restore'?mocks.archive:mocks.remove).toHaveBeenCalledOnce();
  expect(mocks.alert).toHaveBeenLastCalledWith(t('habitSavedRefreshFailed'),t('habitSavedRefreshFailedHelp'));
  await act(async()=>button(t('save')).props.onPress());
- expect(action==='archive'?mocks.archive:mocks.remove).toHaveBeenCalledOnce();expect(mocks.refresh).toHaveBeenCalledTimes(2);
+ expect(action==='restore'?mocks.archive:mocks.remove).toHaveBeenCalledOnce();expect(mocks.refresh).toHaveBeenCalledTimes(2);
  expect(mocks.dismissTo).toHaveBeenCalledExactlyOnceWith('/(tabs)');
 });
-it.each(['archive','delete','impact'] as const)('reports %s failures and allows a retry',async action=>{
- mocks.id='Root';mocks.habits=[category('Root')];
- const operation=action==='archive'?mocks.archive:action==='delete'?mocks.remove:mocks.deletionImpact;
+it.each(['restore','delete','impact'] as const)('reports %s failures and allows a retry',async action=>{
+ mocks.id='Root';mocks.habits=[{...category('Root'),archivedAt:action==='restore'?'2026-01-01':null}];
+ const operation=action==='restore'?mocks.archive:action==='delete'?mocks.remove:mocks.deletionImpact;
  operation.mockRejectedValueOnce(new Error('Synthetic action failure'));
  await act(async()=>{renderer=create(<HabitEditor/>)});
- const trigger=()=>button(t(action==='archive'?'archive':'delete')).props.onPress();
+ const trigger=()=>button(t(action==='restore'?'restore':'delete')).props.onPress();
  await act(async()=>trigger());
  if(action==='delete')await act(async()=>mocks.alert.mock.calls[0][2][1].onPress());
  expect(mocks.alert).toHaveBeenLastCalledWith(t('couldNotSave'),'Synthetic action failure');expect(mocks.refresh).not.toHaveBeenCalled();
  await act(async()=>trigger());
- if(action!=='archive')await act(async()=>mocks.alert.mock.calls.at(-1)![2][1].onPress());
+ if(action!=='restore')await act(async()=>mocks.alert.mock.calls.at(-1)![2][1].onPress());
  expect(mocks.dismissTo).toHaveBeenCalledExactlyOnceWith('/(tabs)');
 });
 it.each(['rename','hideCompletely','hideFromOverview'] as const)('dismisses stale detail routes after saving %s from a descendant editor',async change=>{
@@ -378,6 +442,18 @@ it.each(['close','nativeBack','escape'] as const)('dismisses the move preview th
  expect(button(t('selectExistingCategory',{name:'Reading'}))).toBeDefined();
 });
 const labeledInput=(label:string)=>renderer.root.find(node=>node.type as unknown==='TextInput'&&node.props.accessibilityLabel===label);
+it('stages an existing habit only once when confirmation is tapped repeatedly',async()=>{
+ mocks.id='Leisure';mocks.habits=[category('Leisure'),category('Reading')];
+ await act(async()=>{renderer=create(<HabitEditor/>)});
+ await act(async()=>button(t('addExistingTo',{name:'Leisure'})).props.onPress());
+ await act(async()=>button(t('selectExistingCategory',{name:'Reading'})).props.onPress());
+ const confirm=button(t('confirmCategoryMove')).props.onPress;
+ await act(async()=>{confirm();confirm()});
+ await act(async()=>button(t('save')).props.onPress());
+ expect(mocks.editTree).toHaveBeenCalledOnce();
+ expect(mocks.editTree.mock.calls[0][4]).toEqual([{id:'Reading',parentKey:'Leisure',expectedParentId:null,index:0}]);
+});
+
 it.each(['number','duration'] as const)('asks before converting Boolean history to %s with the selected historical value',async type=>{
  mocks.id='Root';mocks.habits=[category('Root'),category('Child','boolean','Root')];mocks.entries=[historicalRecord('yes',1,'Child')];await act(async()=>{renderer=create(<HabitEditor/>)});
  await act(async()=>button(t(type)).props.onPress());await act(async()=>labeledInput(t(type==='number'?'historyQuantity':'historyDuration')).props.onChangeText(type==='number'?'2.5':'1.5'));

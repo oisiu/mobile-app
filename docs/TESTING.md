@@ -17,19 +17,19 @@ Run from the repository root before handoff:
 
 [Vitest configuration](../vitest.config.ts) owns coverage scope, exclusions, and enforced thresholds. CI retains coverage reports; do not lower thresholds to pass.
 
-## Translation verification
-
-Update English/Spanish together for user-facing copy, dialogs, and accessibility labels, using shared translation lookups. Verify interpolation, symbols, related text, and unsupported-language fallback; inspect device wrapping/readability when practical.
-
 ## Automated coverage
 
-The [suite](../tests/) covers domain rules, real SQLite migrations/rollback, safe transfer/cache cleanup, localization, and mocked-native UI behavior.
+The [suite](../tests/) is the source of truth for what is covered. It exercises:
 
-Popover checks cover trigger placement, safe-area/keyboard bounds, reopening/cleanup, inside/outside taps, Back/escape, and pending-write dismissal. Shared popovers, filters, and attachments are in enforced coverage.
+- Domain rules: trees, aggregation, analytics, thresholds, type conversion, and import validation.
+- Real SQLite migrations, upgrades/rollback, and transactional hierarchy writes.
+- Provider snapshot ordering, committed-write recovery, and appearance persistence.
+- Mocked-native UI: Home timeline, branch day editor, habit editor, calendars, Insights loading, popovers, hidden categories, and transfers.
+- Localization: catalog checks require matching English/Spanish key and interpolation-token sets, including zero values, missing parameters, and unsupported-locale fallback.
 
-UI checks cover draft/navigation guards, duplicate writes, refresh-only recovery, hidden-category restoration, and transfer failures. Analytics cover independent grouping/history, weekly boundaries, totals/streaks/frequency, Activity mode, thresholds, and accessible values. Loading checks cover persistent chart axes/date grids, disabled Calendar editing before readiness, Reduce Motion fallback and changes, animation cleanup, compact History spacing, and fixed bar widths. Typography checks cover bundled font selection and native/SVG prop forwarding. Calendar checks cover multi-selection, branch/color deduplication, descendant color priority, original-value thresholds, selection recovery, and editing targets.
+Add a regression test with every behavior change. Update English and Spanish together for user-facing copy, dialogs, and accessibility labels.
 
-`pnpm test:release` (also in test/coverage gates) mocks release preparation, stage order, and credential handling. Windows shell gates use Git’s Bash. `pnpm test:release:signing` needs JDK tools/`zip` to sign and verify a synthetic archive.
+`pnpm test:release` (also in the test/coverage gates) mocks release preparation, stage order, and credential handling. Windows shell gates use Git’s Bash. `pnpm test:release:signing` needs JDK tools/`zip` to sign and verify a synthetic archive.
 
 ## Integration gaps
 
@@ -40,7 +40,7 @@ Tests do not replace signed native builds, device checks, or live Play submissio
 Check affected Android/iOS flows and restart persistence. Before release, test the installed release build; Expo Go cannot verify launcher icons or cold-start splash.
 
 - **Startup:** empty install, upgrade preservation, offline use, saved appearance, icons, and splash.
-- **Home and habits:** date scrolling, fixed labels, hierarchy expansion, entry editing, date moves/conflicts, draft guards, archive, and deletion.
+- **Home and habits:** date scrolling, fixed labels, hierarchy expansion, entry editing, date moves/conflicts, draft guards, legacy archive restoration, and deletion.
 - **Calendars:** history loading, Today, selected-day positioning, future-date restrictions, direct parent entries, editing, and Back behavior.
 - **Insights:** period navigation, filters, typed totals, accessible chart values, horizontal scrolling, and deferred rendering.
 - **More:** appearance, JSON/CSV export, safe import, conversion guide, and localized errors.

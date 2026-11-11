@@ -1,3 +1,5 @@
+import { addDays } from '../src/utils/dates';
+import { CalendarTimeline } from '../src/features/insights/CalendarWeekTimeline';
 import { AnchoredPopover,openPopover } from '../src/features/AnchoredPopover';
 import { HiddenCategories } from '../src/features/settings/HiddenCategories';
 import Home from '../app/(tabs)/index';
@@ -25,7 +27,7 @@ import Insights from '../app/(tabs)/insights';
 import Calendar from '../app/(tabs)/calendar';
 import { CalendarDayBackground } from '../src/features/CalendarDayBackground';
 
-const state=vi.hoisted(()=>({keyboardListeners:{} as Record<string,(event:{endCoordinates:{screenY:number}})=>void>,app:{} as Record<string,unknown>,chartReady:true,blur:null as null|(()=>void),alert:vi.fn(),path:'/',pending:null as string|null,push:vi.fn(),today:'2026-09-08',navigate:vi.fn(),dismissTo:vi.fn()}));
+const state=vi.hoisted(()=>({keyboardListeners:{} as Record<string,(event:{endCoordinates:{screenY:number}})=>void>,app:{} as Record<string,unknown>,chartReady:true,revealHidden:undefined as string|undefined,blur:null as null|(()=>void),alert:vi.fn(),path:'/',pending:null as string|null,push:vi.fn(),today:'2026-09-08',navigate:vi.fn(),dismissTo:vi.fn()}));
 vi.mock('expo-haptics',()=>({impactAsync:vi.fn().mockResolvedValue(undefined),ImpactFeedbackStyle:{Light:'Light'}}));
 vi.mock('../src/features/home/CategoryDragHandle',()=>({CategoryDragHandle:'DragHandle'}));
 vi.mock('react-native',()=>({
@@ -33,13 +35,13 @@ vi.mock('react-native',()=>({
   View:'View',Text:'Text',Pressable:'Pressable',TouchableOpacity:'TouchableOpacity',ScrollView:'ScrollView',Modal:'Modal',TextInput:'TextInput',KeyboardAvoidingView:'KeyboardAvoidingView',ActivityIndicator:'ActivityIndicator',
   Keyboard:{addListener:(name:string,callback:(event:{endCoordinates:{screenY:number}})=>void)=>{state.keyboardListeners[name]=callback;return {remove:vi.fn()}},dismiss:vi.fn()},Platform:{OS:'ios'},Alert:{alert:state.alert},AccessibilityInfo:{isReduceMotionEnabled:async()=>true,addEventListener:()=>({remove:vi.fn()})},
   StyleSheet:{create:(styles:unknown)=>styles,hairlineWidth:0.5},
-  Animated:{View:'AnimatedView',ScrollView:'ScrollView',multiply:()=>0,event:()=>vi.fn(),Value:class{setValue(){} stopAnimation(){} interpolate(){return 1} addListener(){return 'listener'} removeListener(){}},timing:()=>({start(){}})},
+  Animated:{View:'AnimatedView',ScrollView:'ScrollView',multiply:()=>0,event:(_mapping:unknown,config:{listener?:(event:unknown)=>void})=>config.listener??vi.fn(),Value:class{setValue(){} stopAnimation(){} interpolate(){return 1} addListener(){return 'listener'} removeListener(){}},timing:()=>({start(){}})},
   FlatList:({data,renderItem,initialScrollIndex=0,...props}:{data:unknown[];renderItem:(item:unknown)=>React.ReactNode;initialScrollIndex?:number;ListFooterComponent?:React.ReactNode})=>React.createElement('List',props,data.slice(Math.max(0,initialScrollIndex-2),initialScrollIndex+8).map((item,index)=><React.Fragment key={index}>{renderItem({item,index})}</React.Fragment>),props.ListFooterComponent),
 }));
 vi.mock('react-native-svg',()=>({default:'Svg',Circle:'Circle',Line:'Line',Polyline:'Polyline',Text:'SvgText',Rect:'Rect',Defs:'Defs',Pattern:'Pattern',Path:'Path'}));
 vi.mock('@expo/vector-icons',()=>({Ionicons:'Icon'}));
 vi.mock('react-native-safe-area-context',()=>({useSafeAreaInsets:()=>({top:0,bottom:0,left:0,right:0})}));
-vi.mock('expo-router',()=>({useFocusEffect:(effect:()=>()=>void)=>React.useEffect(()=>{const cleanup=effect();state.blur=cleanup;return cleanup},[effect]),useLocalSearchParams:()=>({id:'habit'}),usePathname:()=>state.path,router:{push:state.push,back:vi.fn(),navigate:state.navigate,dismissTo:state.dismissTo}}));
+vi.mock('expo-router',()=>({useFocusEffect:(effect:()=>()=>void)=>React.useEffect(()=>{const cleanup=effect();state.blur=cleanup;return cleanup},[effect]),useLocalSearchParams:()=>({id:'habit',revealHidden:state.revealHidden}),usePathname:()=>state.path,router:{push:state.push,back:vi.fn(),navigate:state.navigate,dismissTo:state.dismissTo}}));
 vi.mock('../src/features/AppProvider',()=>({useApp:()=>state.app,SuccessToast:'SuccessToast'}));
 vi.mock('../src/features/insights/useChartEntrance',()=>({useChartEntrance:()=>state.chartReady}));
 vi.mock('../src/features/useResponsiveNavigation',()=>({usePrefetchRoutes:()=>{},useResponsiveNavigation:()=>({pending:state.pending,push:state.push})}));
@@ -70,7 +72,7 @@ const openCalendar=async()=>{
 const day=(modal:ReactTestInstance,date='2026-09-08')=>modal.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.accessibilityLabel?.startsWith(`Reading, ${date}:`))[0];
 
 beforeEach(()=>{
-  vi.clearAllMocks();state.chartReady=true;state.today='2026-09-08';state.pending=null;
+  vi.clearAllMocks();state.chartReady=true;state.today='2026-09-08';state.pending=null;state.revealHidden=undefined;state.path='/';
   Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
   vi.stubGlobal('requestIdleCallback',(callback:()=>void)=>setTimeout(callback,0));
   vi.stubGlobal('cancelIdleCallback',clearTimeout);
@@ -149,7 +151,8 @@ describe('Score axis',()=>{
     const buckets=chart().props.buckets;
     expect(buckets.at(-1).key).toBe('2026-07-01');
     const labels=chart().findAllByType('SvgText' as React.ElementType);
-    expect(labels.filter(node=>node.props.y===178).map(node=>node.props.children)).toEqual(buckets.map((bucket:{label:string})=>bucket.label));
+    // Labels near a tile edge are drawn by both neighbouring tiles.
+    expect([...new Map(labels.filter(node=>node.props.y===178).map(node=>[node.props.x,node.props.children])).values()]).toEqual(buckets.map((bucket:{label:string})=>bucket.label));
     expect(labels.filter(node=>node.props.y===194).map(node=>node.props.children)).toContain('2026');
   });
   it.each([light,dark])('keeps each percentage in one text node outside the plot',async c=>{
@@ -405,15 +408,17 @@ it('shows daily overview History bars and filters one, two or all roots independ
   expect(history().props.buckets).toHaveLength(30);
   expect(history().props.series.map((item:{values:number[]})=>item.values[7])).toEqual([1,1,0]);
   expect(history().props.type).toBe('boolean');
+  const totals=()=>history().findAllByType('SvgText' as React.ElementType).filter(node=>node.props.fontWeight==='600');
+  expect(history().props.showValues).toBe(true);expect(totals().map(node=>node.props.children)).toEqual(['2']);
   await press(button(root,t('selectMultiple')+' '+t('history')));
   const modal=root.findAll(node=>node.type===('Modal' as React.ElementType)&&node.props.visible)[0];
   const choices=()=>modal.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.accessibilityRole==='checkbox');
   expect(choices().map(node=>node.props.accessibilityLabel)).toEqual(['Reading','Walking','Yoga']);
   await press(choices()[2]);expect(history().props.series).toHaveLength(2);
-  await press(choices()[1]);expect(history().props.series).toHaveLength(1);
+  await press(choices()[1]);expect(history().props.series).toHaveLength(1);expect(totals().map(node=>node.props.children)).toEqual(['1']);
   expect(root.findByType(StrengthChart).props.selected).toHaveLength(3);
   const all=modal.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.findAll(child=>child.type===('Text' as React.ElementType)&&child.props.children===t('allCategories')).length>0)[0];
-  await press(all);expect(history().props.series).toHaveLength(3);
+  await press(all);expect(history().props.series).toHaveLength(3);expect(totals().map(node=>node.props.children)).toEqual(['2']);
   await press(button(root,t('year')));
   expect(history().props.buckets).toHaveLength(12);
   expect(history().props.buckets[0].key).toBe('2025-10');
@@ -591,10 +596,32 @@ it('keeps hidden categories in settings and restores them with the eye button',a
  await press(button(root,t('restoreHiddenCategory',{name:'Reading'})));expect(restore).toHaveBeenCalledExactlyOnceWith('habit',false);expect(refresh).toHaveBeenCalledOnce();
  await act(async()=>renderer.update(<HiddenCategories/>));expect(button(root,t('hiddenCategories'))).toBeUndefined();expect(success).toHaveBeenCalledWith(t('hiddenCategoryRestored',{name:'Reading'}));
 });
+
+it('opens a temporarily revealed hidden habit in Insights without a forward icon or permanently unhiding it',async()=>{
+ const hidden={...habit,isHidden:true},child={...habit,id:'child',parentId:habit.id,name:'Child'},other={...habit,id:'other',name:'Other hidden',isHidden:true,sortOrder:1},restore=vi.fn();
+ state.app={...state.app,ready:true,habits:[hidden,child,other],entries:[{id:'record',habitId:'child',localDate:state.today,value:1}],repo:{setHidden:restore},showSuccess:vi.fn()};
+ const root=await render(<Home/>);
+ await act(async()=>root.findAllByType('View' as React.ElementType)[0].props.onLayout({nativeEvent:{layout:{width:360}}}));
+ await press(button(root,'Oi Siu'));await press(button(root,'Oi Siu'));await press(button(root,'Oi Siu'));
+ await press(button(root,t('hiddenCategories')));
+ const link=button(root,t('openInsights')+' Reading');
+ expect(link.findAll(node=>node.type as unknown==='Icon'&&node.props.name==='chevron-forward')).toHaveLength(0);
+ expect(button(root,t('edit')+' Reading')).toBeUndefined();
+ await press(link);expect(state.push).toHaveBeenLastCalledWith('/insight/habit?revealHidden=1');expect(restore).not.toHaveBeenCalled();
+ state.revealHidden='1';
+ await act(async()=>renderer.update(<InsightDetailScreen/>));
+ const chart=renderer.root.findByType(StrengthChart);
+ expect(chart.props.habit.id).toBe('habit');expect(chart.props.habits.map((h:Habit)=>h.id)).toEqual(['habit','child']);
+ expect(chart.props.entries.map((e:{id:string})=>e.id)).toEqual(['record']);
+ expect((state.app.habits as Habit[])[0].isHidden).toBe(true);
+ await act(async()=>renderer.update(<Insights/>));expect(renderer.root.findAllByType(StrengthChart)).toHaveLength(0);
+ state.revealHidden=undefined;
+ await act(async()=>renderer.update(<InsightDetailScreen/>));expect(renderer.root.findAllByType(StrengthChart)).toHaveLength(0);
+});
 it.each(['card','list'] as const)('exposes and blocks pending hidden-category navigation in the %s',async variant=>{
- state.app={...state.app,habits:[{...habit,isHidden:true}]};state.pending='/habit/habit';
+ state.app={...state.app,habits:[{...habit,isHidden:true}]};state.pending=variant==='list'?'/insight/habit?revealHidden=1':'/habit/habit';
  const root=await render(<HiddenCategories initialOpen variant={variant}/>);
- const edit=button(root,t('edit')+' Reading');
+ const edit=button(root,t(variant==='list'?'openInsights':'edit')+' Reading');
  expect(edit.props.disabled).toBe(true);expect(edit.props.accessibilityState).toEqual({disabled:true,busy:true});
 });
 it.each(['card','list'] as const)('retains hidden categories on recovery failure and prevents duplicate recovery writes in the %s',async variant=>{
@@ -603,7 +630,7 @@ it.each(['card','list'] as const)('retains hidden categories on recovery failure
  const root=await render(<HiddenCategories variant={variant}/>);
  await press(button(root,t('hiddenCategories')));const eye=button(root,t('restoreHiddenCategory',{name:'Reading'}));
  await act(async()=>{void eye.props.onPress();void eye.props.onPress()});expect(restore).toHaveBeenCalledOnce();expect(eye.props.disabled).toBe(true);
- await act(async()=>reject(new Error('Synthetic recovery failure')));expect(state.alert).toHaveBeenCalledWith(t('couldNotSave'),'Synthetic recovery failure');expect(eye.props.disabled).toBe(false);expect(button(root,t('edit')+' Reading')).toBeDefined();expect(state.app.refresh).not.toHaveBeenCalled();
+ await act(async()=>reject(new Error('Synthetic recovery failure')));expect(state.alert).toHaveBeenCalledWith(t('couldNotSave'),'Synthetic recovery failure');expect(eye.props.disabled).toBe(false);expect(button(root,t(variant==='list'?'openInsights':'edit')+' Reading')).toBeDefined();expect(state.app.refresh).not.toHaveBeenCalled();
 });
 it.each(['card','list'] as const)('retries only refresh after a committed restoration in the %s',async variant=>{
  const restore=vi.fn().mockResolvedValue(undefined),success=vi.fn();
@@ -613,7 +640,7 @@ it.each(['card','list'] as const)('retries only refresh after a committed restor
  await press(button(root,t('hiddenCategories')));await press(button(root,t('restoreHiddenCategory',{name:'Reading'})));
  expect(state.alert).toHaveBeenLastCalledWith(t('habitSavedRefreshFailed'),t('hiddenCategoryRefreshHelp'));
  expect(button(root,t('restoreHiddenCategory',{name:'Reading'})).props.disabled).toBe(true);
- expect(button(root,t('edit')+' Reading').props.disabled).toBe(true);expect(success).not.toHaveBeenCalled();
+ expect(button(root,t(variant==='list'?'openInsights':'edit')+' Reading').props.disabled).toBe(true);expect(success).not.toHaveBeenCalled();
  await press(button(root,t('retry')));expect(restore).toHaveBeenCalledExactlyOnceWith('habit',false);expect(refresh).toHaveBeenCalledTimes(2);
  await act(async()=>renderer.update(<HiddenCategories variant={variant}/>));
  expect(button(renderer.root,t('hiddenCategories'))).toBeUndefined();expect(success).toHaveBeenCalledExactlyOnceWith(t('hiddenCategoryRestored',{name:'Reading'}));
@@ -632,9 +659,9 @@ it.each([
  expect(styles(container).backgroundColor).toBe(palette.card);
  expect(styles(container).borderRadius).toBe(variant==='list'?0:18);
  expect(heading.props.accessibilityState.expanded).toBe(false);
- expect(button(root,t('edit')+' Reading')).toBeUndefined();
+ expect(button(root,t(variant==='list'?'openInsights':'edit')+' Reading')).toBeUndefined();
  await press(heading);
- const edit=button(root,t('edit')+' Reading'),row=edit.parent!;
+ const edit=button(root,t(variant==='list'?'openInsights':'edit')+' Reading'),row=edit.parent!;
  expect(heading.props.accessibilityState.expanded).toBe(true);
  const help=root.findAll(node=>node.type as unknown==='Text'&&node.props.children===t('restoreHiddenCategoryHelp'));
  expect(help).toHaveLength(variant==='list'?0:1);
@@ -644,9 +671,9 @@ it.each([
   expect(styles(row).paddingLeft).toBeGreaterThan(styles(heading).paddingHorizontal);
  }
  expect(button(root,t('restoreHiddenCategory',{name:'Reading'})).props.accessibilityHint).toBe(t('restoreHiddenCategoryHelp'));
- await press(edit);expect(state.push).toHaveBeenCalledExactlyOnceWith('/habit/habit');
+ await press(edit);expect(state.push).toHaveBeenCalledExactlyOnceWith(variant==='list'?'/insight/habit?revealHidden=1':'/habit/habit');
  await press(heading);expect(heading.props.accessibilityState.expanded).toBe(false);
- expect(button(root,t('edit')+' Reading')).toBeUndefined();
+ expect(button(root,t(variant==='list'?'openInsights':'edit')+' Reading')).toBeUndefined();
  expect(restore).not.toHaveBeenCalled();expect(refresh).not.toHaveBeenCalled();
 });
 
@@ -657,8 +684,8 @@ it('lists only active hidden roots in saved order and disables recovery without 
  const heading=button(root,t('hiddenCategories'));
  expect(heading.findAll(node=>node.type as unknown==='Text'&&node.props.children===2)).toHaveLength(1);
  await press(heading);
- const edits=root.findAll(node=>node.type as unknown==='TouchableOpacity'&&node.props.accessibilityLabel?.startsWith(t('edit')+' '));
- expect(edits.map(node=>node.props.accessibilityLabel)).toEqual([t('edit')+' First',t('edit')+' Last']);
+ const edits=root.findAll(node=>node.type as unknown==='TouchableOpacity'&&node.props.accessibilityLabel?.startsWith(t('openInsights')+' '));
+ expect(edits.map(node=>node.props.accessibilityLabel)).toEqual([t('openInsights')+' First',t('openInsights')+' Last']);
  const eye=button(root,t('restoreHiddenCategory',{name:'First'}));expect(eye.props.disabled).toBe(true);
  await press(eye);expect(state.alert).not.toHaveBeenCalled();
  state.app={...state.app,habits:[{...habit,isHidden:false}]};
@@ -672,11 +699,26 @@ it('starts the Home disclosure collapsed again after hiding and revealing it',as
  await act(async()=>root.findAllByType('View' as React.ElementType)[0].props.onLayout({nativeEvent:{layout:{width:360}}}));
  const title=button(root,'Oi Siu');
  await act(async()=>title.props.onAccessibilityAction({nativeEvent:{actionName:'activate'}}));
- await press(button(root,t('hiddenCategories')));expect(button(root,t('edit')+' Reading')).toBeDefined();
+ await press(button(root,t('hiddenCategories')));expect(button(root,t('openInsights')+' Reading')).toBeDefined();
  await act(async()=>state.blur!());expect(button(root,t('hiddenCategories'))).toBeUndefined();
  await act(async()=>title.props.onAccessibilityAction({nativeEvent:{actionName:'activate'}}));
  expect(button(root,t('hiddenCategories')).props.accessibilityState.expanded).toBe(false);
- expect(button(root,t('edit')+' Reading')).toBeUndefined();expect(restore).not.toHaveBeenCalled();
+ expect(button(root,t('openInsights')+' Reading')).toBeUndefined();expect(restore).not.toHaveBeenCalled();
+});
+
+it('preserves the expanded hidden Home rows when opening their Insights and clears them for another destination',async()=>{
+ const restore=vi.fn();state.app={...state.app,ready:true,habits:[{...habit,isHidden:true}],repo:{setHidden:restore},showSuccess:vi.fn()};
+ const root=await render(<Home/>);
+ await act(async()=>root.findAllByType('View' as React.ElementType)[0].props.onLayout({nativeEvent:{layout:{width:360}}}));
+ await press(button(root,'Oi Siu'));await press(button(root,'Oi Siu'));await press(button(root,'Oi Siu'));
+ await press(button(root,t('hiddenCategories')));await press(button(root,t('openInsights')+' Reading'));
+ await act(async()=>state.blur!());state.path='/insight/habit';await act(async()=>renderer.update(<Home/>));
+ expect(button(root,t('hiddenCategories')).props.accessibilityState.expanded).toBe(true);expect(button(root,t('openInsights')+' Reading')).toBeDefined();
+ state.path='/';await act(async()=>renderer.update(<Home/>));
+ expect(button(root,t('hiddenCategories')).props.accessibilityState.expanded).toBe(true);
+ expect((state.app.habits as Habit[])[0].isHidden).toBe(true);expect(restore).not.toHaveBeenCalled();
+ state.path='/calendar';await act(async()=>renderer.update(<Home/>));
+ expect(button(root,t('hiddenCategories'))).toBeUndefined();
 });
 
 it('reveals a collapsed hidden-category list row with three quick taps and announces both states',async()=>{
@@ -687,11 +729,11 @@ it('reveals a collapsed hidden-category list row with three quick taps and annou
  await press(title);await press(title);expect(button(root,t('hiddenCategories'))).toBeUndefined();expect(success).not.toHaveBeenCalled();
  await press(title);
  expect(button(root,t('hiddenCategories')).props.accessibilityState.expanded).toBe(false);
- expect(button(root,t('edit')+' Reading')).toBeUndefined();
+ expect(button(root,t('openInsights')+' Reading')).toBeUndefined();
  expect(root.findByType(HiddenCategories).props.variant).toBe('list');
  await press(button(root,t('hiddenCategories')));
  expect(button(root,t('hiddenCategories')).props.accessibilityState.expanded).toBe(true);
- expect(button(root,t('edit')+' Reading')).toBeDefined();
+ expect(button(root,t('openInsights')+' Reading')).toBeDefined();
  expect(root.findAll(node=>node.props.data).map(node=>node.props.data)).toContainEqual([]);
  expect(success).toHaveBeenLastCalledWith(t('hiddenCategoriesVisible'));
  await press(title);await press(title);await press(title);expect(button(root,t('hiddenCategories'))).toBeUndefined();
@@ -948,6 +990,26 @@ it('starts the consistency timeline at the latest dates without jumping on width
  await act(async()=>scroll.props.onMomentumScrollEnd({nativeEvent:{contentOffset:{x:0}}}));expect(load).toHaveBeenCalledOnce();
 });
 
+it('draws years of Consistency and History as bounded tiles that join without gaps',async()=>{
+ const buckets=Array.from({length:1000},(_,index)=>{const key=addDays('2026-09-08',index-999);return {key,label:String(Number(key.slice(-2))),dates:new Set([key])}});
+ const plots=(root:ReturnType<typeof create>['root'])=>root.findAll(node=>node.type===('Svg' as React.ElementType)&&node.props.accessible);
+ const box=(plot:{props:Record<string,unknown>})=>String(plot.props.viewBox).split(' ').map(Number);
+ const score=await render(<StrengthChart habit={habit} selected={[{habit,color:light.accent}]} habits={[habit]} entries={[]} today="2026-09-08" buckets={buckets} bucketSize="day" c={light} timeline/>);
+ // Only the latest tiles are mounted; a single image of this history would be 32,056 points wide.
+ expect(plots(score)).toHaveLength(2);expect(plots(score).every(plot=>plot.props.width<=1200)).toBe(true);
+ const [older,latest]=plots(score).map(box);expect(latest[0]).toBe(older[0]+older[2]);expect(latest[0]+latest[2]).toBe(1000*32+56);
+ const xs=score.findAllByType('Polyline' as React.ElementType).map(line=>line.props.points.split(' ').map((point:string)=>Number(point.split(',')[0])));
+ expect(xs[0].at(-1)).toBeGreaterThan(latest[0]);expect(xs[1][0]).toBeLessThan(latest[0]);
+ expect(score.findAllByType('Circle' as React.ElementType).length).toBeLessThan(100);
+ expect(plots(score).map(plot=>plot.props.accessibilityLabel).join(' ')).toContain('2026-09-08');
+ expect(plots(score)[1].props.accessibilityLabel).not.toContain(buckets[0].key);
+ const history=await render(<HistoryChart series={[{habit,color:light.accent,values:buckets.map(()=>1)}]} buckets={buckets} bucketSize="day" type="boolean" c={light} timeline showValues/>);
+ expect(plots(history)).toHaveLength(2);expect(plots(history).every(plot=>plot.props.width<=1200)).toBe(true);
+ const [olderBars,latestBars]=plots(history).map(box);expect(latestBars[0]).toBe(olderBars[0]+olderBars[2]);
+ const bars=history.findAllByType('Rect' as React.ElementType);expect(bars.length).toBeLessThan(110);
+ expect(bars.every(bar=>bar.props.width===16)).toBe(true);
+});
+
 it('groups History independently, preserves its selection, and loads older bars',async()=>{
  const root=await render(<InsightDetailScreen/>);
  await act(async()=>root.findAllByType('ScrollView' as React.ElementType)[0].props.onScroll({nativeEvent:{contentOffset:{y:800}}}));
@@ -1077,10 +1139,12 @@ it('keeps real Consistency axes visible without calculating data during loading'
  expect(habitStrength).not.toHaveBeenCalled();expect(strengthSummary).not.toHaveBeenCalled();
  expect(chart.findAllByType('Polyline' as React.ElementType)).toHaveLength(0);
  expect(chart.findAllByType('SvgText' as React.ElementType).some(node=>node.props.children==='100%')).toBe(true);
- expect(chart.findAllByType('Line' as React.ElementType)).toHaveLength(6);
+ const plots=()=>chart.findAll(node=>node.type===('Svg' as React.ElementType)&&node.props.accessible);
+ expect(plots().length).toBeGreaterThan(0);
+ for(const plot of plots())expect(plot.findAllByType('Line' as React.ElementType)).toHaveLength(6);
  state.chartReady=true;await act(async()=>renderer.update(<InsightDetailScreen/>));
  expect(root.findByType(StrengthChart)).toBe(chart);
- expect(chart.findAllByType('Polyline' as React.ElementType)).toHaveLength(1);
+ expect(chart.findAllByType('Polyline' as React.ElementType)).toHaveLength(plots().length);
 
 });
 
@@ -1089,15 +1153,15 @@ it('draws the Consistency line quickly while axes stay visible',async()=>{
  const timing=vi.spyOn(Animated,'timing');
  const listener=vi.spyOn(Animated.Value.prototype,'addListener');
  const root=await render(<InsightDetailScreen/>),chart=root.findByType(StrengthChart);
- const before=chart.findByType('Polyline' as React.ElementType).props.points;
+ const before=chart.findAllByType('Polyline' as React.ElementType).at(-1)!.props.points;
  expect(before).not.toBe('');
 
  await act(async()=>listener.mock.calls[0][0]({value:.5}));
- const halfway=chart.findByType('Polyline' as React.ElementType).props.points;
+ const halfway=chart.findAllByType('Polyline' as React.ElementType).at(-1)!.props.points;
  expect(halfway).not.toBe(before);
 
  await act(async()=>listener.mock.calls[0][0]({value:1}));
- expect(chart.findByType('Polyline' as React.ElementType).props.points).not.toBe(halfway);
+ expect(chart.findAllByType('Polyline' as React.ElementType).at(-1)!.props.points).not.toBe(halfway);
 
  expect(timing).toHaveBeenCalledWith(expect.anything(),{toValue:1,delay:600,duration:600,useNativeDriver:false});
  const calls=timing.mock.calls.length;
@@ -1190,4 +1254,89 @@ it('fades Calendar activity fills with native opacity while date boxes remain mo
  await act(async()=>revealCalendar());
  expect(cell.props.disabled).toBe(false);
  expect(timing).toHaveBeenCalledWith(expect.anything(),{toValue:1,duration:400,useNativeDriver:true});
+});
+
+it('keeps Calendar weeks attached and its initial index stable when prepending history',async()=>{
+ const root=await render(<InsightDetailScreen/>);
+ const timeline=()=>root.find(node=>typeof node.type==='function'&&node.type.name==='CalendarTimeline');
+ const list=()=>timeline().find(node=>typeof node.type==='function'&&node.props.horizontal&&node.props.data);
+ const initialIndex=list().props.initialScrollIndex;
+ const firstWeek=list().props.data[0][0];
+ expect(list().props.removeClippedSubviews).toBe(false);
+ await act(async()=>{list().props.onLayout({nativeEvent:{layout:{width:350}}});list().props.onContentSizeChange(list().props.data.length*21-3)});
+ await act(async()=>list().props.onScroll({nativeEvent:{contentOffset:{x:0}}}));
+ await act(async()=>list().props.onScrollEndDrag());
+ expect(list().props.data[0][0]<firstWeek).toBe(true);
+ expect(list().props.initialScrollIndex).toBe(initialIndex);
+ expect(list().props.data.some((week:string[])=>week[0]===firstWeek)).toBe(true);
+});
+
+
+it.each(['future','saving','archived'] as const)('blocks enlarged Calendar edits when %s, including stale press callbacks',async reason=>{
+ const selectedHabit=reason==='archived'?{...habit,archivedAt:'2026-09-01'}:habit;
+ const onSelectDate=vi.fn();
+ const root=await render(<CalendarTimeline habit={selectedHabit} habits={[selectedHabit]} entries={[]} today={state.today} color={light.accent} c={light} initialDate={state.today} cellSize={44} saving={reason==='saving'} onSelectDate={onSelectDate}/>);
+ const date=reason==='future'?'2026-09-09':state.today;
+ const cell=root.findAll(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.props.accessibilityLabel?.startsWith(`Reading, ${date}:`))[0];
+ expect(cell.props.disabled).toBe(true);
+ expect(cell.props.accessibilityState.disabled).toBe(true);
+ await press(cell);
+ expect(onSelectDate).not.toHaveBeenCalled();
+});
+
+it.each([18,44])('retains stable week keys through repeated Calendar prepends with %s point cells',async cellSize=>{
+ const root=await render(<CalendarTimeline habit={habit} habits={[habit]} entries={[]} today={state.today} color={light.accent} c={light} cellSize={cellSize}/>);
+ const list=()=>root.find(node=>typeof node.type==='function'&&node.props.horizontal&&node.props.data);
+ const step=cellSize+3,initial=list().props.initialScrollIndex;
+ await act(async()=>{list().props.onLayout({nativeEvent:{layout:{width:350}}});list().props.onContentSizeChange(list().props.data.length*step-3)});
+ for(let batch=0;batch<3;batch++){
+  const weeks=list().props.data as string[][],keys=weeks.map(list().props.keyExtractor);
+  await act(async()=>{list().props.onScroll({nativeEvent:{contentOffset:{x:0}}});list().props.onMomentumScrollEnd()});
+  const next=list().props.data as string[][];
+  expect(next.length).toBeGreaterThan(weeks.length);
+  expect(next.slice(-weeks.length).map(list().props.keyExtractor)).toEqual(keys);
+  expect(list().props.initialScrollIndex).toBe(initial);
+  expect(list().props.removeClippedSubviews).toBe(false);
+  expect(list().props.getItemLayout(null,5)).toEqual({length:step,offset:5*step,index:5});
+  await act(async()=>list().props.onContentSizeChange(next.length*step-3));
+ }
+});
+
+
+it('renders Home values for a fast historical swipe before scrolling ends and edits the visible date',async()=>{
+ const historical=addDays(state.today,-42),typed={...habit,type:'number' as const};
+ state.app={...state.app,ready:true,habits:[typed],entries:[{id:'record',habitId:typed.id,value:7,localDate:historical,occurredAt:'',timezone:'UTC',createdAt:'',updatedAt:''}]};
+ const root=await render(<Home/>);
+ await act(async()=>root.findAllByType('View' as React.ElementType)[0].props.onLayout({nativeEvent:{layout:{width:407}}}));
+ const header=()=>root.find(node=>node.type===('ScrollView' as React.ElementType)&&node.props.accessibilityHint===t('swipeHomeDates'));
+ await act(async()=>header().props.onScroll({nativeEvent:{contentOffset:{x:42*50}}}));
+ const cell=root.find(node=>node.type===('Pressable' as React.ElementType)&&node.props.accessibilityLabel===`Reading, ${historical}, 7`);
+ expect(root.find(node=>node.type===('List' as React.ElementType)).props.removeClippedSubviews).toBe(false);
+ expect(button(root,t('openInsights')+' Reading')).toBeDefined();
+ await press(cell);expect(root.findByType(CalendarEntryModal).props.editor.date).toBe(historical);
+});
+
+it('restores Home values at Today after a distant swipe without waiting for another native event',async()=>{
+ state.app={...state.app,ready:true};
+ const root=await render(<Home/>);
+ await act(async()=>root.findAllByType('View' as React.ElementType)[0].props.onLayout({nativeEvent:{layout:{width:407}}}));
+ const header=root.find(node=>node.type===('ScrollView' as React.ElementType)&&node.props.accessibilityHint===t('swipeHomeDates'));
+ // The first event extends loaded history; the second lands far enough to unmount today.
+ await act(async()=>header.props.onScroll({nativeEvent:{contentOffset:{x:50*50}}}));
+ await act(async()=>header.props.onScroll({nativeEvent:{contentOffset:{x:100*50}}}));
+ expect(root.findAll(node=>node.type===('Pressable' as React.ElementType)&&node.props.accessibilityLabel?.startsWith(`Reading, ${state.today},`))).toHaveLength(0);
+ const today=root.find(node=>node.type===('TouchableOpacity' as React.ElementType)&&node.findAll(child=>child.type===('Text' as React.ElementType)&&child.props.children===t('today')).length>0);
+ await press(today);
+ expect(root.findAll(node=>node.type===('Pressable' as React.ElementType)&&node.props.accessibilityLabel===`Reading, ${state.today}, –`)).toHaveLength(1);
+});
+
+it('keeps Home cells mounted during rapid accessible history steps',async()=>{
+ state.app={...state.app,ready:true};
+ const root=await render(<Home/>);
+ await act(async()=>root.findAllByType('View' as React.ElementType)[0].props.onLayout({nativeEvent:{layout:{width:407}}}));
+ const header=()=>root.find(node=>node.type===('ScrollView' as React.ElementType)&&node.props.accessibilityHint===t('swipeHomeDates'));
+ await act(async()=>{for(let i=0;i<10;i++)header().props.onAccessibilityAction({nativeEvent:{actionName:'decrement'}})});
+ for(let i=50;i<55;i++)expect(root.findAll(node=>node.type===('Pressable' as React.ElementType)&&node.props.accessibilityLabel===`Reading, ${addDays(state.today,-i)}, –`)).toHaveLength(1);
+ await act(async()=>header().props.onAccessibilityAction({nativeEvent:{actionName:'increment'}}));
+ expect(root.findAll(node=>node.type===('Pressable' as React.ElementType)&&node.props.accessibilityLabel===`Reading, ${addDays(state.today,-45)}, –`)).toHaveLength(1);
 });

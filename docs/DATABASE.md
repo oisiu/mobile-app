@@ -18,11 +18,11 @@ Values are Boolean (0/1), non-negative decimal quantity, or non-negative safe-in
 - New/renamed names allow 1–25 trimmed Unicode code points. Unchanged/imported legacy names remain intact. Deletion counts exclude General identities, not their records.
 - Keep trees acyclic/homogeneous. Normalize affected non-General sibling order to `0..n-1`; General uses `-1`.
 - First real child moves leaf records to General; last-child removal moves them back. Moves apply these transitions to both parents, preserve metadata, and clear attached roots’ root-only flags. Reject moves of General, children under General/archived parents, and archived destinations. Validate child creation transactionally. Same-parent reorder preserves timestamps.
-- Hierarchy save atomically batches renames, preorder insertions, staged deletions, attachments, General transitions, and final order normalization. Resolve temporary parents before inserts; new descendants inherit root type. Validate new/attachment positions and apply after structural writes; ordering errors roll back. New-root creation uses the same transaction.
+- Hierarchy save atomically batches renames, sibling reordering, preorder insertions, staged deletions, attachments, General transitions, and final order normalization. Existing-child positions participate in the same final ordering as new children and attachments; conflicting explicit sibling positions reject the entire transaction. General retains position -1. Resolve temporary parents before inserts; new descendants inherit root type. Validate new/attachment positions and apply after structural writes; ordering errors roll back. New-root creation uses the same transaction.
 - Attachments validate compatible active, non-overlapping subtrees, expected source parents, and acyclicity against the transactional snapshot. Preserve IDs, records, descendants, colors, and thresholds. Attached roots clear root-only flags and inherit destination visibility; normalize both sibling groups.
 - Type conversion validates source type, exact original branch membership (including General/archived descendants), and reviewed entry metadata in the hierarchy transaction. Boolean Yes becomes a chosen non-negative quantity/integer-second duration; No stays zero and missing dates remain empty. Quantity/duration → Boolean maps every record, including zero, to 1. Quantity ↔ Duration uses integer seconds per quantity unit, multiplying/dividing and rounding duration to whole seconds; reject non-finite/unsafe results.
 - Conversion clears original thresholds before applying target draft settings. Preserve IDs, hierarchy/order, archives, colors, occurrence/local-date/timezone/creation metadata; changed types/values receive update timestamps. Do not reconvert newly attached target-type branches. Any failure rolls back conversion and hierarchy changes.
-- Archive/restore preserves subtree records/order. Delete cascades through descendants/entries and normalizes remaining siblings.
+- Archival applies to the whole branch, even when imported descendants have no archive timestamp of their own. Inherited archived branches cannot receive entries, new children, or attachments. Archive/restore preserves subtree records/order. Delete cascades through descendants/entries and normalizes remaining siblings.
 
 Delete all habit data transactionally removes entries/habits while retaining migration history and appearance. Failure rolls back both deletes; successful refresh publishes empty snapshots. UI cache cleanup is described [below](#import-and-export).
 
@@ -37,6 +37,7 @@ Delete all habit data transactionally removes entries/habits while retaining mig
 | 5 | Adds root-only overview visibility, defaulting all existing habits to visible without changing records |
 | 6 | Adds complete root-category hiding, defaulting existing categories to visible and preserving records and overview-only preferences |
 | 7 | Adds nullable per-habit calendar color thresholds; existing habits retain their usual calendar colors and records |
+| 8 | Adds soft wine to the color constraint while preserving existing colors, habit preferences, hierarchy, and entries |
 
 Version 2 matches legacy attributes and skips changed/already-expanded structures. Never edit released migrations; add a version with documented upgrade behavior.
 

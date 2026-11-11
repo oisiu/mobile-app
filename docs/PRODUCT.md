@@ -2,7 +2,7 @@
 
 ## Purpose and boundaries
 
-oisiu records Boolean, decimal-number, and duration habits by local day. It works without accounts, a backend, telemetry, or a network connection. Exporting or sharing data is an explicit user action.
+Oisiu records Boolean, decimal-number, and duration habits by local day. It works without accounts, a backend, telemetry, or a network connection. Exporting or sharing data is an explicit user action.
 
 Oisiu targets Android and iOS. It excludes web, cloud sync, timers, event streams, historical hierarchy, built-in AI, and gamification.
 
@@ -20,7 +20,7 @@ New installations start empty. Users add their own habits from Home or import th
 - Branch records can move to another past/current date; destination conflicts reject the move without overwriting.
 - Root preferences independently hide a branch from general analysis or all main screens. Hidden categories remain recoverable in More and through Home’s temporary reveal; see [Category visibility](UI_UX.md#category-visibility).
 - Root editing can permanently convert a whole branch’s type after a historical-conversion warning; missing dates remain empty.
-- Archive preserves history; confirmed deletion removes the subtree and records.
+- Use Hide completely to put a habit aside while keeping its history. Previously archived habits remain restorable; the editor offers no Archive action. Confirmed deletion removes the subtree and records.
 
 Persistence and transition details belong in [Database](DATABASE.md).
 

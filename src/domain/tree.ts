@@ -1,20 +1,43 @@
 import { Habit, HabitNode } from './types';
 
+function childrenByParent(habits:Habit[]):Map<string,Habit[]>{
+  const children=new Map<string,Habit[]>();
+  for(const habit of habits)if(habit.parentId){
+    const siblings=children.get(habit.parentId)??[];
+    siblings.push(habit);children.set(habit.parentId,siblings);
+  }
+  return children;
+}
+
+export function archivedBranchIds(habits:Habit[]):Set<string>{
+  const archived=new Set(habits.filter(habit=>habit.archivedAt).map(habit=>habit.id));
+  if(!archived.size)return archived;
+  const children=childrenByParent(habits),pending=[...archived];
+  while(pending.length)for(const child of children.get(pending.pop()!)??[]){
+    if(!archived.has(child.id)){archived.add(child.id);pending.push(child.id)}
+  }
+  return archived;
+}
+
 export function buildTree(habits: Habit[], includeArchived=false): HabitNode[] {
-  const visible = habits.filter(h => !h.isGeneral && (includeArchived || !h.archivedAt));
+  const archived=includeArchived?new Set<string>():archivedBranchIds(habits);
+  const visible = habits.filter(h => !h.isGeneral && !archived.has(h.id));
   const nodes = new Map(visible.map(h => [h.id, {...h, children:[]} as HabitNode]));
   const roots: HabitNode[] = [];
   for (const node of nodes.values()) {
     const parent = node.parentId ? nodes.get(node.parentId) : undefined;
     (parent ? parent.children : roots).push(node);
   }
-  const sort = (items: HabitNode[]) => items.sort((a,b)=>a.sortOrder-b.sortOrder).forEach(n=>sort(n.children));
-  sort(roots); return roots;
+  const pending=[roots];
+  while(pending.length){const siblings=pending.pop()!;siblings.sort((a,b)=>a.sortOrder-b.sortOrder);for(const node of siblings)if(node.children.length)pending.push(node.children)}
+  return roots;
 }
 
 export function descendants(habits: Habit[], id:string): Habit[] {
-  const result: Habit[]=[]; const queue=[id];
-  while(queue.length){ const parent=queue.shift()!; for(const h of habits) if(h.parentId===parent){ result.push(h); queue.push(h.id); } }
+  const result:Habit[]=[],queue=[id],seen=new Set([id]),children=childrenByParent(habits);
+  for(let index=0;index<queue.length;index++)for(const child of children.get(queue[index])??[]){
+    if(!seen.has(child.id)){seen.add(child.id);result.push(child);queue.push(child.id)}
+  }
   return result;
 }
 

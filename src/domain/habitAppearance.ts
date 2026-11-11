@@ -1,6 +1,6 @@
 import { Habit } from './types';
 
-export const habitColors=['red','orange','yellow','lime','green','teal','cyan','blue','purple','pink','brown','gray'] as const;
+export const habitColors=['red','orange','yellow','lime','green','teal','cyan','blue','purple','wine','pink','brown','gray'] as const;
 export type HabitColor=typeof habitColors[number];
 export function isHabitColor(value:unknown):value is HabitColor {return typeof value==='string'&&habitColors.includes(value as HabitColor)}
 export function inheritedHabitColor(habit:Habit,habits:Habit[]):HabitColor|null {
