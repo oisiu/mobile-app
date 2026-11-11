@@ -61,7 +61,11 @@ describe('Mounted timeline tiles', () => {
   const scrollTo = (x: number, contentWidth: number, viewport = 340) =>
     act(async () =>
       tiles.onScroll({
-        nativeEvent: { contentOffset: { x }, contentSize: { width: contentWidth }, layoutMeasurement: { width: viewport } },
+        nativeEvent: {
+          contentOffset: { x },
+          contentSize: { width: contentWidth },
+          layoutMeasurement: { width: viewport },
+        },
       } as Parameters<typeof tiles.onScroll>[0]),
     );
   const mounted = (plotWidth: number) =>

@@ -11,6 +11,7 @@ Common scripts:
 | `pnpm start` | Start Expo |
 | `pnpm android` / `pnpm ios` | Build and install the native debug app and start Metro; these do not generate release builds |
 | `pnpm build` | Export production Android and iOS JavaScript bundles |
+| `pnpm format` / `pnpm format:check` | Apply or check Prettier formatting ([configuration](../.prettierrc.json)) |
 | `pnpm typecheck` / `pnpm lint` / `pnpm deadcode` | Run individual static checks |
 | `pnpm test:coverage` | Run tests with enforced coverage |
 

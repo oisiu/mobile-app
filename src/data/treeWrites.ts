@@ -160,7 +160,8 @@ async function applyUpdates(
     const saved = byId.get(item.id);
     // `undefined` keeps the saved preference; `null` clears it.
     const color = item.color === undefined ? (saved?.color ?? null) : item.color;
-    const threshold = item.calendarThreshold === undefined ? (saved?.calendarThreshold ?? null) : item.calendarThreshold;
+    const threshold =
+      item.calendarThreshold === undefined ? (saved?.calendarThreshold ?? null) : item.calendarThreshold;
     await db.runAsync(
       'UPDATE habits SET name=?,emoji=?,color=?,hide_from_overview=?,is_hidden=?,calendar_threshold=?,updated_at=? WHERE id=?',
       [

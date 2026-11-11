@@ -67,7 +67,8 @@ export const HomeDayCells = memo(function HomeDayCells({
           onAccessibilityAction={() => onBranch(habit, date)}
           onLongPress={() => onBranch(habit, date)}
           onPress={() => onToggle(habit, date)}
-          style={[s.cell, { width: dayWidth }]}>
+          style={[s.cell, { width: dayWidth }]}
+        >
           <Text style={[s.cellText, { color: date === today ? c.accent : c.text }]}>{values?.get(date)}</Text>
         </Pressable>
       ))}

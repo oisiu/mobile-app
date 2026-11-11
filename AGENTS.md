@@ -12,6 +12,7 @@ Read the relevant document from the [README index](README.md#documentation) befo
 - Preserve acyclic homogeneous habit trees, entries, and sequential sibling order.
 - Use transactions for multi-row mutations and never persist aggregates.
 - Do not edit released migrations; add a new migration.
+- Format code with `pnpm format`; `pnpm verify` rejects unformatted files.
 - Use the pnpm version pinned in `package.json`. Add Expo-managed packages with `pnpm expo install`.
 - Preserve unrelated working-tree changes and keep generated native/build files out of Git.
 - Update the document that owns a changed fact; avoid chronological task logs.

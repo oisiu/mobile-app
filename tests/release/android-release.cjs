@@ -3,7 +3,18 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { automaticReleaseTag, bump, tagVersion, releaseNotes, validateRun, productionRelease, prepareFiles, playClient, serviceCredentials, googleRequest } = require('../../scripts/release/android.cjs');
+const {
+  automaticReleaseTag,
+  bump,
+  tagVersion,
+  releaseNotes,
+  validateRun,
+  productionRelease,
+  prepareFiles,
+  playClient,
+  serviceCredentials,
+  googleRequest,
+} = require('../../scripts/release/android.cjs');
 
 test('manual versions and untrusted tag input', () => {
   assert.equal(bump('1.6.0', 'patch'), '1.6.1');
@@ -28,7 +39,10 @@ test('release preparation updates both versions and independent Android code', (
     assert.equal(config.version, '2.0.0');
     assert.equal(config.android.versionCode, 8);
     assert.equal(JSON.parse(fs.readFileSync('.github/releases/v2.0.0.json')).versionCode, 8);
-    assert.deepEqual(releaseNotes(fs.readFileSync('store/google-play/releases/2.0.0.txt', 'utf8')).map(note => note.text), ['General updates and improvements.', 'Actualizaciones y mejoras generales.']);
+    assert.deepEqual(
+      releaseNotes(fs.readFileSync('store/google-play/releases/2.0.0.txt', 'utf8')).map(note => note.text),
+      ['General updates and improvements.', 'Actualizaciones y mejoras generales.'],
+    );
   } finally {
     process.chdir(original);
     fs.rmSync(directory, { recursive: true, force: true });
@@ -43,14 +57,27 @@ test('both translated release notes must be complete and within Play limits', ()
 });
 
 test('stages accept designated automatic triggers and reject failed or mismatched runs', () => {
-  const run = { path: '.github/workflows/build-android-release.yml', event: 'workflow_dispatch',
-    head_branch: 'main', head_sha: 'abc', conclusion: 'success' };
+  const run = {
+    path: '.github/workflows/build-android-release.yml',
+    event: 'workflow_dispatch',
+    head_branch: 'main',
+    head_sha: 'abc',
+    conclusion: 'success',
+  };
   validateRun(run, run.path, 'abc');
   validateRun({ ...run, event: 'push' }, run.path, 'abc');
-  assert.throws(() => validateRun({ ...run, event: 'workflow_run' }, '.github/workflows/release-closed-testing.yml', 'abc'));
+  assert.throws(() =>
+    validateRun({ ...run, event: 'workflow_run' }, '.github/workflows/release-closed-testing.yml', 'abc'),
+  );
   assert.throws(() => validateRun({ ...run, event: 'workflow_run' }, run.path, 'abc'));
-  for (const change of [{ conclusion: 'failure' }, { conclusion: null }, { event: 'pull_request' },
-    { head_branch: 'other' }, { head_sha: 'def' }, { path: '.github/workflows/ci.yml' }]) {
+  for (const change of [
+    { conclusion: 'failure' },
+    { conclusion: null },
+    { event: 'pull_request' },
+    { head_branch: 'other' },
+    { head_sha: 'def' },
+    { path: '.github/workflows/ci.yml' },
+  ]) {
     assert.throws(() => validateRun({ ...run, ...change }, run.path, 'abc'));
   }
 });
@@ -67,7 +94,8 @@ test('release workflows retain manual recovery and share a non-cancelling concur
   for (const name of ['prepare-release', 'build-android-release', 'release-closed-testing', 'publish-production']) {
     const text = fs.readFileSync(`.github/workflows/${name}.yml`, 'utf8').replace(/\r\n/g, '\n');
     assert.match(text, /\n  workflow_dispatch:/);
-    if (['prepare-release', 'publish-production'].includes(name)) assert.doesNotMatch(text, /\n  (push|pull_request|workflow_run|schedule):/);
+    if (['prepare-release', 'publish-production'].includes(name))
+      assert.doesNotMatch(text, /\n  (push|pull_request|workflow_run|schedule):/);
     assert.match(text, /group: android-release\n  cancel-in-progress: false/);
     assert.match(text, /needs: main-only/);
     assert.match(text, /name: Require (manual dispatch|trusted main release trigger)/);
@@ -84,7 +112,7 @@ test('Play requests use fixed Google endpoints, scoped JWT and distinguish media
   const originalFetch = global.fetch;
   global.fetch = async (url, options) => {
     calls.push({ url, options });
-    return { ok: true, json: async () => url.includes('oauth2') ? { access_token: 'test-token' } : { id: 'edit' } };
+    return { ok: true, json: async () => (url.includes('oauth2') ? { access_token: 'test-token' } : { id: 'edit' }) };
   };
   try {
     const client = await playClient({ client_email: 'test@example.invalid', private_key: privateKey });
@@ -94,7 +122,10 @@ test('Play requests use fixed Google endpoints, scoped JWT and distinguish media
     assert.equal(claims.aud, 'https://oauth2.googleapis.com/token');
     await client('edits', 'POST', {});
     await client('edits/edit/bundles?uploadType=media', 'POST', Buffer.from('bundle'), true);
-    assert.equal(calls[1].url, 'https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.oisiu.app/edits');
+    assert.equal(
+      calls[1].url,
+      'https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.oisiu.app/edits',
+    );
     assert.match(calls[2].url, /\/upload\/androidpublisher\/v3\//);
     assert.equal(calls[2].options.headers['Content-Type'], 'application/octet-stream');
   } finally {
@@ -110,54 +141,118 @@ function publishingFixture(overrides = {}) {
   const { Buffer } = require('node:buffer');
   const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
   const commit = 'a'.repeat(40);
-  const record = { schema: 1, version: '1.6.1', versionCode: 8, tag: 'v1.6.1', commit,
-    sha256: require('node:crypto').createHash('sha256').update('fixture-bundle').digest('hex'), buildRunId: '100', notes: [{ language: 'en-US', text: 'Fixed.' }, { language: 'es-ES', text: 'Corregido.' }] };
-  const proof = { tag: record.tag, versionCode: 8, sha256: record.sha256, track: 'alpha', runId: '101', workflowCommit: commit };
+  const record = {
+    schema: 1,
+    version: '1.6.1',
+    versionCode: 8,
+    tag: 'v1.6.1',
+    commit,
+    sha256: require('node:crypto').createHash('sha256').update('fixture-bundle').digest('hex'),
+    buildRunId: '100',
+    notes: [
+      { language: 'en-US', text: 'Fixed.' },
+      { language: 'es-ES', text: 'Corregido.' },
+    ],
+  };
+  const proof = {
+    tag: record.tag,
+    versionCode: 8,
+    sha256: record.sha256,
+    track: 'alpha',
+    runId: '101',
+    workflowCommit: commit,
+  };
   const calls = [];
-  const run = (workflow, extra = {}) => ({ path: `.github/workflows/${workflow}.yml`,
-    event: 'workflow_dispatch', head_branch: 'main', head_sha: commit, conclusion: 'success', ...extra });
+  const run = (workflow, extra = {}) => ({
+    path: `.github/workflows/${workflow}.yml`,
+    event: 'workflow_dispatch',
+    head_branch: 'main',
+    head_sha: commit,
+    conclusion: 'success',
+    ...extra,
+  });
   const context = {
-    module: { exports: {} }, console: { log() {}, error: console.error }, Buffer, URLSearchParams, AbortSignal,
-    process: { env: { RELEASE_TAG: record.tag, CLOSED_TESTING_TRACK: 'alpha', TESTED: 'true',
-      GITHUB_REPOSITORY: 'example/app', GITHUB_RUN_ID: '102', GITHUB_SHA: commit,
-      GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: JSON.stringify({ client_email: 'test@example.invalid',
-        private_key: privateKey.export({ type: 'pkcs8', format: 'pem' }) }), ...overrides.env } },
-    require: name => name === 'node:child_process' ? { execFileSync: (command, args) => {
-      if (command === 'git') return commit;
-      assert.equal(command, 'gh');
-      if (args[0] === 'api') {
-        if (args[1].includes('actions/runs/100')) return JSON.stringify(run('build-android-release', overrides.buildRun));
-        if (args[1].includes('actions/runs/101')) return JSON.stringify(run('release-closed-testing', overrides.closedRun));
-        if (args[1].includes('git/ref/')) return JSON.stringify({ object: { type: 'commit', sha: overrides.tagCommit || commit } });
-        throw new Error(`Unexpected GitHub API: ${args[1]}`);
-      }
-      if (args[1] === 'view') return JSON.stringify({ isDraft: true, assets: [] });
-      if (args[1] === 'download') {
-        const filename = args[args.indexOf('--pattern') + 1];
-        if (filename === 'closed.json' && overrides.missingClosed) throw new Error('Closed testing record missing.');
-        const directory = args[args.indexOf('--dir') + 1];
-        if (filename === 'oisiu.aab') {
-          fs.writeFileSync(path.join(directory, filename), overrides.corruptBundle ? 'corrupt' : 'fixture-bundle');
-          return '';
-        }
-        const value = filename === 'build.json' ? record : { ...proof, ...overrides.proof };
-        fs.writeFileSync(path.join(directory, filename), JSON.stringify(value));
-        return '';
-      }
-      if (args[1] === 'upload') { calls.push({ githubUpload: args }); return ''; }
-      throw new Error(`Unexpected gh command: ${args}`);
-    } } : require(name),
+    module: { exports: {} },
+    console: { log() {}, error: console.error },
+    Buffer,
+    URLSearchParams,
+    AbortSignal,
+    process: {
+      env: {
+        RELEASE_TAG: record.tag,
+        CLOSED_TESTING_TRACK: 'alpha',
+        TESTED: 'true',
+        GITHUB_REPOSITORY: 'example/app',
+        GITHUB_RUN_ID: '102',
+        GITHUB_SHA: commit,
+        GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: JSON.stringify({
+          client_email: 'test@example.invalid',
+          private_key: privateKey.export({ type: 'pkcs8', format: 'pem' }),
+        }),
+        ...overrides.env,
+      },
+    },
+    require: name =>
+      name === 'node:child_process'
+        ? {
+            execFileSync: (command, args) => {
+              if (command === 'git') return commit;
+              assert.equal(command, 'gh');
+              if (args[0] === 'api') {
+                if (args[1].includes('actions/runs/100'))
+                  return JSON.stringify(run('build-android-release', overrides.buildRun));
+                if (args[1].includes('actions/runs/101'))
+                  return JSON.stringify(run('release-closed-testing', overrides.closedRun));
+                if (args[1].includes('git/ref/'))
+                  return JSON.stringify({ object: { type: 'commit', sha: overrides.tagCommit || commit } });
+                throw new Error(`Unexpected GitHub API: ${args[1]}`);
+              }
+              if (args[1] === 'view') return JSON.stringify({ isDraft: true, assets: [] });
+              if (args[1] === 'download') {
+                const filename = args[args.indexOf('--pattern') + 1];
+                if (filename === 'closed.json' && overrides.missingClosed)
+                  throw new Error('Closed testing record missing.');
+                const directory = args[args.indexOf('--dir') + 1];
+                if (filename === 'oisiu.aab') {
+                  fs.writeFileSync(
+                    path.join(directory, filename),
+                    overrides.corruptBundle ? 'corrupt' : 'fixture-bundle',
+                  );
+                  return '';
+                }
+                const value = filename === 'build.json' ? record : { ...proof, ...overrides.proof };
+                fs.writeFileSync(path.join(directory, filename), JSON.stringify(value));
+                return '';
+              }
+              if (args[1] === 'upload') {
+                calls.push({ githubUpload: args });
+                return '';
+              }
+              throw new Error(`Unexpected gh command: ${args}`);
+            },
+          }
+        : require(name),
     fetch: async (url, options) => {
       calls.push({ url, method: options.method, body: options.body });
       let body;
       if (url.includes('oauth2')) body = { access_token: 'fake-token' };
       else if (url.endsWith('/edits')) body = { id: 'edit' };
-      else if (url.endsWith('/tracks/alpha')) body = { track: 'alpha', releases: [{ status: overrides.status || 'completed', versionCodes: [overrides.code || '8'] }] };
-      else if (url.endsWith('/tracks/production') && options.method === 'GET') body = { track: 'production', releases: [{ status: 'completed', versionCodes: ['7'] }] };
-      else if (url.includes('/upload/')) body = { versionCode: overrides.uploadCode || 8, sha256: overrides.uploadHash || record.sha256 };
-      else if (url.endsWith('/bundles')) body = { bundles: overrides.newBundle ? [] : [{ versionCode: 8, sha256: overrides.bundleHash || record.sha256 }] };
+      else if (url.endsWith('/tracks/alpha'))
+        body = {
+          track: 'alpha',
+          releases: [{ status: overrides.status || 'completed', versionCodes: [overrides.code || '8'] }],
+        };
+      else if (url.endsWith('/tracks/production') && options.method === 'GET')
+        body = { track: 'production', releases: [{ status: 'completed', versionCodes: ['7'] }] };
+      else if (url.includes('/upload/'))
+        body = { versionCode: overrides.uploadCode || 8, sha256: overrides.uploadHash || record.sha256 };
+      else if (url.endsWith('/bundles'))
+        body = {
+          bundles: overrides.newBundle ? [] : [{ versionCode: 8, sha256: overrides.bundleHash || record.sha256 }],
+        };
       else body = {};
-      if (overrides.failAt && url.endsWith(overrides.failAt)) return { ok: false, status: 403, json: async () => ({ error: { message: 'SENSITIVE_RESPONSE_SENTINEL' } }) };
+      if (overrides.failAt && url.endsWith(overrides.failAt))
+        return { ok: false, status: 403, json: async () => ({ error: { message: 'SENSITIVE_RESPONSE_SENTINEL' } }) };
       return { ok: true, json: async () => body };
     },
   };
@@ -166,9 +261,14 @@ function publishingFixture(overrides = {}) {
 }
 
 test('production cannot skip successful build and closed testing records or human confirmation', async () => {
-  for (const overrides of [{ missingClosed: true }, { buildRun: { conclusion: 'failure' } },
-    { closedRun: { conclusion: 'failure' } }, { proof: { sha256: 'wrong' } },
-    { tagCommit: 'c'.repeat(40) }, { env: { TESTED: 'false' } }]) {
+  for (const overrides of [
+    { missingClosed: true },
+    { buildRun: { conclusion: 'failure' } },
+    { closedRun: { conclusion: 'failure' } },
+    { proof: { sha256: 'wrong' } },
+    { tagCommit: 'c'.repeat(40) },
+    { env: { TESTED: 'false' } },
+  ]) {
     const fixture = publishingFixture(overrides);
     await assert.rejects(fixture.publish('production'));
     assert.equal(fixture.calls.length, 0, 'No Google call before prerequisites pass');
@@ -207,35 +307,47 @@ test('closed testing safely resumes the same uploaded bundle and rejects a diffe
   assert(!mismatch.calls.some(call => call.method === 'PUT'));
 });
 
-
 test('malformed credential errors never echo secret JSON fragments', () => {
   const sentinel = 'SENSITIVE_PRIVATE_KEY_SENTINEL';
-  assert.throws(() => serviceCredentials(`{"private_key":"${sentinel}`), error => {
-    assert(!error.message.includes(sentinel));
-    assert.match(error.message, /Invalid GOOGLE_PLAY_SERVICE_ACCOUNT_JSON/);
-    return true;
-  });
+  assert.throws(
+    () => serviceCredentials(`{"private_key":"${sentinel}`),
+    error => {
+      assert(!error.message.includes(sentinel));
+      assert.match(error.message, /Invalid GOOGLE_PLAY_SERVICE_ACCOUNT_JSON/);
+      return true;
+    },
+  );
   assert.throws(() => serviceCredentials('null'));
 });
 
 test('subprocess failures cannot print command arguments or captured output', () => {
   const vm = require('node:vm');
   const sentinel = 'SENSITIVE_SUBPROCESS_OUTPUT_SENTINEL';
-  const context = { module: { exports: {} }, process: { env: {} },
-    require: name => name === 'node:child_process' ? { execFileSync: () => {
-      const error = new Error(sentinel);
-      error.status = 1;
-      error.stderr = sentinel;
-      throw error;
-    } } : require(name) };
+  const context = {
+    module: { exports: {} },
+    process: { env: {} },
+    require: name =>
+      name === 'node:child_process'
+        ? {
+            execFileSync: () => {
+              const error = new Error(sentinel);
+              error.status = 1;
+              error.stderr = sentinel;
+              throw error;
+            },
+          }
+        : require(name),
+  };
   vm.runInNewContext(fs.readFileSync('scripts/release/android.cjs', 'utf8'), context);
-  assert.throws(() => context.module.exports.exec('jarsigner', [sentinel]), error => {
-    assert(!error.message.includes(sentinel));
-    assert.match(error.message, /Subprocess output withheld/);
-    return true;
-  });
+  assert.throws(
+    () => context.module.exports.exec('jarsigner', [sentinel]),
+    error => {
+      assert(!error.message.includes(sentinel));
+      assert.match(error.message, /Subprocess output withheld/);
+      return true;
+    },
+  );
 });
-
 
 test('new closed-testing uploads validate downloaded bytes and Google version/checksum before commit', async () => {
   const fixture = publishingFixture({ newBundle: true });
@@ -277,26 +389,50 @@ test('Google redirect/network/JSON errors are sanitized and redirects are forbid
       global.fetch = async (url, options) => {
         assert.equal(options.redirect, 'error');
         if (scenario === 'network') throw new Error(sentinel);
-        return { ok: scenario !== 'http', status: 403, json: async () => { throw new Error(sentinel); } };
+        return {
+          ok: scenario !== 'http',
+          status: 403,
+          json: async () => {
+            throw new Error(sentinel);
+          },
+        };
       };
       await assert.rejects(googleRequest('https://oauth2.googleapis.com/token', { method: 'POST' }), error => {
         assert(!error.message.includes(sentinel));
         return true;
       });
     }
-  } finally { global.fetch = originalFetch; }
+  } finally {
+    global.fetch = originalFetch;
+  }
 });
 
 test('subprocess environments isolate signing credentials, service account JSON, and GitHub token', () => {
   const vm = require('node:vm');
   const calls = [];
-  const context = { module: { exports: {} }, process: { env: {
-    PATH: '/test/path', GH_TOKEN: 'github', GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: 'private-json',
-    ANDROID_KEYSTORE_BASE64: 'private-keystore', ANDROID_KEYSTORE_PASSWORD: 'store-password',
-    ANDROID_KEY_PASSWORD: 'key-password', ANDROID_KEY_ALIAS: 'alias',
-  } }, require: name => name === 'node:child_process' ? { execFileSync: (command, args, options) => {
-    calls.push({ command, args, env: options.env }); return '';
-  } } : require(name) };
+  const context = {
+    module: { exports: {} },
+    process: {
+      env: {
+        PATH: '/test/path',
+        GH_TOKEN: 'github',
+        GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: 'private-json',
+        ANDROID_KEYSTORE_BASE64: 'private-keystore',
+        ANDROID_KEYSTORE_PASSWORD: 'store-password',
+        ANDROID_KEY_PASSWORD: 'key-password',
+        ANDROID_KEY_ALIAS: 'alias',
+      },
+    },
+    require: name =>
+      name === 'node:child_process'
+        ? {
+            execFileSync: (command, args, options) => {
+              calls.push({ command, args, env: options.env });
+              return '';
+            },
+          }
+        : require(name),
+  };
   vm.runInNewContext(fs.readFileSync('scripts/release/android.cjs', 'utf8'), context);
   for (const command of ['gh', 'git', 'unzip', 'jarsigner']) context.module.exports.exec(command, []);
   for (const call of calls) {
@@ -313,24 +449,34 @@ test('actual workflow shell gates restrict automatic events to their designated 
   let bash = 'bash';
   if (process.platform === 'win32') {
     const gitRoot = path.resolve(execFileSync('git', ['--exec-path'], { encoding: 'utf8' }).trim(), '../../..');
-    bash = ['bin/bash.exe', 'usr/bin/bash.exe', 'usr/bin/sh.exe']
-      .map(file => path.join(gitRoot, file)).find(file => fs.existsSync(file)) || bash;
+    bash =
+      ['bin/bash.exe', 'usr/bin/bash.exe', 'usr/bin/sh.exe']
+        .map(file => path.join(gitRoot, file))
+        .find(file => fs.existsSync(file)) || bash;
   }
   for (const name of ['prepare-release', 'build-android-release', 'release-closed-testing', 'publish-production']) {
     const text = fs.readFileSync(`.github/workflows/${name}.yml`, 'utf8').replace(/\r\n/g, '\n');
-    const gate = text.match(/      - name: Reject branches, tags, and pull requests\n        run: \|\n([\s\S]*?)\n\n/)[1]
-      .split('\n').map(line => line.slice(10)).join('\n');
-    for (const [event, ref, status] of [['workflow_dispatch', 'refs/heads/main', 0],
-      ['workflow_dispatch', 'refs/heads/feature', 1], ['workflow_dispatch', 'refs/tags/v1.6.1', 1],
-      ['pull_request', 'refs/pull/12/merge', 1], ['push', 'refs/heads/main', 1]]) {
-      const result = spawnSync(bash, ['-c', gate], { env: { ...process.env, GITHUB_EVENT_NAME: event, GITHUB_REF: ref } });
+    const gate = text
+      .match(/      - name: Reject branches, tags, and pull requests\n        run: \|\n([\s\S]*?)\n\n/)[1]
+      .split('\n')
+      .map(line => line.slice(10))
+      .join('\n');
+    for (const [event, ref, status] of [
+      ['workflow_dispatch', 'refs/heads/main', 0],
+      ['workflow_dispatch', 'refs/heads/feature', 1],
+      ['workflow_dispatch', 'refs/tags/v1.6.1', 1],
+      ['pull_request', 'refs/pull/12/merge', 1],
+      ['push', 'refs/heads/main', 1],
+    ]) {
+      const result = spawnSync(bash, ['-c', gate], {
+        env: { ...process.env, GITHUB_EVENT_NAME: event, GITHUB_REF: ref },
+      });
       assert.ifError(result.error);
       const expected = name === 'build-android-release' && event === 'push' && ref === 'refs/heads/main' ? 0 : status;
       assert.equal(result.status, expected, `${name}: ${event} ${ref}`);
     }
   }
 });
-
 
 test('preparation creates a PR and dispatches CI while retaining manual merge', () => {
   const workflow = fs.readFileSync('.github/workflows/prepare-release.yml', 'utf8');
@@ -346,15 +492,23 @@ test('preparation creates a PR and dispatches CI while retaining manual merge', 
 });
 
 test('preparation opens the PR before CI dispatch and retains its review link on dispatch failure', () => {
-  const { spawnSync,execFileSync } = require('node:child_process');
+  const { spawnSync, execFileSync } = require('node:child_process');
   let bash = 'bash';
   if (process.platform === 'win32') {
     const gitRoot = path.resolve(execFileSync('git', ['--exec-path'], { encoding: 'utf8' }).trim(), '../../..');
-    bash = ['bin/bash.exe','usr/bin/bash.exe','usr/bin/sh.exe'].map(file => path.join(gitRoot,file)).find(file => fs.existsSync(file)) || bash;
+    bash =
+      ['bin/bash.exe', 'usr/bin/bash.exe', 'usr/bin/sh.exe']
+        .map(file => path.join(gitRoot, file))
+        .find(file => fs.existsSync(file)) || bash;
   }
-  const workflow = fs.readFileSync('.github/workflows/prepare-release.yml','utf8').replace(/\r\n/g,'\n');
-  const script = workflow.split('        run: |\n').at(-1).split('\n').map(line => line.slice(10)).join('\n');
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(),'oisiu-release-pr-'));
+  const workflow = fs.readFileSync('.github/workflows/prepare-release.yml', 'utf8').replace(/\r\n/g, '\n');
+  const script = workflow
+    .split('        run: |\n')
+    .at(-1)
+    .split('\n')
+    .map(line => line.slice(10))
+    .join('\n');
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'oisiu-release-pr-'));
   const mocks = `
 git() { printf 'git %s\\n' "$*" >> "$CALLS"; }
 gh() {
@@ -369,32 +523,51 @@ gh() {
 }
 `;
   try {
-    for (const exit of [0,1]) {
-      const calls = path.join(directory,`calls-${exit}`),summary = path.join(directory,`summary-${exit}`),body = path.join(directory,`body-${exit}`);
-      const result = spawnSync(bash,['-euo','pipefail','-c',mocks+script],{ encoding:'utf8',env:{ ...process.env,
-        CALLS:calls,CAPTURED_BODY:body,DISPATCH_EXIT:String(exit),GITHUB_STEP_SUMMARY:summary,
-        GITHUB_REPOSITORY:'example/app',RELEASE_BRANCH:'codex/release-v1.2.4',RELEASE_TAG:'v1.2.4',RELEASE_VERSION:'1.2.4' } });
-      assert.equal(result.status,exit,result.stderr);
-      const commands = fs.readFileSync(calls,'utf8');
+    for (const exit of [0, 1]) {
+      const calls = path.join(directory, `calls-${exit}`),
+        summary = path.join(directory, `summary-${exit}`),
+        body = path.join(directory, `body-${exit}`);
+      const result = spawnSync(bash, ['-euo', 'pipefail', '-c', mocks + script], {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          CALLS: calls,
+          CAPTURED_BODY: body,
+          DISPATCH_EXIT: String(exit),
+          GITHUB_STEP_SUMMARY: summary,
+          GITHUB_REPOSITORY: 'example/app',
+          RELEASE_BRANCH: 'codex/release-v1.2.4',
+          RELEASE_TAG: 'v1.2.4',
+          RELEASE_VERSION: '1.2.4',
+        },
+      });
+      assert.equal(result.status, exit, result.stderr);
+      const commands = fs.readFileSync(calls, 'utf8');
       assert(commands.indexOf('git push origin') < commands.indexOf('gh pr create'));
       assert(commands.indexOf('gh pr create') < commands.indexOf('gh workflow run'));
-      assert.match(commands,/gh workflow run ci.yml --repo example\/app --ref codex\/release-v1.2.4/);
-      assert.doesNotMatch(commands,/gh pr (merge|review)/);
-      assert(fs.readFileSync(summary,'utf8').includes('[Review the release PR](https://github.com/example/app/pull/42)'));
-      assert.match(fs.readFileSync(body,'utf8'),/store\/google-play\/releases\/1.2.4.txt/);
+      assert.match(commands, /gh workflow run ci.yml --repo example\/app --ref codex\/release-v1.2.4/);
+      assert.doesNotMatch(commands, /gh pr (merge|review)/);
+      assert(
+        fs.readFileSync(summary, 'utf8').includes('[Review the release PR](https://github.com/example/app/pull/42)'),
+      );
+      assert.match(fs.readFileSync(body, 'utf8'), /store\/google-play\/releases\/1.2.4.txt/);
     }
   } finally {
-    fs.rmSync(directory,{ recursive:true,force:true });
+    fs.rmSync(directory, { recursive: true, force: true });
   }
 });
-
 
 test('automatic selection requires the exact prepared main version and never falls back', () => {
   const manifest = { version: '1.6.2' };
   const config = { version: '1.6.2', android: { versionCode: 9 } };
   const record = { schema: 1, version: '1.6.2', versionCode: 9 };
   assert.equal(automaticReleaseTag(manifest, config, record), 'v1.6.2');
-  for (const invalid of [undefined, { ...record, version: '1.6.1' }, { ...record, versionCode: 8 }, { ...record, schema: 2 }]) {
+  for (const invalid of [
+    undefined,
+    { ...record, version: '1.6.1' },
+    { ...record, versionCode: 8 },
+    { ...record, schema: 2 },
+  ]) {
     assert.throws(() => automaticReleaseTag(manifest, config, invalid));
   }
   assert.throws(() => automaticReleaseTag(manifest, { ...config, version: '1.6.1' }, record));
@@ -412,17 +585,29 @@ test('selection writes the validated version for later workflow steps and reject
   const script = path.resolve('scripts/release/android.cjs');
   const environmentFile = path.join(directory, 'environment');
   const summaryFile = path.join(directory, 'summary');
-  const env = { ...process.env, GITHUB_REPOSITORY: 'example/app', GITHUB_RUN_ID: '123',
-    GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_REF: 'refs/heads/main',
-    GITHUB_ENV: environmentFile, GITHUB_STEP_SUMMARY: summaryFile };
+  const env = {
+    ...process.env,
+    GITHUB_REPOSITORY: 'example/app',
+    GITHUB_RUN_ID: '123',
+    GITHUB_EVENT_NAME: 'workflow_dispatch',
+    GITHUB_REF: 'refs/heads/main',
+    GITHUB_ENV: environmentFile,
+    GITHUB_STEP_SUMMARY: summaryFile,
+  };
   try {
     fs.writeFileSync(path.join(directory, 'package.json'), JSON.stringify({ version: '1.6.2' }));
-    fs.writeFileSync(path.join(directory, 'app.json'), JSON.stringify({ expo: { version: '1.6.2', android: { versionCode: 9 } } }));
+    fs.writeFileSync(
+      path.join(directory, 'app.json'),
+      JSON.stringify({ expo: { version: '1.6.2', android: { versionCode: 9 } } }),
+    );
     const select = () => spawnSync(process.execPath, [script, 'select'], { cwd: directory, env, encoding: 'utf8' });
     assert.equal(select().status, 1);
     assert.equal(fs.existsSync(environmentFile), false);
     fs.mkdirSync(path.join(directory, '.github/releases'), { recursive: true });
-    fs.writeFileSync(path.join(directory, '.github/releases/v1.6.2.json'), JSON.stringify({ schema: 1, version: '1.6.2', versionCode: 9 }));
+    fs.writeFileSync(
+      path.join(directory, '.github/releases/v1.6.2.json'),
+      JSON.stringify({ schema: 1, version: '1.6.2', versionCode: 9 }),
+    );
     assert.equal(select().status, 0);
     assert.equal(fs.readFileSync(environmentFile, 'utf8'), 'RELEASE_TAG=v1.6.2\n');
     assert.match(fs.readFileSync(summaryFile, 'utf8'), /v1\.6\.2/);
@@ -431,10 +616,14 @@ test('selection writes the validated version for later workflow steps and reject
   }
 });
 
-
 test('preparation validates custom notes and unsupported platforms before any file mutation', () => {
-  for (const options of [{ platform: 'iOS' }, { platform: 'both' }, { english: 'x'.repeat(501) },
-    { spanish: 'TODO' }, { english: '<en-US>Injected</en-US>' }]) {
+  for (const options of [
+    { platform: 'iOS' },
+    { platform: 'both' },
+    { english: 'x'.repeat(501) },
+    { spanish: 'TODO' },
+    { english: '<en-US>Injected</en-US>' },
+  ]) {
     assert.throws(() => prepareFiles('patch', options));
   }
   const original = process.cwd();
@@ -445,8 +634,10 @@ test('preparation validates custom notes and unsupported platforms before any fi
     fs.writeFileSync('package.json', JSON.stringify({ version: '1.0.0' }));
     fs.writeFileSync('app.json', JSON.stringify({ expo: { version: '1.0.0', android: { versionCode: 1 } } }));
     prepareFiles('patch', { english: 'Fixed startup.\nImproved calendar.', spanish: 'Inicio corregido.' });
-    assert.deepEqual(releaseNotes(fs.readFileSync('store/google-play/releases/1.0.1.txt', 'utf8')).map(note => note.text),
-      ['Fixed startup.\nImproved calendar.', 'Inicio corregido.']);
+    assert.deepEqual(
+      releaseNotes(fs.readFileSync('store/google-play/releases/1.0.1.txt', 'utf8')).map(note => note.text),
+      ['Fixed startup.\nImproved calendar.', 'Inicio corregido.'],
+    );
   } finally {
     process.chdir(original);
     fs.rmSync(directory, { recursive: true, force: true });
@@ -467,7 +658,6 @@ test('automatic deployment uses main preparation changes and successful build so
   assert.match(prepare, /RELEASE_NOTES_EN: \$\{\{ inputs.notes_en \}\}/);
 });
 
-
 test('automatic closed submission requires the exact triggering build record', async () => {
   for (const id of ['100', '999']) {
     const fixture = publishingFixture({ env: { SOURCE_BUILD_RUN_ID: id }, buildRun: { event: 'push' } });
@@ -484,10 +674,20 @@ test('automatic closed submission requires the exact triggering build record', a
 test('automatic triggers cannot prepare versions or publish production', () => {
   const vm = require('node:vm');
   for (const event of ['push', 'workflow_run', 'pull_request']) {
-    const context = { module: { exports: {} }, require,
-      process: { env: { GITHUB_REPOSITORY: 'example/app', GITHUB_RUN_ID: '123',
-        GITHUB_EVENT_NAME: event, GITHUB_REF: 'refs/heads/main' } } };
+    const context = {
+      module: { exports: {} },
+      require,
+      process: {
+        env: {
+          GITHUB_REPOSITORY: 'example/app',
+          GITHUB_RUN_ID: '123',
+          GITHUB_EVENT_NAME: event,
+          GITHUB_REF: 'refs/heads/main',
+        },
+      },
+    };
     vm.runInNewContext(fs.readFileSync('scripts/release/android.cjs', 'utf8'), context);
-    for (const command of ['prepare', 'production']) assert.throws(() => context.module.exports.requireReleaseTrigger(command));
+    for (const command of ['prepare', 'production'])
+      assert.throws(() => context.module.exports.requireReleaseTrigger(command));
   }
 });

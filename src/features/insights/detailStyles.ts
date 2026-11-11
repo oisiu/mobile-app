@@ -1,5 +1,59 @@
-import { dark,light } from '@/theme';
+import { dark, light } from '@/theme';
 import { StyleSheet } from 'react-native';
-export type Palette=typeof light|typeof dark;
-export const skeleton=StyleSheet.create({skeletonCard:{minHeight:250,borderRadius:23,padding:16,marginBottom:16,overflow:'hidden'},skeletonPill:{width:116,height:36,borderRadius:18},skeletonLine:{position:'absolute',left:0,right:0,height:2,borderRadius:1},calendarSkeleton:{flexDirection:'row'},calendarSkeletonWeekdays:{width:22,paddingTop:34,gap:3},calendarSkeletonWeekday:{width:12,height:44,borderRadius:3},calendarSkeletonViewport:{flex:1,overflow:'hidden'},calendarSkeletonWeeks:{flexDirection:'row',gap:3},calendarSkeletonWeek:{width:44},calendarSkeletonMonthSpace:{height:18},calendarSkeletonMonth:{width:44,height:8,borderRadius:3},calendarSkeletonDays:{gap:3},calendarSkeletonDay:{width:44,height:44,borderRadius:3}});
-export const s=StyleSheet.create({page:{flex:1},content:{padding:20,paddingTop:12,paddingBottom:50},center:{flex:1,alignItems:'center',justifyContent:'center'},detailTop:{flexDirection:'row',alignItems:'center',gap:4},back:{width:28,height:44,marginLeft:-6,borderRadius:12,alignItems:'center',justifyContent:'center'},editButton:{width:48,height:48,borderRadius:16,alignItems:'center',justifyContent:'center'},title:{fontSize:22,fontWeight:'700',flex:1},subtitle:{lineHeight:20,marginTop:5,marginBottom:18},card:{borderRadius:23,padding:16,marginBottom:16},chartBody:{marginTop:16},sectionHeader:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',gap:10},sectionTitle:{flexShrink:1,fontSize:20,lineHeight:24,includeFontPadding:false,fontWeight:'800'},filterButton:{maxWidth:'55%',minHeight:36,borderRadius:15,paddingHorizontal:11,flexDirection:'row',alignItems:'center',gap:5},filterButtonText:{fontSize:12,fontWeight:'700',flexShrink:1},periodControls:{flexDirection:'row',borderRadius:18,padding:3,marginTop:16},periodButton:{flex:1,minHeight:34,borderRadius:15,alignItems:'center',justifyContent:'center'},streakDate:{fontSize:11},streakTrack:{flex:1},streakBar:{minHeight:20,paddingVertical:2,borderRadius:6,alignItems:'center',justifyContent:'center'},streakCount:{color:'white',fontSize:11,fontWeight:'800'},empty:{paddingVertical:24,textAlign:'center'},overlay:{flex:1,backgroundColor:'#0008',justifyContent:'flex-end'},filterRow:{minHeight:54,flexDirection:'row',alignItems:'center',borderBottomWidth:StyleSheet.hairlineWidth,gap:10},filterEmoji:{fontSize:20},filterName:{fontSize:15,fontWeight:'700',flex:1}});
+export type Palette = typeof light | typeof dark;
+export const skeleton = StyleSheet.create({
+  skeletonCard: { minHeight: 250, borderRadius: 23, padding: 16, marginBottom: 16, overflow: 'hidden' },
+  skeletonPill: { width: 116, height: 36, borderRadius: 18 },
+  skeletonLine: { position: 'absolute', left: 0, right: 0, height: 2, borderRadius: 1 },
+  calendarSkeleton: { flexDirection: 'row' },
+  calendarSkeletonWeekdays: { width: 22, paddingTop: 34, gap: 3 },
+  calendarSkeletonWeekday: { width: 12, height: 44, borderRadius: 3 },
+  calendarSkeletonViewport: { flex: 1, overflow: 'hidden' },
+  calendarSkeletonWeeks: { flexDirection: 'row', gap: 3 },
+  calendarSkeletonWeek: { width: 44 },
+  calendarSkeletonMonthSpace: { height: 18 },
+  calendarSkeletonMonth: { width: 44, height: 8, borderRadius: 3 },
+  calendarSkeletonDays: { gap: 3 },
+  calendarSkeletonDay: { width: 44, height: 44, borderRadius: 3 },
+});
+export const s = StyleSheet.create({
+  page: { flex: 1 },
+  content: { padding: 20, paddingTop: 12, paddingBottom: 50 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  detailTop: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  back: { width: 28, height: 44, marginLeft: -6, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  editButton: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 22, fontWeight: '700', flex: 1 },
+  subtitle: { lineHeight: 20, marginTop: 5, marginBottom: 18 },
+  card: { borderRadius: 23, padding: 16, marginBottom: 16 },
+  chartBody: { marginTop: 16 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
+  sectionTitle: { flexShrink: 1, fontSize: 20, lineHeight: 24, includeFontPadding: false, fontWeight: '800' },
+  filterButton: {
+    maxWidth: '55%',
+    minHeight: 36,
+    borderRadius: 15,
+    paddingHorizontal: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  filterButtonText: { fontSize: 12, fontWeight: '700', flexShrink: 1 },
+  periodControls: { flexDirection: 'row', borderRadius: 18, padding: 3, marginTop: 16 },
+  periodButton: { flex: 1, minHeight: 34, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  streakDate: { fontSize: 11 },
+  streakTrack: { flex: 1 },
+  streakBar: { minHeight: 20, paddingVertical: 2, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  streakCount: { color: 'white', fontSize: 11, fontWeight: '800' },
+  empty: { paddingVertical: 24, textAlign: 'center' },
+  overlay: { flex: 1, backgroundColor: '#0008', justifyContent: 'flex-end' },
+  filterRow: {
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 10,
+  },
+  filterEmoji: { fontSize: 20 },
+  filterName: { fontSize: 15, fontWeight: '700', flex: 1 },
+});

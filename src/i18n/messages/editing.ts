@@ -1,8 +1,59 @@
 export const moveMessages = {
-    en: {
-        entrySavedRefreshHelp: 'Your entries are already saved. Try again to refresh the display without saving or moving them again.', habitNameCount: '{count} of {limit} characters', hiddenCategoryRefreshHelp: 'This habit is already restored. Tap Try again to refresh the list without restoring it again.', habitNameTooLong: 'Use no more than {limit} characters for a habit name.', habitNameLimitHelp: 'Up to {limit} characters.', archiveDraftTitle: 'Discard unsaved changes?', archiveDraftHelp: 'Restoring uses the saved habit. Your unsaved edits will be discarded.', archiveWithoutSaving: 'Archive without saving', restoreWithoutSaving: 'Restore without saving', deletionSummary: 'Habits: {habits} · Records: {entries}', habitSavedRefreshFailed: 'Changes saved; refresh failed', habitSavedRefreshFailedHelp: 'Your changes are already saved. Tap Save to retry loading them without saving again.', newChildHabit: 'New child', addExistingHabit: 'Add existing', chooseAnotherHabit: 'Choose another habit', moveHabitHere: 'Add existing habit', moveHabitHereHint: 'Choose an existing habit to move into this habit.', moveDestination: 'Into: {name}', chooseHabitToMove: 'Choose a habit of the same type. Its children and history come with it.', searchHabits: 'Search habits', noMatchingHabits: 'No habits match your search.', movePreview: 'New location', moveHabitSaveHelp: 'The move takes effect when you Save the editor. The new group’s visibility applies.', confirmCategoryMove: 'Add to children'
-    },
-    es: {
-        entrySavedRefreshHelp: 'Tus registros ya están guardados. Vuelve a intentarlo para actualizar la vista sin guardarlos ni moverlos otra vez.', habitNameCount: '{count} de {limit} caracteres', hiddenCategoryRefreshHelp: 'Este hábito ya está restaurado. Toca Intentar de nuevo para actualizar la lista sin restaurarlo otra vez.', habitNameTooLong: 'Usa como máximo {limit} caracteres para el nombre del hábito.', habitNameLimitHelp: 'Hasta {limit} caracteres.', archiveDraftTitle: '¿Descartar los cambios sin guardar?', archiveDraftHelp: 'Se restaurará el hábito guardado. Se descartarán los cambios sin guardar.', archiveWithoutSaving: 'Archivar sin guardar', restoreWithoutSaving: 'Restaurar sin guardar', deletionSummary: 'Hábitos: {habits} · Registros: {entries}', habitSavedRefreshFailed: 'Cambios guardados; no se pudo actualizar', habitSavedRefreshFailedHelp: 'Tus cambios ya están guardados. Toca Guardar para volver a cargarlos sin guardarlos otra vez.', newChildHabit: 'Nuevo hijo', addExistingHabit: 'Añadir existente', chooseAnotherHabit: 'Elegir otro hábito', moveHabitHere: 'Añadir hábito existente', moveHabitHereHint: 'Elige un hábito existente para moverlo dentro de este hábito.', moveDestination: 'Dentro de: {name}', chooseHabitToMove: 'Elige un hábito del mismo tipo. Se moverá con sus hijos e historial.', searchHabits: 'Buscar hábitos', noMatchingHabits: 'No hay hábitos que coincidan con la búsqueda.', movePreview: 'Nueva ubicación', moveHabitSaveHelp: 'El traslado se aplica al Guardar el editor. Se usará la visibilidad del nuevo grupo.', confirmCategoryMove: 'Añadir a los hijos'
-    },
+  en: {
+    entrySavedRefreshHelp:
+      'Your entries are already saved. Try again to refresh the display without saving or moving them again.',
+    habitNameCount: '{count} of {limit} characters',
+    hiddenCategoryRefreshHelp:
+      'This habit is already restored. Tap Try again to refresh the list without restoring it again.',
+    habitNameTooLong: 'Use no more than {limit} characters for a habit name.',
+    habitNameLimitHelp: 'Up to {limit} characters.',
+    archiveDraftTitle: 'Discard unsaved changes?',
+    archiveDraftHelp: 'Restoring uses the saved habit. Your unsaved edits will be discarded.',
+    archiveWithoutSaving: 'Archive without saving',
+    restoreWithoutSaving: 'Restore without saving',
+    deletionSummary: 'Habits: {habits} · Records: {entries}',
+    habitSavedRefreshFailed: 'Changes saved; refresh failed',
+    habitSavedRefreshFailedHelp: 'Your changes are already saved. Tap Save to retry loading them without saving again.',
+    newChildHabit: 'New child',
+    addExistingHabit: 'Add existing',
+    chooseAnotherHabit: 'Choose another habit',
+    moveHabitHere: 'Add existing habit',
+    moveHabitHereHint: 'Choose an existing habit to move into this habit.',
+    moveDestination: 'Into: {name}',
+    chooseHabitToMove: 'Choose a habit of the same type. Its children and history come with it.',
+    searchHabits: 'Search habits',
+    noMatchingHabits: 'No habits match your search.',
+    movePreview: 'New location',
+    moveHabitSaveHelp: 'The move takes effect when you Save the editor. The new group’s visibility applies.',
+    confirmCategoryMove: 'Add to children',
+  },
+  es: {
+    entrySavedRefreshHelp:
+      'Tus registros ya están guardados. Vuelve a intentarlo para actualizar la vista sin guardarlos ni moverlos otra vez.',
+    habitNameCount: '{count} de {limit} caracteres',
+    hiddenCategoryRefreshHelp:
+      'Este hábito ya está restaurado. Toca Intentar de nuevo para actualizar la lista sin restaurarlo otra vez.',
+    habitNameTooLong: 'Usa como máximo {limit} caracteres para el nombre del hábito.',
+    habitNameLimitHelp: 'Hasta {limit} caracteres.',
+    archiveDraftTitle: '¿Descartar los cambios sin guardar?',
+    archiveDraftHelp: 'Se restaurará el hábito guardado. Se descartarán los cambios sin guardar.',
+    archiveWithoutSaving: 'Archivar sin guardar',
+    restoreWithoutSaving: 'Restaurar sin guardar',
+    deletionSummary: 'Hábitos: {habits} · Registros: {entries}',
+    habitSavedRefreshFailed: 'Cambios guardados; no se pudo actualizar',
+    habitSavedRefreshFailedHelp:
+      'Tus cambios ya están guardados. Toca Guardar para volver a cargarlos sin guardarlos otra vez.',
+    newChildHabit: 'Nuevo hijo',
+    addExistingHabit: 'Añadir existente',
+    chooseAnotherHabit: 'Elegir otro hábito',
+    moveHabitHere: 'Añadir hábito existente',
+    moveHabitHereHint: 'Elige un hábito existente para moverlo dentro de este hábito.',
+    moveDestination: 'Dentro de: {name}',
+    chooseHabitToMove: 'Elige un hábito del mismo tipo. Se moverá con sus hijos e historial.',
+    searchHabits: 'Buscar hábitos',
+    noMatchingHabits: 'No hay hábitos que coincidan con la búsqueda.',
+    movePreview: 'Nueva ubicación',
+    moveHabitSaveHelp: 'El traslado se aplica al Guardar el editor. Se usará la visibilidad del nuevo grupo.',
+    confirmCategoryMove: 'Añadir a los hijos',
+  },
 } as const;

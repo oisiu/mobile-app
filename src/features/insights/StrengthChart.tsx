@@ -118,7 +118,8 @@ export function StrengthChart({
     [showSummary, loading, habit, habits, entries, today],
   );
   const series = useMemo(
-    () => (loading ? [] : selected.map(item => ({ ...item, values: habitStrength(item.habit, habits, entries, buckets) }))),
+    () =>
+      loading ? [] : selected.map(item => ({ ...item, values: habitStrength(item.habit, habits, entries, buckets) })),
     [loading, selected, habits, entries, buckets],
   );
   const timelineScroll = useTimelineScroll(buckets, onLoadEarlier);
@@ -164,7 +165,8 @@ export function StrengthChart({
     bucketSize === 'month'
       ? index % stride === 0
       : index === 0 || index === count - 1 || (index % stride === 0 && count - 1 - index >= stride);
-  const startsYear = (index: number) => index === 0 || buckets[index].key.slice(0, 4) !== buckets[index - 1].key.slice(0, 4);
+  const startsYear = (index: number) =>
+    index === 0 || buckets[index].key.slice(0, 4) !== buckets[index - 1].key.slice(0, 4);
   const hasYearContext = bucketSize === 'month' || bucketSize === 'quarter' || bucketSize === 'week';
 
   const bucketLabels = (index: number) => {
@@ -209,7 +211,10 @@ export function StrengthChart({
     const owned = tileIndexRange(tile, left, step, count, 0);
     const lineFirst = Math.max(0, drawn.first - 1);
     const lineLast = Math.min(count - 1, drawn.last + 1);
-    const indices = Array.from({ length: Math.max(0, drawn.last - drawn.first + 1) }, (_, offset) => drawn.first + offset);
+    const indices = Array.from(
+      { length: Math.max(0, drawn.last - drawn.first + 1) },
+      (_, offset) => drawn.first + offset,
+    );
     return (
       <Svg
         key={tile.fromEnd}
@@ -218,7 +223,8 @@ export function StrengthChart({
         accessibilityLabel={accessibleSummary(owned.first, owned.last)}
         width={tile.width}
         height={PLOT_HEIGHT}
-        viewBox={`${tile.x} 0 ${tile.width} ${PLOT_HEIGHT}`}>
+        viewBox={`${tile.x} 0 ${tile.width} ${PLOT_HEIGHT}`}
+      >
         {GRID_VALUES.map(value => (
           <React.Fragment key={value}>
             <Line x1={left} x2={right} y1={y(value)} y2={y(value)} stroke={c.line} />
@@ -286,7 +292,8 @@ export function StrengthChart({
               key={stat.label}
               accessible={!loading}
               accessibilityLabel={loading ? undefined : `${stat.accessible}: ${stat.value}`}
-              style={{ flexGrow: 1, minWidth: 56, alignItems: 'center' }}>
+              style={{ flexGrow: 1, minWidth: 56, alignItems: 'center' }}
+            >
               {loading ? (
                 <View
                   accessibilityRole="progressbar"
@@ -319,7 +326,8 @@ export function StrengthChart({
             overScrollMode="never"
             showsHorizontalScrollIndicator={false}
             scrollEventThrottle={32}
-            accessibilityLabel={t('consistencyTimeline')}>
+            accessibilityLabel={t('consistencyTimeline')}
+          >
             {timelineTiles(plotWidth).map(tile =>
               tileWindow.isMounted(tile) ? (
                 renderPlot(tile)

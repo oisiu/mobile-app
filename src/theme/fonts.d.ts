@@ -1,4 +1,4 @@
 declare module '*.ttf' {
-  const font:number;
+  const font: number;
   export default font;
 }

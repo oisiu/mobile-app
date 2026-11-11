@@ -9,7 +9,7 @@ Run from the repository root before handoff:
 | Command | Checks |
 | --- | --- |
 | `pnpm run doctor` | Expo configuration and native dependency compatibility |
-| `pnpm verify` | Dependency version alignment, TypeScript, zero-warning ESLint, Knip, and enforced coverage |
+| `pnpm verify` | Dependency version alignment, Prettier formatting, TypeScript, zero-warning ESLint, Knip, and enforced coverage |
 | `pnpm test` | App and release test suites |
 | `pnpm build` | Production Android and iOS bundle export |
 | `pnpm run audit` | Fixable high/critical production advisories, subject to configured exceptions |

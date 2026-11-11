@@ -130,10 +130,9 @@ export async function normalizeSiblingOrder(db: SQLiteDatabase, parentId: string
 }
 
 async function findGeneralChildId(db: SQLiteDatabase, parentId: string): Promise<string | undefined> {
-  const row = await db.getFirstAsync<{ id: string }>(
-    'SELECT id FROM habits WHERE parent_id=? AND is_general=1',
-    [parentId],
-  );
+  const row = await db.getFirstAsync<{ id: string }>('SELECT id FROM habits WHERE parent_id=? AND is_general=1', [
+    parentId,
+  ]);
   return row?.id;
 }
 

@@ -84,7 +84,8 @@ export function HistoryChart({
     grouped
       ? index % labelStride === 0
       : index === 0 || index === count - 1 || (index % labelStride === 0 && count - 1 - index >= labelStride);
-  const startsYear = (index: number) => index === 0 || buckets[index].key.slice(0, 4) !== buckets[index - 1].key.slice(0, 4);
+  const startsYear = (index: number) =>
+    index === 0 || buckets[index].key.slice(0, 4) !== buckets[index - 1].key.slice(0, 4);
   const bucketLabel = (bucket: TimeBucket) => {
     if (bucketSize === 'quarter' && !timeline) return t('quarterShort', { number: bucket.label });
     return grouped ? bucket.label.replace(/[.\s]/g, '').slice(0, 3) : bucket.label;
@@ -124,7 +125,8 @@ export function HistoryChart({
             fill={c.text}
             fontSize={10}
             fontWeight="600"
-            textAnchor="middle">
+            textAnchor="middle"
+          >
             {formatTotal(totals[index] / axis.divisor)}
           </SvgText>
         )}
@@ -161,7 +163,10 @@ export function HistoryChart({
     const origin = plotStart + slot / 2;
     const drawn = tileIndexRange(tile, origin, slot, count, TILE_MARGIN);
     const owned = tileIndexRange(tile, origin, slot, count, 0);
-    const indices = Array.from({ length: Math.max(0, drawn.last - drawn.first + 1) }, (_, offset) => drawn.first + offset);
+    const indices = Array.from(
+      { length: Math.max(0, drawn.last - drawn.first + 1) },
+      (_, offset) => drawn.first + offset,
+    );
     return (
       <Svg
         key={tile.fromEnd}
@@ -169,7 +174,8 @@ export function HistoryChart({
         accessibilityLabel={accessibleSummary(owned.first, owned.last)}
         width={tile.width}
         height={PLOT_HEIGHT}
-        viewBox={`${tile.x} 0 ${tile.width} ${PLOT_HEIGHT}`}>
+        viewBox={`${tile.x} 0 ${tile.width} ${PLOT_HEIGHT}`}
+      >
         {axis.ticks.map(value => {
           const tickY = BASELINE - (value / axis.max) * BAR_AREA;
           return (
@@ -199,7 +205,8 @@ export function HistoryChart({
       onLayout={event => {
         const next = event.nativeEvent.layout.width;
         if (Number.isFinite(next) && next > 0) setWidth(next);
-      }}>
+      }}
+    >
       {type === 'duration' && <Text style={{ fontSize: 10, marginTop: 8, color: c.muted }}>{t(axis.unit)}</Text>}
       {scrollable ? (
         <View>
@@ -211,7 +218,8 @@ export function HistoryChart({
                 y={163 - (value / axis.max) * BAR_AREA}
                 textAnchor="end"
                 fill={c.muted}
-                fontSize={11}>
+                fontSize={11}
+              >
                 {formatTick(value)}
               </SvgText>
             ))}
@@ -224,7 +232,8 @@ export function HistoryChart({
             overScrollMode="never"
             showsHorizontalScrollIndicator={false}
             scrollEventThrottle={32}
-            accessibilityLabel={t('historyTimeline')}>
+            accessibilityLabel={t('historyTimeline')}
+          >
             {timeline
               ? timelineTiles(plotWidth).map(tile =>
                   tileWindow.isMounted(tile) ? (

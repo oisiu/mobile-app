@@ -223,16 +223,13 @@ export class HabitRepository {
 
       // Root-only visibility flags are cleared when a habit leaves the top level.
       const isRoot = parentId === null;
-      await this.db.runAsync(
-        'UPDATE habits SET parent_id=?,hide_from_overview=?,is_hidden=?,updated_at=? WHERE id=?',
-        [
-          parentId,
-          Number(isRoot && !!item.hideFromOverview),
-          Number(isRoot && !!item.isHidden),
-          changesParent ? now : item.updatedAt,
-          id,
-        ],
-      );
+      await this.db.runAsync('UPDATE habits SET parent_id=?,hide_from_overview=?,is_hidden=?,updated_at=? WHERE id=?', [
+        parentId,
+        Number(isRoot && !!item.hideFromOverview),
+        Number(isRoot && !!item.isHidden),
+        changesParent ? now : item.updatedAt,
+        id,
+      ]);
       await normalizeSiblingOrder(this.db, item.parentId);
       for (let position = 0; position < siblings.length; position++) {
         await this.db.runAsync('UPDATE habits SET sort_order=? WHERE id=?', [position, siblings[position].id]);

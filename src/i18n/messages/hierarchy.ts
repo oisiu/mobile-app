@@ -1,7 +1,71 @@
 export const reorderMessages = {
-    en: {
-        activity: 'Activity', categoryMoveFailedHelp: 'Check that the selected categories are still available and use the same type, then try saving again.', cancelCategoryMove: 'Cancel moving {name}', addExistingCategories: 'Add existing categories', addExistingTo: 'Add an existing habit to {name}', newCategory: 'New category', selectExistingCategory: 'Choose {name}', existingCategoriesHelp: "When you save, this category and all its children and records will move here. It will follow the visibility settings of its new group.", noCompatibleCategories: 'No compatible categories available.', hiddenCategoriesVisible: 'Hidden habits section enabled below the list.', hiddenCategoriesConcealed: 'Hidden habits section hidden.', restoreHiddenCategoryHelp: 'The eye shows a habit again until you hide it in the editor. Leaving this view will not hide it.', toggleHiddenCategories: 'Show or hide hidden categories', toggleHiddenCategoriesHint: 'Tap three times quickly to show or hide hidden habits below the list. They are hidden again when you leave Home.', hideCompletely: 'Hide completely', hideCompletelyHelp: "Hide this habit and its children from Today, Calendar and Insights. Restore in More → Data → Hidden categories.", hiddenCategories: 'Hidden categories', restoreHiddenCategory: 'Show {name} again', hiddenCategoryRestored: '{name} is visible again', highlightCategoryHint: 'Tap to highlight this category in the chart. Tap again to show all categories equally.', hideFromOverview: 'Hide from overview', hideFromOverviewHelp: 'Keep it in Today and its individual analysis.', pieFilterHint: 'Select the categories to include in the percentage distribution.', analysisView: 'Analysis view', dragCategoryHint: 'Drag up or down to reorder this category.', moveUp: 'Move up', moveDown: 'Move down'
-    }, es: {
-        activity: 'Actividad', categoryMoveFailedHelp: 'Comprueba que las categorías seleccionadas siguen disponibles y son del mismo tipo, y vuelve a guardar.', cancelCategoryMove: 'Cancelar traslado de {name}', addExistingCategories: 'Añadir categorías existentes', addExistingTo: 'Añadir un hábito existente a {name}', newCategory: 'Nueva categoría', selectExistingCategory: 'Elegir {name}', existingCategoriesHelp: "Al guardar, esta categoría se moverá aquí con todos sus hijos y registros. Tendrá la visibilidad del grupo al que la añadas.", noCompatibleCategories: 'No hay categorías compatibles disponibles.', hiddenCategoriesVisible: 'Sección de hábitos ocultos activada debajo de la lista.', hiddenCategoriesConcealed: 'Sección de hábitos ocultos oculta.', restoreHiddenCategoryHelp: 'El ojo vuelve a mostrar un hábito hasta que lo ocultes en el editor. Salir de esta vista no lo ocultará.', toggleHiddenCategories: 'Mostrar u ocultar categorías ocultas', toggleHiddenCategoriesHint: 'Toca tres veces seguidas para mostrar u ocultar los hábitos ocultos debajo de la lista. Se ocultan al salir de Hoy.', hideCompletely: 'Ocultar completamente', hideCompletelyHelp: "Oculta este hábito y sus hijos de Hoy, Calendario y Análisis. Recupéralos en Más → Datos → Categorías ocultas.", hiddenCategories: 'Categorías ocultas', restoreHiddenCategory: 'Volver a mostrar {name}', hiddenCategoryRestored: '{name} vuelve a estar visible', highlightCategoryHint: 'Toca para destacar esta categoría en el gráfico. Toca de nuevo para mostrar todas por igual.', hideFromOverview: 'Ocultar del resumen', hideFromOverviewHelp: 'Sigue en Hoy y en su análisis individual.', pieFilterHint: 'Elige las categorías que quieres incluir en el reparto de porcentajes.', analysisView: 'Vista de análisis', dragCategoryHint: 'Arrastra arriba o abajo para reordenar esta categoría.', moveUp: 'Mover arriba', moveDown: 'Mover abajo'
-    }
+  en: {
+    activity: 'Activity',
+    categoryMoveFailedHelp:
+      'Check that the selected categories are still available and use the same type, then try saving again.',
+    cancelCategoryMove: 'Cancel moving {name}',
+    addExistingCategories: 'Add existing categories',
+    addExistingTo: 'Add an existing habit to {name}',
+    newCategory: 'New category',
+    selectExistingCategory: 'Choose {name}',
+    existingCategoriesHelp:
+      'When you save, this category and all its children and records will move here. It will follow the visibility settings of its new group.',
+    noCompatibleCategories: 'No compatible categories available.',
+    hiddenCategoriesVisible: 'Hidden habits section enabled below the list.',
+    hiddenCategoriesConcealed: 'Hidden habits section hidden.',
+    restoreHiddenCategoryHelp:
+      'The eye shows a habit again until you hide it in the editor. Leaving this view will not hide it.',
+    toggleHiddenCategories: 'Show or hide hidden categories',
+    toggleHiddenCategoriesHint:
+      'Tap three times quickly to show or hide hidden habits below the list. They are hidden again when you leave Home.',
+    hideCompletely: 'Hide completely',
+    hideCompletelyHelp:
+      'Hide this habit and its children from Today, Calendar and Insights. Restore in More → Data → Hidden categories.',
+    hiddenCategories: 'Hidden categories',
+    restoreHiddenCategory: 'Show {name} again',
+    hiddenCategoryRestored: '{name} is visible again',
+    highlightCategoryHint: 'Tap to highlight this category in the chart. Tap again to show all categories equally.',
+    hideFromOverview: 'Hide from overview',
+    hideFromOverviewHelp: 'Keep it in Today and its individual analysis.',
+    pieFilterHint: 'Select the categories to include in the percentage distribution.',
+    analysisView: 'Analysis view',
+    dragCategoryHint: 'Drag up or down to reorder this category.',
+    moveUp: 'Move up',
+    moveDown: 'Move down',
+  },
+  es: {
+    activity: 'Actividad',
+    categoryMoveFailedHelp:
+      'Comprueba que las categorías seleccionadas siguen disponibles y son del mismo tipo, y vuelve a guardar.',
+    cancelCategoryMove: 'Cancelar traslado de {name}',
+    addExistingCategories: 'Añadir categorías existentes',
+    addExistingTo: 'Añadir un hábito existente a {name}',
+    newCategory: 'Nueva categoría',
+    selectExistingCategory: 'Elegir {name}',
+    existingCategoriesHelp:
+      'Al guardar, esta categoría se moverá aquí con todos sus hijos y registros. Tendrá la visibilidad del grupo al que la añadas.',
+    noCompatibleCategories: 'No hay categorías compatibles disponibles.',
+    hiddenCategoriesVisible: 'Sección de hábitos ocultos activada debajo de la lista.',
+    hiddenCategoriesConcealed: 'Sección de hábitos ocultos oculta.',
+    restoreHiddenCategoryHelp:
+      'El ojo vuelve a mostrar un hábito hasta que lo ocultes en el editor. Salir de esta vista no lo ocultará.',
+    toggleHiddenCategories: 'Mostrar u ocultar categorías ocultas',
+    toggleHiddenCategoriesHint:
+      'Toca tres veces seguidas para mostrar u ocultar los hábitos ocultos debajo de la lista. Se ocultan al salir de Hoy.',
+    hideCompletely: 'Ocultar completamente',
+    hideCompletelyHelp:
+      'Oculta este hábito y sus hijos de Hoy, Calendario y Análisis. Recupéralos en Más → Datos → Categorías ocultas.',
+    hiddenCategories: 'Categorías ocultas',
+    restoreHiddenCategory: 'Volver a mostrar {name}',
+    hiddenCategoryRestored: '{name} vuelve a estar visible',
+    highlightCategoryHint:
+      'Toca para destacar esta categoría en el gráfico. Toca de nuevo para mostrar todas por igual.',
+    hideFromOverview: 'Ocultar del resumen',
+    hideFromOverviewHelp: 'Sigue en Hoy y en su análisis individual.',
+    pieFilterHint: 'Elige las categorías que quieres incluir en el reparto de porcentajes.',
+    analysisView: 'Vista de análisis',
+    dragCategoryHint: 'Arrastra arriba o abajo para reordenar esta categoría.',
+    moveUp: 'Mover arriba',
+    moveDown: 'Mover abajo',
+  },
 } as const;

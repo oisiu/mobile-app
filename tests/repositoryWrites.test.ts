@@ -167,7 +167,12 @@ describe('Root creation through a hierarchy save', () => {
     const id = await repo.createTree({ ...input, color: 'blue', hideFromOverview: true }, [], [child], []);
     const habits = await repo.habits();
     expect(habits.find(item => item.id === id)).toMatchObject({ color: 'blue', hideFromOverview: true, sortOrder: 0 });
-    expect(habits.filter(item => item.parentId === id).map(item => item.name).sort()).toEqual(['Child', 'General']);
+    expect(
+      habits
+        .filter(item => item.parentId === id)
+        .map(item => item.name)
+        .sort(),
+    ).toEqual(['Child', 'General']);
     expect(() => validateImport(doc(habits))).not.toThrow();
   });
 
@@ -175,9 +180,9 @@ describe('Root creation through a hierarchy save', () => {
     const { repo } = await seeded();
     const before = await repo.export();
     await expect(repo.createTree({ ...input, parentId: 'root' }, [], [child], [])).rejects.toThrow('Invalid root');
-    await expect(
-      repo.createTree({ ...input, isHidden: 'yes' as unknown as boolean }, [], [child], []),
-    ).rejects.toThrow('Invalid visibility');
+    await expect(repo.createTree({ ...input, isHidden: 'yes' as unknown as boolean }, [], [child], [])).rejects.toThrow(
+      'Invalid visibility',
+    );
     expect((await repo.export()).habits).toEqual(before.habits);
   });
 });
