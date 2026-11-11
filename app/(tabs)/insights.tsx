@@ -1,6 +1,7 @@
 import { Text } from '@/theme/Typography';
 import { SvgText } from '@/theme/SvgTypography';
 import { visibleHabitSnapshot } from '@/domain/habitVisibility';
+import { highlightOpacity, toggledHighlight } from '@/features/insights/chartShared';
 import { OverviewLegend } from '@/features/insights/OverviewLegend';
 import { PieCategoryFilter } from '@/features/insights/PieCategoryFilter';
 import { OverviewComparison } from '@/features/insights/OverviewComparison';
@@ -131,8 +132,8 @@ export default function Insights() {
                 `${120 + 120 * Math.cos(angle(part))} ${120 + 120 * Math.sin(angle(part))}`;
               const props = {
                 fill: habitChartColor(item.habit, allHabits, c.accent),
-                opacity: highlightedId && highlightedId !== item.habit.id ? 0.22 : 1,
-                onPress: () => setPieHighlight(highlightedId === item.habit.id ? null : item.habit.id),
+                opacity: highlightOpacity(highlightedId, item.habit.id),
+                onPress: () => setPieHighlight(toggledHighlight(highlightedId, item.habit.id)),
               };
               return fraction === 1 ? (
                 <Circle key={item.habit.id} cx={120} cy={120} r={120} {...props} />
@@ -161,7 +162,7 @@ export default function Insights() {
                   fontSize={fraction < 0.08 ? 9 : 14}
                   fontWeight="700"
                   fill="white"
-                  opacity={highlightedId && highlightedId !== item.habit.id ? 0.22 : 1}
+                  opacity={highlightOpacity(highlightedId, item.habit.id)}
                 >
                   {percentage(item.active)}
                 </SvgText>

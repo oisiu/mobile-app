@@ -9,6 +9,7 @@ import { Text } from '@/theme/Typography';
 import React, { useState } from 'react';
 import { ScrollView, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import Svg, { Line, Rect } from 'react-native-svg';
+import { highlightOpacity, PLOT_HEIGHT, shortMonthLabel, startsNewYear, toggledHighlight } from './chartShared';
 import { historyLayout } from './historyLayout';
 import { tileIndexRange, timelineTiles, useTimelineTiles, type TimelineTile } from './timelineTiles';
 import { useTimelineScroll } from './useTimelineScroll';
@@ -29,7 +30,6 @@ type Props = {
   onLoadEarlier?: () => void;
 };
 
-const PLOT_HEIGHT = 202;
 const BASELINE = 160;
 const BAR_AREA = 140;
 // Bars and centered labels near a tile edge are drawn by both neighbouring tiles.
@@ -76,19 +76,17 @@ export function HistoryChart({
   const grouped = bucketSize === 'month' || bucketSize === 'quarter';
   const barHeight = (value: number) => (value / axis.divisor / axis.max) * BAR_AREA;
   const x = (index: number) => plotStart + slot * (index + 0.5);
-  const dimmed = (id: string) => (highlightedId && highlightedId !== id ? 0.22 : 1);
+  const dimmed = (id: string) => highlightOpacity(highlightedId, id);
   const toggleHighlight = (id: string) =>
-    onHighlight ? () => onHighlight(highlightedId === id ? null : id) : undefined;
+    onHighlight ? () => onHighlight(toggledHighlight(highlightedId, id)) : undefined;
 
   const showsLabel = (index: number) =>
     grouped
       ? index % labelStride === 0
       : index === 0 || index === count - 1 || (index % labelStride === 0 && count - 1 - index >= labelStride);
-  const startsYear = (index: number) =>
-    index === 0 || buckets[index].key.slice(0, 4) !== buckets[index - 1].key.slice(0, 4);
   const bucketLabel = (bucket: TimeBucket) => {
     if (bucketSize === 'quarter' && !timeline) return t('quarterShort', { number: bucket.label });
-    return grouped ? bucket.label.replace(/[.\s]/g, '').slice(0, 3) : bucket.label;
+    return grouped ? shortMonthLabel(bucket.label) : bucket.label;
   };
 
   const renderBucket = (index: number) => {
@@ -140,7 +138,7 @@ export function HistoryChart({
             {dayContext}
           </SvgText>
         )}
-        {(grouped || bucketSize === 'week') && startsYear(index) && (
+        {(grouped || bucketSize === 'week') && startsNewYear(buckets, index) && (
           <SvgText x={center} y={193} fill={c.muted} fontSize={11} textAnchor={index === 0 ? 'start' : 'middle'}>
             {bucket.key.slice(0, 4)}
           </SvgText>

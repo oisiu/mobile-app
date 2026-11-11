@@ -4,8 +4,7 @@ import { isSingleEmoji } from '@/domain/habitAppearance';
 import { habitNameError, habitNameLimit } from '@/domain/habitName';
 import { HabitTypeChange, validHistoryValue } from '@/domain/habitTypeChange';
 import { buildTree, descendants } from '@/domain/tree';
-import { TreeAttachment } from '@/domain/treeAttachments';
-import { HabitNode, HabitType } from '@/domain/types';
+import { HabitType } from '@/domain/types';
 import { CalendarDraft, calendarInputValue } from '@/features/insights/calendarEntry';
 import { useDraftGuard } from '@/features/useDraftGuard';
 import { useHabitMutation } from '@/features/useHabitMutation';
@@ -13,17 +12,7 @@ import { language, t } from '@/i18n';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Alert } from 'react-native';
-import {
-  addNode,
-  attachmentPositions,
-  draftKey,
-  dropNode,
-  flatten,
-  fromNode,
-  invalidThresholds,
-  nodeKeys,
-  type DraftNode,
-} from './draftTree';
+import { addNode, draftKey, dropNode, flatten, fromNode, invalidThresholds, type DraftNode } from './draftTree';
 import type { ExistingEditorProps } from './editorTypes';
 import { createRootActions } from './rootActions';
 
@@ -35,7 +24,6 @@ export function useExistingHabitEditor({ root, habits, entries, repo, refresh, s
     confirming = useRef(false);
   const [reviewing, setReviewing] = useState(false);
   const thresholdBackup = useRef<{ root: number | null; values: Map<string, number | null> } | null>(null);
-  const [moves, setMoves] = useState<TreeAttachment[]>([]);
   const [isHidden, setIsHidden] = useState(!!root.isHidden),
     [hideFromOverview, setHideFromOverview] = useState(!!root.hideFromOverview);
   const rootNode = buildTree(habits).find(item => item.id === root.id),
@@ -78,25 +66,10 @@ export function useExistingHabitEditor({ root, habits, entries, repo, refresh, s
   });
   const add = (parentKey?: string) =>
     setNodes(current => (parentKey ? addNode(current, parentKey, blank(), true) : [blank(), ...current]));
-  const excluded = new Set([root.id, ...nodeKeys(rootNode?.children.map(fromNode) ?? []), ...nodeKeys(nodes)]);
-  const attach = (habit: HabitNode, parentKey: string) => {
-    setNodes(current =>
-      parentKey === root.id ? [...current, fromNode(habit)] : addNode(current, parentKey, fromNode(habit)),
-    );
-    setMoves(current => [...current, { id: habit.id, parentKey, expectedParentId: habit.parentId }]);
-  };
   const remove = async (node: DraftNode) => {
     if (savingRef.current || mutation.pending.current || confirming.current) return;
-    if (moves.some(move => move.id === node.id)) {
-      const keys = new Set([node.key, ...nodeKeys(node.children)]);
-      setNodes(current => dropNode(current, node.key));
-      setMoves(current => current.filter(move => !keys.has(move.id)));
-      return;
-    }
     const commit = () => {
-      const keys = new Set([node.key, ...nodeKeys(node.children)]);
       setNodes(current => dropNode(current, node.key));
-      setMoves(current => current.filter(move => !keys.has(move.id)));
       if (node.id) setDeletedIds(current => [...current, node.id!]);
     };
     if (!node.id) return commit();
@@ -126,7 +99,6 @@ export function useExistingHabitEditor({ root, habits, entries, repo, refresh, s
   };
   const changeType = (next: HabitType) => {
     if (next === type) return;
-    const remaining = moves.reduce((items, move) => dropNode(items, move.id), nodes);
     const visit = (items: DraftNode[], values: Map<string, number | null>) => {
       for (const item of items) {
         values.set(item.key, item.calendarThreshold);
@@ -141,18 +113,19 @@ export function useExistingHabitEditor({ root, habits, entries, repo, refresh, s
       }));
     if (type === root.type) {
       const values = new Map<string, number | null>();
-      visit(remaining, values);
+      visit(nodes, values);
       thresholdBackup.current = { root: calendarThreshold, values };
     }
     if (next === root.type) {
-      setCalendarThreshold(thresholdBackup.current?.root ?? null);
-      setNodes(thresholds(remaining, thresholdBackup.current?.values));
+      // Captured before the ref is cleared, because the state updater runs later.
+      const backup = thresholdBackup.current;
+      setCalendarThreshold(backup?.root ?? null);
+      setNodes(current => thresholds(current, backup?.values));
       thresholdBackup.current = null;
     } else {
       setCalendarThreshold(null);
-      setNodes(thresholds(remaining));
+      setNodes(current => thresholds(current));
     }
-    setMoves([]);
     setType(next);
     setHistoryDraft({ date: '', value: '', unit: 'minutes' });
   };
@@ -249,10 +222,7 @@ export function useExistingHabitEditor({ root, habits, entries, repo, refresh, s
       }
       await mutation.run(
         async () => {
-          if (conversion)
-            await repo.editTree(root.id, updates, creates, deletedIds, attachmentPositions(nodes, moves), conversion);
-          else if (moves.length)
-            await repo.editTree(root.id, updates, creates, deletedIds, attachmentPositions(nodes, moves));
+          if (conversion) await repo.editTree(root.id, updates, creates, deletedIds, [], conversion);
           else await repo.editTree(root.id, updates, creates, deletedIds);
         },
         () => {
@@ -268,13 +238,14 @@ export function useExistingHabitEditor({ root, habits, entries, repo, refresh, s
           ? t('typeChangeStaleHelp')
           : type !== root.type
             ? t('typeChangeFailedHelp')
-            : moves.length
-              ? t('categoryMoveFailedHelp')
-              : error instanceof Error
-                ? error.message
-                : String(error),
+            : error instanceof Error
+              ? error.message
+              : String(error),
       );
     }
+  };
+  const onSavingChange = (value: boolean) => {
+    savingRef.current = value;
   };
   const { restoreRoot, removeRoot } = createRootActions({
     root,
@@ -292,7 +263,7 @@ export function useExistingHabitEditor({ root, habits, entries, repo, refresh, s
     historyDraft,
     setHistoryDraft,
     mutation,
-    savingRef,
+    onSavingChange,
     reviewing,
     isHidden,
     setIsHidden,
@@ -308,10 +279,7 @@ export function useExistingHabitEditor({ root, habits, entries, repo, refresh, s
     setCalendarThreshold,
     nodes,
     setNodes,
-    moves,
-    excluded,
     add,
-    attach,
     remove,
     changeType,
     hasHistory,

@@ -2,36 +2,41 @@ import { aggregate } from '@/domain/aggregation';
 import { branchRecords } from '@/domain/branchDay';
 import type { HabitNode } from '@/domain/types';
 import { useApp } from '@/features/AppProvider';
-import { EntryRefreshError, entryErrorTitle } from '@/features/entryWriteError';
 import {
   calendarDraft,
   calendarEntry,
   calendarInputValue,
   type CalendarDraft,
 } from '@/features/insights/calendarEntry';
+import { useRetryableEntryWrite } from '@/features/useRetryableEntryWrite';
 import { t } from '@/i18n';
 import * as Haptics from 'expo-haptics';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert } from 'react-native';
 
+type DraftUpdate = CalendarDraft | null | ((current: CalendarDraft | null) => CalendarDraft | null);
+
 export function useHomeEntries(today: string) {
-  const { habits, entries, changeEntry } = useApp();
+  const { habits, entries } = useApp();
+  const write = useRetryableEntryWrite();
+  const { run, isBusy } = write;
   const [dialog, setDialog] = useState<(CalendarDraft & { habit: HabitNode }) | null>(null);
   const [branchDialog, setBranchDialog] = useState<{ habit: HabitNode; date: string } | null>(null);
-  const [entryNeedsRefresh, setEntryNeedsRefresh] = useState(false);
-  const committedEntry = useRef<{ value: number | null } | null>(null);
-  const savingRef = useRef(false),
-    [saving, setSaving] = useState(false);
-  const openBranch = useCallback((habit: HabitNode, date: string) => {
-    if (!savingRef.current) setBranchDialog({ habit, date });
-  }, []);
+
+  const openBranch = useCallback(
+    (habit: HabitNode, date: string) => {
+      if (!isBusy()) setBranchDialog({ habit, date });
+    },
+    [isBusy],
+  );
+
   const toggle = useCallback(
     async (habit: HabitNode, date: string) => {
-      if (date > today || savingRef.current) return;
-      const descendants = branchRecords(habits, entries, habit, date).some(
+      if (date > today || isBusy()) return;
+      const hasDescendantRecords = branchRecords(habits, entries, habit, date).some(
         record => !record.direct && (habit.type !== 'boolean' || record.entry.value > 0),
       );
-      if (descendants) {
+      if (hasDescendantRecords) {
         setBranchDialog({ habit, date });
         return;
       }
@@ -39,54 +44,36 @@ export function useHomeEntries(today: string) {
         setDialog({ ...calendarDraft(habit, date, calendarEntry(habit, habits, entries, date)?.value ?? null), habit });
         return;
       }
-      savingRef.current = true;
-      try {
-        const current = aggregate(habits, entries, habit.id, new Set([date]));
-        await changeEntry(habit.id, date, current ? null : 1);
-        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
-      } catch (error) {
-        Alert.alert(entryErrorTitle(error), error instanceof Error ? error.message : String(error));
-      } finally {
-        savingRef.current = false;
-      }
+      const active = aggregate(habits, entries, habit.id, new Set([date]));
+      // A tap has no editor to retry from, so a failed refresh is only reported.
+      const saved = await run({ habitId: habit.id, date, value: active ? null : 1 }, { retryable: false, quiet: true });
+      if (saved) void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
     },
-    [today, habits, entries, changeEntry],
+    [today, habits, entries, run, isBusy],
   );
+
   const persist = async (value: number | null) => {
-    if (!dialog || savingRef.current) return;
-    savingRef.current = true;
-    setSaving(true);
-    try {
-      await changeEntry(dialog.habit.id, dialog.date, committedEntry.current ? committedEntry.current.value : value);
-      committedEntry.current = null;
-      setEntryNeedsRefresh(false);
-      setDialog(null);
-    } catch (error) {
-      if (error instanceof EntryRefreshError) {
-        committedEntry.current ??= { value };
-        setEntryNeedsRefresh(true);
-      }
-      Alert.alert(entryErrorTitle(error), error instanceof Error ? error.message : String(error));
-    } finally {
-      savingRef.current = false;
-      setSaving(false);
-    }
+    if (!dialog) return;
+    if (await run({ habitId: dialog.habit.id, date: dialog.date, value })) setDialog(null);
   };
+
   const save = async () => {
     if (!dialog) return;
-    if (committedEntry.current) {
-      await persist(committedEntry.current.value);
+    const pending = write.pending();
+    if (pending) {
+      await persist(pending.value);
       return;
     }
     const value = calendarInputValue(dialog.habit, dialog);
     if (value === null) return Alert.alert(t('invalidNumber'));
     await persist(value);
   };
-  const updateEditor = (update: CalendarDraft | null | ((current: CalendarDraft | null) => CalendarDraft | null)) => {
-    if (savingRef.current || (update !== null && committedEntry.current)) return;
+
+  const updateEditor = (update: DraftUpdate) => {
+    // A committed entry locks the draft; only dismissing it is allowed.
+    if (isBusy() || (update !== null && write.pending())) return;
     if (update === null) {
-      committedEntry.current = null;
-      setEntryNeedsRefresh(false);
+      write.reset();
       setDialog(null);
       return;
     }
@@ -95,13 +82,14 @@ export function useHomeEntries(today: string) {
       return current && next ? { ...next, habit: current.habit } : null;
     });
   };
+
   return {
     toggle,
     openBranch,
     dialog,
     branchDialog,
-    saving,
-    entryNeedsRefresh,
+    saving: write.saving,
+    entryNeedsRefresh: write.needsRefresh,
     updateEditor,
     save,
     clear: () => persist(null),

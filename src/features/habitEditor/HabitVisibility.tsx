@@ -39,8 +39,6 @@ function VisibilityToggle({ value, onChange, c, complete = false }: VisibilityPr
         padding: 10,
         borderRadius: 14,
         backgroundColor: value ? c.soft : c.card,
-        borderWidth: 1,
-        borderColor: value ? c.accent : c.line,
       }}
     >
       <Ionicons

@@ -1,16 +1,9 @@
 export const reorderMessages = {
   en: {
     activity: 'Activity',
-    categoryMoveFailedHelp:
-      'Check that the selected categories are still available and use the same type, then try saving again.',
-    cancelCategoryMove: 'Cancel moving {name}',
-    addExistingCategories: 'Add existing categories',
-    addExistingTo: 'Add an existing habit to {name}',
     newCategory: 'New category',
-    selectExistingCategory: 'Choose {name}',
     existingCategoriesHelp:
       'When you save, this category and all its children and records will move here. It will follow the visibility settings of its new group.',
-    noCompatibleCategories: 'No compatible categories available.',
     hiddenCategoriesVisible: 'Hidden habits section enabled below the list.',
     hiddenCategoriesConcealed: 'Hidden habits section hidden.',
     restoreHiddenCategoryHelp:
@@ -35,16 +28,9 @@ export const reorderMessages = {
   },
   es: {
     activity: 'Actividad',
-    categoryMoveFailedHelp:
-      'Comprueba que las categorías seleccionadas siguen disponibles y son del mismo tipo, y vuelve a guardar.',
-    cancelCategoryMove: 'Cancelar traslado de {name}',
-    addExistingCategories: 'Añadir categorías existentes',
-    addExistingTo: 'Añadir un hábito existente a {name}',
     newCategory: 'Nueva categoría',
-    selectExistingCategory: 'Elegir {name}',
     existingCategoriesHelp:
       'Al guardar, esta categoría se moverá aquí con todos sus hijos y registros. Tendrá la visibilidad del grupo al que la añadas.',
-    noCompatibleCategories: 'No hay categorías compatibles disponibles.',
     hiddenCategoriesVisible: 'Sección de hábitos ocultos activada debajo de la lista.',
     hiddenCategoriesConcealed: 'Sección de hábitos ocultos oculta.',
     restoreHiddenCategoryHelp:

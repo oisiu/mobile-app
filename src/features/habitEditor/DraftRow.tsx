@@ -4,10 +4,9 @@ import { CalendarThresholdInput } from '@/features/CalendarThresholdInput';
 import { HabitColorPicker } from '@/features/HabitColorPicker';
 import { HabitNameCounter } from '@/features/HabitNameCounter';
 import { t } from '@/i18n';
-import { Text, TextInput } from '@/theme/Typography';
-import type { ReactNode } from 'react';
-import { TouchableOpacity, View } from 'react-native';
-import { ChildAddActions, ChildReorderActions } from './ChildActions';
+import { TextInput } from '@/theme/Typography';
+import { View } from 'react-native';
+import { ChildRowActions } from './ChildActions';
 import type { DraftNode } from './draftTree';
 import { s } from './editorStyles';
 import type { Palette } from './editorTypes';
@@ -23,10 +22,12 @@ type DraftRowProps = {
   onAdd: (key: string) => void;
   onRemove: (node: DraftNode) => void;
   onReorder: (key: string, direction: -1 | 1) => void;
-  existing: (node: DraftNode) => ReactNode;
-  canRemove: (node: DraftNode) => boolean;
-  isAttachment: (node: DraftNode) => boolean;
 };
+
+const MAX_INDENT_LEVELS = 4;
+const INDENT = 14;
+
+/** One editable sub-habit with its own sub-habits nested beneath it. */
 export function DraftRow({
   node,
   depth,
@@ -38,16 +39,15 @@ export function DraftRow({
   onAdd,
   onRemove,
   onReorder,
-  existing,
-  canRemove,
-  isAttachment,
 }: DraftRowProps) {
+  // Rows nest inside their parent's view, so each level adds one step until the cap.
+  const indent = (Math.min(depth, MAX_INDENT_LEVELS) - Math.min(Math.max(0, depth - 1), MAX_INDENT_LEVELS)) * INDENT;
   return (
-    <View style={{ marginLeft: (Math.min(depth, 4) - Math.min(Math.max(0, depth - 1), 4)) * 14 }}>
-      <HabitColorPicker value={node.color ?? null} onChange={color => onChange(node.key, { color })} c={c}>
-        {colorButton => (
-          <View>
-            <View style={[s.childRow, { borderColor: c.line }]}>
+    <View style={{ marginLeft: indent }}>
+      <View style={[s.childCard, depth > 0 && { borderLeftWidth: 2, borderLeftColor: c.line, paddingLeft: 10 }]}>
+        <HabitColorPicker value={node.color ?? null} onChange={color => onChange(node.key, { color })} c={c}>
+          {colorButton => (
+            <View style={s.childRow}>
               <TextInput
                 value={node.emoji}
                 onChangeText={emoji => onChange(node.key, { emoji })}
@@ -65,38 +65,28 @@ export function DraftRow({
                 style={[s.childName, { backgroundColor: c.card, color: c.text }]}
               />
               {colorButton}
-              {canRemove(node) && (
-                <TouchableOpacity
-                  accessibilityLabel={
-                    isAttachment(node) ? t('cancelCategoryMove', { name: node.name }) : `${t('delete')} ${node.name}`
-                  }
-                  onPress={() => onRemove(node)}
-                  style={s.rowButton}
-                >
-                  <Text style={{ color: c.danger, fontSize: 18 }}>×</Text>
-                </TouchableOpacity>
-              )}
             </View>
-            <HabitNameCounter name={node.name} c={c} />
-            <ChildReorderActions
-              name={node.name}
-              siblingIndex={siblingIndex}
-              siblingCount={siblingCount}
-              onReorder={direction => onReorder(node.key, direction)}
-              c={c}
-            />
-          </View>
-        )}
-      </HabitColorPicker>
-      <CalendarThresholdInput
-        key={type}
-        type={type}
-        value={node.calendarThreshold}
-        onChange={calendarThreshold => onChange(node.key, { calendarThreshold })}
-        c={c}
-        name={node.name}
-      />
-      <ChildAddActions onAdd={() => onAdd(node.key)} existing={existing(node)} c={c} nested />
+          )}
+        </HabitColorPicker>
+        <HabitNameCounter name={node.name} c={c} />
+        <CalendarThresholdInput
+          key={type}
+          type={type}
+          value={node.calendarThreshold}
+          onChange={calendarThreshold => onChange(node.key, { calendarThreshold })}
+          c={c}
+          name={node.name}
+        />
+        <ChildRowActions
+          name={node.name}
+          siblingIndex={siblingIndex}
+          siblingCount={siblingCount}
+          onAdd={() => onAdd(node.key)}
+          onReorder={direction => onReorder(node.key, direction)}
+          onRemove={() => onRemove(node)}
+          c={c}
+        />
+      </View>
       {node.children.map((child, index) => (
         <DraftRow
           type={type}
@@ -110,9 +100,6 @@ export function DraftRow({
           onAdd={onAdd}
           onRemove={onRemove}
           onReorder={onReorder}
-          existing={existing}
-          canRemove={canRemove}
-          isAttachment={isAttachment}
         />
       ))}
     </View>

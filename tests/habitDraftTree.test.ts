@@ -1,17 +1,13 @@
 import { expect, it } from 'vitest';
 import type { TreeDraftCreate, TreeDraftUpdate } from '../src/data/repository';
 import type { HabitNode } from '../src/domain/types';
-import { t } from '../src/i18n';
 import {
   addNode,
-  attachmentPositions,
   changeNode,
-  draftPath,
   dropNode,
   flatten,
   fromNode,
   invalidThresholds,
-  nodeKeys,
   reorderNode,
   type DraftNode,
 } from '../src/features/habitEditor/draftTree';
@@ -62,6 +58,8 @@ it('adds at either edge of a nested sibling group without moving other branches'
   expect(addNode(initial, 'missing', draft('unused'))).toEqual(initial);
 });
 
+const nodeKeys = (nodes: DraftNode[]): string[] => nodes.flatMap(node => [node.key, ...nodeKeys(node.children)]);
+
 it('removes a nested subtree while retaining siblings and source drafts', () => {
   const initial = [draft('root', [draft('removed', [draft('deep')]), draft('retained')])];
   const result = dropNode(initial, 'removed');
@@ -98,28 +96,6 @@ it('flattens mixed existing and new nodes in preorder with exact sibling positio
   expect(updates[0]).toMatchObject({ name: 'existing', color: null, calendarThreshold: null });
 });
 
-it('resolves attachment positions at each destination after inserting new siblings', () => {
-  const nodes = [
-    draft('new'),
-    { ...draft('attached', [draft('nested-new'), draft('nested-attached')]), id: 'attached' },
-  ];
-  const moves = [
-    { id: 'attached', parentKey: 'root', expectedParentId: null },
-    { id: 'nested-attached', parentKey: 'attached', expectedParentId: 'old' },
-  ];
-  expect(attachmentPositions(nodes, moves)).toEqual([
-    { ...moves[0], index: 1 },
-    { ...moves[1], index: 1 },
-  ]);
-  expect(moves).toEqual([
-    { id: 'attached', parentKey: 'root', expectedParentId: null },
-    { id: 'nested-attached', parentKey: 'attached', expectedParentId: 'old' },
-  ]);
-  expect(() => attachmentPositions(nodes, [{ id: 'missing', parentKey: 'root', expectedParentId: null }])).toThrow(
-    'Invalid draft attachment',
-  );
-});
-
 it('emits reordered existing positions among new and attached nodes without inventing reorders after insertion or deletion', () => {
   const one = { ...stored('one'), parentId: 'root', sortOrder: 0 },
     two = { ...stored('two'), parentId: 'root', sortOrder: 1 },
@@ -137,12 +113,6 @@ it('emits reordered existing positions among new and attached nodes without inve
   const unchanged: TreeDraftUpdate[] = [];
   flatten([draft('new'), fromNode(one)], 'root', unchanged, [], [one, two, removed]);
   expect(unchanged[0].index).toBeUndefined();
-});
-
-it('builds draft ancestry from trimmed names and localized blank-name fallback', () => {
-  const nodes = [{ ...draft('root', [{ ...draft('child'), name: ' Child ' }]), name: '   ' }];
-  expect(draftPath(nodes, 'child')).toEqual([t('newCategory'), 'Child']);
-  expect(draftPath(nodes, 'missing')).toBeNull();
 });
 
 it('validates nested thresholds without inheriting a parent threshold', () => {

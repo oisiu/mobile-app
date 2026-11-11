@@ -7,23 +7,19 @@ import {
 } from '@/domain/entries';
 import type { Entry, Habit } from '@/domain/types';
 import type { PopoverAnchor } from '@/features/AnchoredPopover';
-import { useApp } from '@/features/AppProvider';
-import { EntryRefreshError, entryErrorTitle } from '@/features/entryWriteError';
+import { useRetryableEntryWrite } from '@/features/useRetryableEntryWrite';
 import { t } from '@/i18n';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 
 type ValueEditor = { habit: Habit; value: string; unit: DurationUnit };
 export function useCalendarDayEditor(habits: Habit[], entries: Entry[]) {
-  const { changeEntry } = useApp();
+  const write = useRetryableEntryWrite();
   const [popoverAnchor, setPopoverAnchor] = useState<PopoverAnchor | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [editor, setEditor] = useState<ValueEditor | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [saving, setSaving] = useState(false),
-    [refreshOnly, setRefreshOnly] = useState(false);
-  const savingRef = useRef(false),
-    committed = useRef<{ habitId: string; date: string; value: number | null } | null>(null);
+  const { saving, needsRefresh: refreshOnly } = write;
   const locked = saving || refreshOnly;
   const entryIndex = useMemo(() => aggregationIndex(habits, entries), [habits, entries]);
   const directTargets = useMemo(
@@ -38,10 +34,7 @@ export function useCalendarDayEditor(habits: Habit[], entries: Entry[]) {
   );
   const targetId = (habit: Habit) => directTargets.get(habit.id) ?? habit.id;
   const valueOn = (habit: Habit, date: string) => entryIndex.value(targetId(habit), date);
-  const clearCommitted = () => {
-    committed.current = null;
-    setRefreshOnly(false);
-  };
+  const clearCommitted = write.reset;
 
   const selectDate = (date: string, anchor: PopoverAnchor | null) => {
     setPopoverAnchor(anchor);
@@ -50,7 +43,7 @@ export function useCalendarDayEditor(habits: Habit[], entries: Entry[]) {
     setSelectedDate(date);
   };
   const openEditor = (habit: Habit) => {
-    if (!selectedDate || savingRef.current || committed.current) return;
+    if (!selectedDate || write.isBusy() || write.pending()) return;
     const current = valueOn(habit, selectedDate);
     const unit: DurationUnit =
       habit.type === 'duration' && current >= 3600 && current % 3600 === 0 ? 'hours' : 'minutes';
@@ -60,7 +53,7 @@ export function useCalendarDayEditor(habits: Habit[], entries: Entry[]) {
     setEditor({ habit, unit, value });
   };
   const toggleExpanded = (id: string) => {
-    if (savingRef.current || committed.current) return;
+    if (write.isBusy() || write.pending()) return;
     setExpanded(current => {
       const next = new Set(current);
       if (next.has(id)) next.delete(id);
@@ -69,41 +62,26 @@ export function useCalendarDayEditor(habits: Habit[], entries: Entry[]) {
     });
   };
   const closeSheet = () => {
-    if (savingRef.current) return;
+    if (write.isBusy()) return;
     clearCommitted();
     setEditor(null);
     setSelectedDate(null);
   };
   const goBack = () => {
-    if (savingRef.current) return;
+    if (write.isBusy()) return;
     if (editor) {
       clearCommitted();
       setEditor(null);
     } else closeSheet();
   };
   const persist = async (value: number | null, habit = editor?.habit) => {
-    if (!selectedDate || !habit || savingRef.current) return;
-    savingRef.current = true;
-    setSaving(true);
-    const request = committed.current ?? { habitId: habit.id, date: selectedDate, value };
-    try {
-      await changeEntry(request.habitId, request.date, request.value);
-      clearCommitted();
-      setEditor(null);
-    } catch (error) {
-      if (error instanceof EntryRefreshError) {
-        committed.current = request;
-        setRefreshOnly(true);
-      }
-      Alert.alert(entryErrorTitle(error), error instanceof Error ? error.message : String(error));
-    } finally {
-      savingRef.current = false;
-      setSaving(false);
-    }
+    if (!selectedDate || !habit) return;
+    if (await write.run({ habitId: habit.id, date: selectedDate, value })) setEditor(null);
   };
   const save = async () => {
     if (!editor) return;
-    if (committed.current) return persist(committed.current.value);
+    const pending = write.pending();
+    if (pending) return persist(pending.value);
     if (!isCompleteDecimalInput(editor.value)) return Alert.alert(t('invalidNumber'));
     const input = Number(editor.value);
     const value = editor.habit.type === 'duration' ? durationInputToSeconds(input, editor.unit) : input;
@@ -114,20 +92,20 @@ export function useCalendarDayEditor(habits: Habit[], entries: Entry[]) {
   };
   const changeUnit = (unit: DurationUnit) =>
     setEditor(current => {
-      if (committed.current || !current || current.unit === unit) return current;
+      if (write.pending() || !current || current.unit === unit) return current;
       const value = isCompleteDecimalInput(current.value)
         ? String(Number(current.value) * (unit === 'hours' ? 1 / 60 : 60))
         : current.value;
       return { ...current, unit, value };
     });
   const changeValue = (value: string) => {
-    if (!committed.current) setEditor(current => current && { ...current, value: sanitizeDecimalInput(value) });
+    if (!write.pending()) setEditor(current => current && { ...current, value: sanitizeDecimalInput(value) });
   };
   const deleteEntry = () => {
-    if (!committed.current) void persist(null);
+    if (!write.pending()) void persist(null);
   };
   const retry = () => {
-    const request = committed.current;
+    const request = write.pending();
     if (request)
       void persist(
         request.value,
@@ -135,7 +113,7 @@ export function useCalendarDayEditor(habits: Habit[], entries: Entry[]) {
       );
   };
   const editHabit = (habit: Habit) => {
-    if (committed.current) return;
+    if (write.pending()) return;
     if (habit.type === 'boolean') void persist(selectedDate && valueOn(habit, selectedDate) ? null : 1, habit);
     else openEditor(habit);
   };

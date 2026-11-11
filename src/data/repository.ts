@@ -25,8 +25,6 @@ import { writeHabitTree } from './treeWrites';
 
 export type { TreeDraftCreate, TreeDraftUpdate } from './treeDraft';
 
-type HabitPatch = Partial<Pick<Habit, 'name' | 'emoji' | 'color' | 'calendarThreshold'>>;
-
 const NEW_ROOT_KEY = '__new_root__';
 const timestamp = () => new Date().toISOString();
 const deviceTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'local';
@@ -98,28 +96,6 @@ export class HabitRepository {
       });
     });
     return id;
-  }
-
-  async update(id: string, patch: HabitPatch) {
-    const previous = (await this.habits()).find(habit => habit.id === id);
-    // An unchanged emoji may be a legacy value, so it is validated as empty.
-    const emoji = patch.emoji === undefined || patch.emoji === previous?.emoji ? '' : patch.emoji;
-    assertHabitAppearance(emoji, patch.color);
-    assertCalendarThreshold(previous?.type ?? 'boolean', patch.calendarThreshold);
-    if (patch.name !== undefined) assertHabitName(patch.name, previous?.name);
-    await this.db.runAsync(
-      'UPDATE habits SET name=COALESCE(?,name),emoji=COALESCE(?,emoji),color=CASE WHEN ? THEN ? ELSE color END,calendar_threshold=CASE WHEN ? THEN ? ELSE calendar_threshold END,updated_at=? WHERE id=?',
-      [
-        patch.name?.trim() ?? null,
-        patch.emoji ?? null,
-        Number(patch.color !== undefined),
-        patch.color ?? null,
-        Number(patch.calendarThreshold !== undefined),
-        patch.calendarThreshold ?? null,
-        timestamp(),
-        id,
-      ],
-    );
   }
 
   async createTree(

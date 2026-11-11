@@ -7,6 +7,7 @@ import { buildHistorySeries } from '@/domain/history';
 import { Habit } from '@/domain/types';
 import { PopoverAnchor } from '@/features/AnchoredPopover';
 import { useApp } from '@/features/AppProvider';
+import { MoveHabitButton } from '@/features/MoveHabitButton';
 import { usePrefetchRoutes, useResponsiveNavigation } from '@/features/useResponsiveNavigation';
 import { t } from '@/i18n';
 import { Text } from '@/theme/Typography';
@@ -221,6 +222,7 @@ export default function InsightDetailScreen() {
           <Text accessibilityRole="header" style={[s.title, { color: c.text }]}>
             {root.emoji} {root.name}
           </Text>
+          <MoveHabitButton habit={root} />
           <Pressable
             disabled={navigation.pending !== null}
             accessibilityRole="button"

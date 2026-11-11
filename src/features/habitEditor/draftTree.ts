@@ -1,8 +1,6 @@
 import type { TreeDraftCreate, TreeDraftUpdate } from '@/data/repository';
 import { isValidCalendarThreshold } from '@/domain/calendarThreshold';
-import type { TreeAttachment } from '@/domain/treeAttachments';
 import type { Habit, HabitNode, HabitType } from '@/domain/types';
-import { t } from '@/i18n';
 import { makeId } from '@/utils/id';
 
 export type DraftNode = {
@@ -60,33 +58,6 @@ export function reorderNode(items: DraftNode[], key: string, direction: -1 | 1):
   }
   return items;
 }
-export const nodeKeys = (nodes: DraftNode[]): string[] => nodes.flatMap(node => [node.key, ...nodeKeys(node.children)]);
-
-export function attachmentPositions(nodes: DraftNode[], moves: TreeAttachment[]): TreeAttachment[] {
-  const indices = new Map<string, number>();
-  const visit = (items: DraftNode[]) =>
-    items.forEach((item, index) => {
-      indices.set(item.key, index);
-      visit(item.children);
-    });
-  visit(nodes);
-  return moves.map(move => {
-    const index = indices.get(move.id);
-    if (index === undefined) throw new Error('Invalid draft attachment');
-    return { ...move, index };
-  });
-}
-
-export function draftPath(nodes: DraftNode[], key: string): string[] | null {
-  for (const node of nodes) {
-    const name = node.name.trim() || t('newCategory');
-    if (node.key === key) return [name];
-    const child = draftPath(node.children, key);
-    if (child) return [name, ...child];
-  }
-  return null;
-}
-
 // Emit repository drafts in preorder, keeping explicit positions only where needed.
 export function flatten(
   items: DraftNode[],

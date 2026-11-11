@@ -8,7 +8,6 @@ export const typeChangeMessages = {
     confirmEmptyHistory:
       'Change “{name}” to {type}. Affected habits: {habits}. There are no historical records to convert. Previous calendar color thresholds will be removed.',
     changeHabitType: 'Change habit type',
-    changeHabitTypeHelp: 'Changes this habit and its children on Save. Clears thresholds and pending moves.',
     historyFromBooleanHelp: 'Each “Yes” becomes this value. “No” stays zero; empty days stay empty.',
     historyToBooleanHelp: 'All records, including zero, become “Yes”. Original values are lost.',
     historyNumericConversionHelp: 'Set the duration for one unit. Records convert proportionally, rounded to seconds.',
@@ -40,7 +39,6 @@ export const typeChangeMessages = {
     confirmEmptyHistory:
       'Se cambiará «{name}» al tipo «{type}». Hábitos afectados: {habits}. No hay registros históricos que convertir. Se borrarán los umbrales de color anteriores del calendario.',
     changeHabitType: 'Cambiar tipo de hábito',
-    changeHabitTypeHelp: 'Cambia este hábito y sus hijos al guardar. Borra umbrales y traslados pendientes.',
     historyFromBooleanHelp: 'Cada «Sí» pasa a este valor. «No» sigue en cero; los días vacíos no cambian.',
     historyToBooleanHelp: 'Todos los registros, incluido el cero, pasan a «Sí». Se pierden los valores originales.',
     historyNumericConversionHelp:

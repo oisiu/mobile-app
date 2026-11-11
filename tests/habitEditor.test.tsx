@@ -151,7 +151,7 @@ it('creates a colored root with a complete family emoji without a code-unit limi
   expect(input(0).props.accessibilityLabel).toBe(t('habitEmoji'));
   expect(
     renderer.root.findAll(node => (node.type as unknown) === 'Button' && node.props.accessibilityRole === 'radio'),
-  ).toHaveLength(0);
+  ).toHaveLength(3);
   await act(async () => colorButton().props.onPress());
   await act(async () => {
     input(0).props.onChangeText('👨‍👩‍👧‍👦');
@@ -172,7 +172,7 @@ it('creates a colored root with a complete family emoji without a code-unit limi
   await act(async () => colorButton().props.onPress());
   expect(
     renderer.root.findAll(node => (node.type as unknown) === 'Button' && node.props.accessibilityRole === 'radio'),
-  ).toHaveLength(0);
+  ).toHaveLength(3);
   await act(async () => button(t('save')).props.onPress());
   expect(mocks.create).toHaveBeenCalledWith({
     name: 'Family',
@@ -354,56 +354,6 @@ it.each([
   vi.restoreAllMocks();
 });
 
-it.each([
-  [
-    'en-US',
-    'Add an existing habit to Leisure',
-    'Add existing habit',
-    'Search habits',
-    'No compatible categories available.',
-  ],
-  [
-    'es-ES',
-    'Añadir un hábito existente a Leisure',
-    'Añadir hábito existente',
-    'Buscar hábitos',
-    'No hay categorías compatibles disponibles.',
-  ],
-])('localizes the move picker and its empty state for %s', async (locale, label, title, search, empty) => {
-  const options = new Intl.DateTimeFormat().resolvedOptions();
-  vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockReturnValue({ ...options, locale });
-  vi.resetModules();
-  try {
-    const { MoveHabitPicker } = await import('../src/features/MoveHabitPicker');
-    await act(async () => {
-      renderer = create(
-        <MoveHabitPicker
-          habits={[]}
-          type="boolean"
-          excluded={new Set()}
-          parentName="Leisure"
-          onSelect={vi.fn()}
-          c={light}
-        />,
-      );
-    });
-    const trigger = renderer.root.find(
-      node => (node.type as unknown) === 'Button' && node.props.accessibilityLabel === label,
-    );
-    await act(async () => trigger.props.onPress());
-    expect(
-      renderer.root.findAll(node => (node.type as unknown) === 'Text' && node.props.children === title),
-    ).toHaveLength(1);
-    expect(
-      renderer.root.findAll(node => (node.type as unknown) === 'TextInput' && node.props.accessibilityLabel === search),
-    ).toHaveLength(1);
-    expect(
-      renderer.root.findAll(node => (node.type as unknown) === 'Text' && node.props.children === empty),
-    ).toHaveLength(1);
-  } finally {
-    vi.restoreAllMocks();
-  }
-});
 it('defaults new roots to automatic and treats the untouched or reverted color as clean', async () => {
   await act(async () => {
     renderer = create(<HabitEditor />);
@@ -650,7 +600,7 @@ const category = (id: string, type: Habit['type'] = 'boolean', parentId: string 
   createdAt: '',
   updatedAt: '',
 });
-it('shows live root and child name counts without truncating the draft', async () => {
+it('shows root and child name counts near the limit without truncating the draft', async () => {
   await act(async () => {
     renderer = create(<HabitEditor />);
   });
@@ -660,11 +610,14 @@ it('shows live root and child name counts without truncating the draft', async (
         (node.type as unknown) === 'Text' &&
         node.props.accessibilityLabel === t('habitNameCount', { count, limit: 25 }),
     );
-  expect(counter(0)).toHaveLength(1);
+  // The counter stays out of the way until the limit is close.
+  expect(counter(0)).toHaveLength(0);
   await act(async () => input(1).props.onChangeText('  🌱Plan  '));
-  expect(counter(5)).toHaveLength(1);
+  expect(counter(5)).toHaveLength(0);
+  await act(async () => input(1).props.onChangeText('a'.repeat(20)));
+  expect(counter(20)).toHaveLength(1);
   await act(async () => button(t('addChild')).props.onPress());
-  expect(counter(0)).toHaveLength(1);
+  expect(counter(0)).toHaveLength(0);
   await act(async () => input(3).props.onChangeText('a'.repeat(26)));
   expect(counter(26)).toHaveLength(1);
   expect(input(3).props.value).toHaveLength(26);
@@ -874,176 +827,6 @@ it.each(['rename', 'hideCompletely', 'hideFromOverview'] as const)(
     expect(mocks.back).not.toHaveBeenCalled();
   },
 );
-it.each(['boolean', 'number', 'duration'] as const)(
-  'stages compatible %s roots under a new category until Save',
-  async type => {
-    mocks.habits = [
-      category('Reading', type),
-      category('Painting', type),
-      category('Different', type === 'boolean' ? 'number' : 'boolean'),
-    ];
-    await act(async () => {
-      renderer = create(<HabitEditor />);
-    });
-    if (type !== 'boolean') await act(async () => button(t(type)).props.onPress());
-    await act(async () => input(1).props.onChangeText('Leisure'));
-    await act(async () => button(t('addExistingTo', { name: 'Leisure' })).props.onPress());
-    expect(button(t('selectExistingCategory', { name: 'Different' }))).toBeUndefined();
-    await act(async () => button(t('selectExistingCategory', { name: 'Reading' })).props.onPress());
-    await act(async () => button(t('confirmCategoryMove')).props.onPress());
-    expect(mocks.createTree).not.toHaveBeenCalled();
-    expect(mocks.guard).toHaveBeenLastCalledWith(true);
-    await act(async () => button(t('addExistingTo', { name: 'Leisure' })).props.onPress());
-    expect(button(t('selectExistingCategory', { name: 'Reading' }))).toBeUndefined();
-    await act(async () => button(t('selectExistingCategory', { name: 'Painting' })).props.onPress());
-    await act(async () => button(t('confirmCategoryMove')).props.onPress());
-    await act(async () => button(t('save')).props.onPress());
-    expect(mocks.create).not.toHaveBeenCalled();
-    expect(mocks.createTree).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'Leisure', type }),
-      expect.any(Array),
-      [],
-      [
-        { id: 'Reading', parentKey: expect.any(String), expectedParentId: null, index: 0 },
-        { id: 'Painting', parentKey: expect.any(String), expectedParentId: null, index: 1 },
-      ],
-      expect.any(String),
-    );
-  },
-);
-it('stages an existing grandchild under a draft child of an existing root', async () => {
-  mocks.id = 'Leisure';
-  mocks.habits = [
-    category('Leisure'),
-    category('Other'),
-    category('Arts', 'boolean', 'Other'),
-    category('Painting', 'boolean', 'Arts'),
-  ];
-  await act(async () => {
-    renderer = create(<HabitEditor />);
-  });
-  await act(async () => button(t('addChild')).props.onPress());
-  await act(async () => input(3).props.onChangeText('Creative'));
-  await act(async () => button(t('addExistingTo', { name: 'Creative' })).props.onPress());
-  await act(async () => button(t('selectExistingCategory', { name: 'Other / Arts / Painting' })).props.onPress());
-  await act(async () => button(t('confirmCategoryMove')).props.onPress());
-  await act(async () => button(t('save')).props.onPress());
-  const [root, , creates, , moves] = mocks.editTree.mock.calls[0];
-  expect(root).toBe('Leisure');
-  expect(moves).toEqual([{ id: 'Painting', parentKey: creates[0].key, expectedParentId: 'Arts', index: 0 }]);
-});
-it('previews full destination ancestry using edited names and submits new-child positions', async () => {
-  mocks.id = 'Leisure';
-  mocks.habits = [
-    category('Leisure'),
-    category('Arts', 'boolean', 'Leisure'),
-    category('Creative', 'boolean', 'Arts'),
-    category('Reading'),
-  ];
-  await act(async () => {
-    renderer = create(<HabitEditor />);
-  });
-  await act(async () => input(1).props.onChangeText('Renamed root'));
-  await act(async () => button(t('addExistingTo', { name: 'Creative' })).props.onPress());
-  await act(async () => button(t('selectExistingCategory', { name: 'Reading' })).props.onPress());
-  expect(
-    renderer.root.findAll(
-      node =>
-        (node.type as unknown) === 'Text' &&
-        Array.isArray(node.props.children) &&
-        node.props.children.join('') === 'Renamed root / Arts / Creative / Reading',
-    ),
-  ).toHaveLength(1);
-  await act(async () => button(t('close')).props.onPress());
-  await act(async () => button(t('addChild')).props.onPress());
-  await act(async () => input(3).props.onChangeText('First'));
-  await act(async () => button(t('save')).props.onPress());
-  expect(mocks.editTree.mock.calls[0][2]).toEqual([
-    expect.objectContaining({ name: 'First', parentKey: 'Leisure', index: 0 }),
-  ]);
-});
-
-it('removing a staged attachment cancels its move without deleting the original category', async () => {
-  mocks.id = 'Leisure';
-  mocks.habits = [category('Leisure'), category('Reading')];
-  await act(async () => {
-    renderer = create(<HabitEditor />);
-  });
-  await act(async () => button(t('addExistingTo', { name: 'Leisure' })).props.onPress());
-  await act(async () => button(t('selectExistingCategory', { name: 'Reading' })).props.onPress());
-  await act(async () => button(t('confirmCategoryMove')).props.onPress());
-  await act(async () => button(t('cancelCategoryMove', { name: 'Reading' })).props.onPress());
-  expect(mocks.alert).not.toHaveBeenCalled();
-  expect(mocks.guard).toHaveBeenLastCalledWith(false);
-  await act(async () => button(t('save')).props.onPress());
-  expect(mocks.editTree).toHaveBeenCalledWith('Leisure', expect.any(Array), [], []);
-});
-
-it('cancels nested attachments when their new draft parent is removed', async () => {
-  mocks.id = 'Leisure';
-  mocks.habits = [category('Leisure'), category('Reading')];
-  await act(async () => {
-    renderer = create(<HabitEditor />);
-  });
-  await act(async () => button(t('addChild')).props.onPress());
-  await act(async () => input(3).props.onChangeText('Arts'));
-  await act(async () => button(t('addExistingTo', { name: 'Arts' })).props.onPress());
-  await act(async () => button(t('selectExistingCategory', { name: 'Reading' })).props.onPress());
-  await act(async () => button(t('confirmCategoryMove')).props.onPress());
-  await act(async () => button(t('delete') + ' Arts').props.onPress());
-  await act(async () => button(t('save')).props.onPress());
-  expect(mocks.editTree).toHaveBeenCalledWith('Leisure', expect.any(Array), [], []);
-});
-it('guards duplicate saves and retains the attachment draft after a failed write', async () => {
-  mocks.id = 'Leisure';
-  mocks.habits = [category('Leisure'), category('Reading')];
-  let reject!: (error: Error) => void;
-  mocks.editTree.mockImplementationOnce(
-    () =>
-      new Promise<void>((_, fail) => {
-        reject = fail;
-      }),
-  );
-  await act(async () => {
-    renderer = create(<HabitEditor />);
-  });
-  await act(async () => button(t('addExistingTo', { name: 'Leisure' })).props.onPress());
-  await act(async () => button(t('selectExistingCategory', { name: 'Reading' })).props.onPress());
-  await act(async () => button(t('confirmCategoryMove')).props.onPress());
-  let write!: Promise<void>;
-  await act(async () => {
-    write = button(t('save')).props.onPress();
-    void button(t('save')).props.onPress();
-  });
-  expect(mocks.editTree).toHaveBeenCalledOnce();
-  expect(button(t('save')).props.disabled).toBe(true);
-  await act(async () => {
-    reject(new Error('Synthetic save failure'));
-    await write;
-  });
-  expect(mocks.back).not.toHaveBeenCalled();
-  expect(button(t('cancelCategoryMove', { name: 'Reading' }))).toBeDefined();
-  expect(button(t('save')).props.disabled).toBe(false);
-});
-
-it('leaves attachments unwritten when canceling and resets them when a new root type changes', async () => {
-  mocks.habits = [category('Reading')];
-  await act(async () => {
-    renderer = create(<HabitEditor />);
-  });
-  await act(async () => button(t('addExistingTo', { name: t('newCategory') })).props.onPress());
-  await act(async () => button(t('selectExistingCategory', { name: 'Reading' })).props.onPress());
-  await act(async () => button(t('confirmCategoryMove')).props.onPress());
-  await act(async () => button(t('cancel')).props.onPress());
-  expect(mocks.create).not.toHaveBeenCalled();
-  expect(mocks.createTree).not.toHaveBeenCalled();
-  expect(mocks.editTree).not.toHaveBeenCalled();
-  await act(async () => button(t('number')).props.onPress());
-  expect(button(t('cancelCategoryMove', { name: 'Reading' }))).toBeUndefined();
-  await act(async () => button(t('addExistingTo', { name: t('newCategory') })).props.onPress());
-  expect(button(t('selectExistingCategory', { name: 'Reading' }))).toBeUndefined();
-});
-
 const historicalRecord = (id: string, value: number, habitId = 'Root'): import('../src/domain/types').Entry => ({
   id,
   value,
@@ -1054,92 +837,8 @@ const historicalRecord = (id: string, value: number, habitId = 'Root'): import('
   createdAt: 'created',
   updatedAt: 'updated',
 });
-it('searches full paths and previews a move before staging it', async () => {
-  mocks.id = 'Leisure';
-  mocks.habits = [
-    category('Leisure'),
-    category('Other'),
-    category('Arts', 'boolean', 'Other'),
-    category('Painting', 'boolean', 'Arts'),
-    category('Numeric', 'number'),
-  ];
-  await act(async () => {
-    renderer = create(<HabitEditor />);
-  });
-  await act(async () => button(t('addExistingTo', { name: 'Leisure' })).props.onPress());
-  expect(button(t('confirmCategoryMove')).props.disabled).toBe(true);
-  const search = renderer.root.find(
-    node => (node.type as unknown) === 'TextInput' && node.props.accessibilityLabel === t('searchHabits'),
-  );
-  await act(async () => search.props.onChangeText('other / arts / paint'));
-  expect(button(t('selectExistingCategory', { name: 'Other' }))).toBeUndefined();
-  expect(button(t('selectExistingCategory', { name: 'Numeric' }))).toBeUndefined();
-  await act(async () => button(t('selectExistingCategory', { name: 'Other / Arts / Painting' })).props.onPress());
-  expect(
-    renderer.root.findAll(
-      node =>
-        (node.type as unknown) === 'Text' &&
-        Array.isArray(node.props.children) &&
-        node.props.children.join('') === 'Leisure / Painting',
-    ),
-  ).toHaveLength(1);
-  expect(mocks.guard).toHaveBeenLastCalledWith(false);
-  expect(mocks.editTree).not.toHaveBeenCalled();
-  await act(async () => button(t('chooseAnotherHabit')).props.onPress());
-  await act(async () => button(t('selectExistingCategory', { name: 'Other / Arts / Painting' })).props.onPress());
-  await act(async () => button(t('confirmCategoryMove')).props.onPress());
-  expect(renderer.root.findAll(node => (node.type as unknown) === 'Modal')).toHaveLength(0);
-  expect(mocks.guard).toHaveBeenLastCalledWith(true);
-  expect(mocks.editTree).not.toHaveBeenCalled();
-});
-it.each(['close', 'nativeBack', 'escape'] as const)(
-  'dismisses the move preview through %s without changing the draft',
-  async method => {
-    mocks.id = 'Leisure';
-    mocks.habits = [category('Leisure'), category('Reading')];
-    await act(async () => {
-      renderer = create(<HabitEditor />);
-    });
-    await act(async () => button(t('addExistingTo', { name: 'Leisure' })).props.onPress());
-    await act(async () => button(t('selectExistingCategory', { name: 'Reading' })).props.onPress());
-    await act(async () => {
-      if (method === 'close') button(t('close')).props.onPress();
-      else if (method === 'nativeBack')
-        renderer.root.find(node => (node.type as unknown) === 'Modal').props.onRequestClose();
-      else
-        renderer.root
-          .find(node => (node.type as unknown) === 'Pressable' && node.props.accessibilityViewIsModal)
-          .props.onAccessibilityEscape();
-    });
-    expect(mocks.guard).toHaveBeenLastCalledWith(false);
-    expect(mocks.editTree).not.toHaveBeenCalled();
-    await act(async () => button(t('addExistingTo', { name: 'Leisure' })).props.onPress());
-    expect(button(t('confirmCategoryMove')).props.disabled).toBe(true);
-    expect(button(t('selectExistingCategory', { name: 'Reading' }))).toBeDefined();
-  },
-);
 const labeledInput = (label: string) =>
   renderer.root.find(node => (node.type as unknown) === 'TextInput' && node.props.accessibilityLabel === label);
-it('stages an existing habit only once when confirmation is tapped repeatedly', async () => {
-  mocks.id = 'Leisure';
-  mocks.habits = [category('Leisure'), category('Reading')];
-  await act(async () => {
-    renderer = create(<HabitEditor />);
-  });
-  await act(async () => button(t('addExistingTo', { name: 'Leisure' })).props.onPress());
-  await act(async () => button(t('selectExistingCategory', { name: 'Reading' })).props.onPress());
-  const confirm = button(t('confirmCategoryMove')).props.onPress;
-  await act(async () => {
-    confirm();
-    confirm();
-  });
-  await act(async () => button(t('save')).props.onPress());
-  expect(mocks.editTree).toHaveBeenCalledOnce();
-  expect(mocks.editTree.mock.calls[0][4]).toEqual([
-    { id: 'Reading', parentKey: 'Leisure', expectedParentId: null, index: 0 },
-  ]);
-});
-
 it.each(['number', 'duration'] as const)(
   'asks before converting Boolean history to %s with the selected historical value',
   async type => {

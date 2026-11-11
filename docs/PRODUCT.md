@@ -16,7 +16,7 @@ New installations start empty. Users add their own habits from Home or import th
 - Optional emoji and palette colors identify habits. Children inherit the nearest ancestor’s color unless overridden; unchanged legacy emojis remain valid.
 - Each leaf has at most one value per local day. Past/current dates are editable; future dates are rejected. Boolean input toggles activity; quantity/duration saves replace the daily total.
 - Parent totals use the current hierarchy: Boolean OR, quantity SUM, duration-seconds SUM. Direct parent input belongs to a hidden General child.
-- Hierarchy saves can regroup compatible categories and their complete subtrees without losing records. Descendant editing opens the root editor; new children inherit its type.
+- Any active habit can move, with its complete subtree and records, under another habit of the same type or back to the top level. Descendant editing opens the root editor; new sub-habits inherit its type.
 - Branch records can move to another past/current date; destination conflicts reject the move without overwriting.
 - Root preferences independently hide a branch from general analysis or all main screens. Hidden categories remain recoverable in More and through Home’s temporary reveal; see [Category visibility](UI_UX.md#category-visibility).
 - Root editing can permanently convert a whole branch’s type after a historical-conversion warning; missing dates remain empty.

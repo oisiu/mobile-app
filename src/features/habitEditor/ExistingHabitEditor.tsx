@@ -1,161 +1,90 @@
-import { descendants } from '@/domain/tree';
 import { CalendarThresholdInput } from '@/features/CalendarThresholdInput';
 import { HabitTypeConversion } from '@/features/HabitTypeConversion';
-import { MoveHabitPicker } from '@/features/MoveHabitPicker';
 import { t } from '@/i18n';
 import { Text } from '@/theme/Typography';
+import { Ionicons } from '@expo/vector-icons';
 import { TouchableOpacity, View } from 'react-native';
-import { ChildAddActions } from './ChildActions';
-import { DraftRow } from './DraftRow';
+import { ChildList } from './ChildList';
 import { HabitInputs } from './EditorFields';
-import { HabitVisibility } from './HabitVisibility';
 import { EditorScreen } from './EditorScreen';
-import { changeNode, draftPath, reorderNode } from './draftTree';
+import { HabitVisibility } from './HabitVisibility';
 import { s } from './editorStyles';
 import type { ExistingEditorProps } from './editorTypes';
 import { useExistingHabitEditor } from './useExistingHabitEditor';
 
 export function ExistingHabitEditor(props: ExistingEditorProps) {
-  const { root, habits, c } = props;
-  const {
-    type,
-    historyDraft,
-    setHistoryDraft,
-    mutation,
-    savingRef,
-    reviewing,
-    isHidden,
-    setIsHidden,
-    hideFromOverview,
-    setHideFromOverview,
-    name,
-    setName,
-    emoji,
-    setEmoji,
-    color,
-    setColor,
-    calendarThreshold,
-    setCalendarThreshold,
-    nodes,
-    setNodes,
-    moves,
-    excluded,
-    add,
-    attach,
-    remove,
-    changeType,
-    hasHistory,
-    save,
-    restoreRoot,
-    removeRoot,
-  } = useExistingHabitEditor(props);
+  const { root, c } = props;
+  const editor = useExistingHabitEditor(props);
   return (
     <EditorScreen
       c={c}
       title={t('edit')}
-      onSave={save}
-      onSavingChange={value => {
-        savingRef.current = value;
-      }}
-      busy={mutation.busy || reviewing}
-      locked={mutation.needsRefresh}
+      onSave={editor.save}
+      onSavingChange={editor.onSavingChange}
+      busy={editor.mutation.busy || editor.reviewing}
+      locked={editor.mutation.needsRefresh}
     >
-      <Text style={[s.label, { color: c.muted }]}>{t('topHabit')}</Text>
       <HabitInputs
-        name={name}
-        emoji={emoji}
-        color={color}
-        onName={setName}
-        onEmoji={setEmoji}
-        onColor={setColor}
+        name={editor.name}
+        emoji={editor.emoji}
+        color={editor.color}
+        onName={editor.setName}
+        onEmoji={editor.setEmoji}
+        onColor={editor.setColor}
         c={c}
       />
       <HabitTypeConversion
         from={root.type}
-        type={type}
-        onType={changeType}
-        draft={historyDraft}
-        onDraft={setHistoryDraft}
+        type={editor.type}
+        onType={editor.changeType}
+        draft={editor.historyDraft}
+        onDraft={editor.setHistoryDraft}
         c={c}
-        hasHistory={hasHistory}
+        hasHistory={editor.hasHistory}
       />
       <CalendarThresholdInput
-        key={type}
-        type={type}
-        value={calendarThreshold}
-        onChange={setCalendarThreshold}
+        key={editor.type}
+        type={editor.type}
+        value={editor.calendarThreshold}
+        onChange={editor.setCalendarThreshold}
         c={c}
-        name={name}
+        name={editor.name}
       />
       <HabitVisibility
-        hideFromOverview={hideFromOverview}
-        onOverviewChange={setHideFromOverview}
-        isHidden={isHidden}
-        onHiddenChange={setIsHidden}
+        hideFromOverview={editor.hideFromOverview}
+        onOverviewChange={editor.setHideFromOverview}
+        isHidden={editor.isHidden}
+        onHiddenChange={editor.setIsHidden}
         c={c}
       />
-      <View style={s.sectionHeader}>
-        <View>
-          <Text style={[s.label, { color: c.muted, marginTop: 0 }]}>{t('children')}</Text>
-          <Text style={{ color: c.muted, fontSize: 12 }}>
-            {t('inheritedType')}: {t(type)}
-          </Text>
-        </View>
-      </View>
-      <ChildAddActions
-        onAdd={() => add()}
-        existing={
-          <MoveHabitPicker
-            habits={habits}
-            type={type}
-            excluded={excluded}
-            parentName={name}
-            onSelect={habit => attach(habit, root.id)}
-            c={c}
-          />
-        }
+      <ChildList
+        type={editor.type}
+        nodes={editor.nodes}
+        setNodes={editor.setNodes}
+        onAdd={editor.add}
+        onRemove={editor.remove}
         c={c}
       />
-      {nodes.map((node, index) => (
-        <DraftRow
-          type={type}
-          key={node.key}
-          node={node}
-          depth={0}
-          siblingIndex={index}
-          siblingCount={nodes.length}
-          c={c}
-          onChange={(key, patch) => setNodes(current => changeNode(current, key, patch))}
-          onAdd={add}
-          onRemove={remove}
-          onReorder={(key, direction) => setNodes(current => reorderNode(current, key, direction))}
-          isAttachment={node => moves.some(move => move.id === node.id)}
-          canRemove={node =>
-            !node.id ||
-            moves.some(move => move.id === node.id) ||
-            !moves.some(move => descendants(habits, move.id).some(child => child.id === node.id))
-          }
-          existing={node => (
-            <MoveHabitPicker
-              habits={habits}
-              type={type}
-              excluded={excluded}
-              parentName={node.name}
-              parentPath={[name.trim() || t('newCategory'), ...(draftPath(nodes, node.key) ?? [])].join(' / ')}
-              onSelect={habit => attach(habit, node.key)}
-              c={c}
-            />
-          )}
-        />
-      ))}
-      {root.archivedAt && (
-        <TouchableOpacity accessibilityRole="button" style={[s.danger, { borderColor: c.line }]} onPress={restoreRoot}>
-          <Text style={{ color: c.text }}>{t('restore')}</Text>
+      <View style={s.rootActions}>
+        {root.archivedAt && (
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={[s.rootAction, { borderColor: c.line }]}
+            onPress={editor.restoreRoot}
+          >
+            <Ionicons name="arrow-undo-outline" size={18} color={c.text} accessible={false} />
+            <Text style={{ color: c.text, fontSize: 15 }}>{t('restore')}</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          accessibilityRole="button"
+          style={[s.rootAction, { borderColor: c.line }]}
+          onPress={editor.removeRoot}
+        >
+          <Ionicons name="trash-outline" size={18} color={c.danger} accessible={false} />
+          <Text style={{ color: c.danger, fontSize: 15 }}>{t('delete')}</Text>
         </TouchableOpacity>
-      )}
-      <TouchableOpacity style={[s.danger, { borderColor: c.line }]} onPress={removeRoot}>
-        <Text style={{ color: c.danger }}>{t('delete')}</Text>
-      </TouchableOpacity>
+      </View>
     </EditorScreen>
   );
 }

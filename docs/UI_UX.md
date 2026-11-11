@@ -29,23 +29,32 @@ Apply [shared write recovery](#entry-editing-and-sheets). Stale source records r
 
 ## Habit editor
 
-- Descendant editing opens the root hierarchy; new children inherit its type. **New child** inserts a blank row above that parent’s existing children; **Add existing** opens a habit picker. Rows with siblings have up/down arrows that move the whole subtree. Everything stays a draft until Save; Cancel discards it.
-- Names allow 1–25 Unicode code points after trimming, with a live counter. Emoji input accepts empty or one complete emoji, including flags, skin tones, keycaps, and joined sequences. Reject invalid input without truncating or discarding drafts; unchanged legacy names/emojis remain valid.
+- Descendant editing opens the root hierarchy; new sub-habits inherit its type. **Add sub-habit** inserts a blank row above the existing ones. Each row has one line of actions: add a sub-habit inside it, move the whole subtree up or down among its siblings, and delete. Everything stays a draft until Save; Cancel discards it.
+- Keep the screen short: no section explanations, and the same three-way type selector for new and saved habits. Moving a habit elsewhere is not an editor action; see [Moving a habit](#moving-a-habit).
+- Names allow 1–25 Unicode code points after trimming; a counter appears within five characters of the limit. Emoji input accepts empty or one complete emoji, including flags, skin tones, keycaps, and joined sequences. Reject invalid input without truncating or discarding drafts; unchanged legacy names/emojis remain valid.
 - New roots default to Automatic color, which inherits the nearest ancestor or root default; children can override. The palette offers thirteen colors.
 - Root visibility offers **Hide from overview** and **Hide completely**; see [Category visibility](#category-visibility).
 - Quantity/duration habits may set a positive, non-inherited calendar threshold. Blank removes it; duration uses value-preserving Minutes/Hours and rejects fractional seconds instead of rounding.
-- Add existing searches compatible active categories from other branches and previews the source and full destination ancestry. It excludes staged subtrees, ancestors, descendants already in the draft, General, incompatible, and archived categories. Children/history move together and destination visibility applies. Removing a staged attachment cancels its move without deleting records. Changing a new root’s type clears staged children.
 - Confirm impact before staging descendant deletions; summaries exclude General identities but include their records.
 - Active roots have no Archive action; use Hide completely. Previously archived roots retain Restore, which acts on saved data and confirms discarding a changed draft.
 - Back, Cancel, native gestures, and footer navigation confirm discarding changed drafts; unchanged/reverted drafts leave without prompting. Save, restoration, deletion, and Cancel return Home and dismiss intermediate routes so Back cannot reopen unavailable habits.
 
 ### Changing a habit type
 
-Root **Change habit type** offers Yes/No, Quantity, and Duration. It applies to the original branch, including General/archived descendants, and clears attachments and thresholds; reverting restores draft thresholds. New compatible attachments retain their target-type values.
+Root **Change habit type** offers Yes/No, Quantity, and Duration. It applies to the original branch, including General/archived descendants, and clears thresholds; reverting restores draft thresholds.
 
 Conversion value rules belong in [Database](DATABASE.md#transactions-and-integrity). Branches without records need no conversion value. Warn that conversion to Boolean loses original numeric values permanently.
 
 Save requires a localized warning naming category, branch/record counts, target type, and conversion value; dismissing writes nothing. Conversion and hierarchy changes commit together; stale membership/records show a localized rejection.
+
+### Moving a habit
+
+The Insights header of any active habit, at any depth, opens **Move to…**. It is the only way to change a habit’s parent.
+
+- List **Top level** (unless already there) followed by compatible destinations with their full path: same type, active, outside the habit’s own branch, and not its current parent. Show search once the list is long.
+- Selecting a destination previews the old and new path and how many sub-habits and records move with it. **Move** stays disabled until then.
+- Moving is immediate, not a draft: it commits in one transaction, appends the habit after the destination’s existing sub-habits, refreshes, and shows a success message. Failures keep the sheet and selection.
+- The habit takes the destination’s visibility; root-only visibility flags are cleared when it leaves the top level.
 
 ## Entry editing and sheets
 
@@ -53,7 +62,7 @@ Save requires a localized warning naming category, branch/record counts, target 
 - Number/duration editors offer Save, existing-record Delete, and Cancel/Back. Zero is valid. Duration accepts decimal Minutes/Hours with value-preserving conversion; whole hours initially use Hours, otherwise Minutes.
 - Writes block duplicate submission, conflicting dismissal, and filter changes. Failures retain drafts with localized errors.
 - After a commit whose refresh fails, explain that data is saved, lock mutation controls (including for accessibility navigation), and let Save retry publication only. Habit Save, restoration, and deletion use the same recovery.
-- Calendar editing, filters, adding existing children, export, and conversion guidance share anchored popovers. Close/Cancel, outside tap, Android Back, or accessibility escape dismiss unless a write is pending. In Calendar drafts, Back/escape first returns to the day list.
+- Calendar editing, filters, moving a habit, export, and conversion guidance share anchored popovers. Close/Cancel, outside tap, Android Back, or accessibility escape dismiss unless a write is pending. In Calendar drafts, Back/escape first returns to the day list.
 
 ## Calendar tab
 
@@ -76,7 +85,7 @@ Open all visible roots collapsed, including inactive ones. Only parent arrows to
 
 ### Detail
 
-The header holds Back, the habit title, and an edit button. Opening detail immediately exposes accessible progress and rejects repeated taps. Sections appear in this order:
+The header holds Back, the habit title, a move button, and an edit button. Opening detail immediately exposes accessible progress and rejects repeated taps. Sections appear in this order:
 
 | Section | Behavior |
 | --- | --- |

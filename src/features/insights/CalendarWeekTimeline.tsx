@@ -5,16 +5,9 @@ import { CalendarDayBackground } from '@/features/CalendarDayBackground';
 import { t } from '@/i18n';
 import { Text } from '@/theme/Typography';
 import { habitAccentPalette } from '@/theme/habitColors';
-import { useEffect, useMemo, useRef } from 'react';
-import {
-  AccessibilityInfo,
-  ActivityIndicator,
-  Animated,
-  FlatList,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { useRevealAnimation } from '@/features/useRevealAnimation';
+import { useMemo } from 'react';
+import { ActivityIndicator, Animated, FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { calendarMonthLabel } from './calendarLabels';
 import { s, type Palette } from './detailStyles';
 import { useCalendarNavigation } from './useCalendarNavigation';
@@ -65,31 +58,12 @@ export function CalendarTimeline({
         : calendarActivity(selected ?? [habit], habits, entries, dates, originalHabits, originalEntries),
     [loading, selected, habit, habits, entries, dates, originalHabits, originalEntries],
   );
-  const fillOpacity = useRef(new Animated.Value(loading ? 0 : 1)).current;
-  useEffect(() => {
-    if (loading) {
-      fillOpacity.setValue(0);
-      return;
-    }
-    let active = true;
-    const reveal = (reduceMotion: boolean) => {
-      if (!active) return;
-      if (reduceMotion) fillOpacity.setValue(1);
-      else Animated.timing(fillOpacity, { toValue: 1, duration: 400, useNativeDriver: true }).start();
-    };
-    void AccessibilityInfo.isReduceMotionEnabled().then(reveal, () => reveal(true));
-    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', reduceMotion => {
-      if (reduceMotion) {
-        fillOpacity.stopAnimation();
-        reveal(true);
-      }
-    });
-    return () => {
-      active = false;
-      fillOpacity.stopAnimation();
-      subscription.remove();
-    };
-  }, [loading, fillOpacity]);
+  const fillOpacity = useRevealAnimation({
+    waiting: loading,
+    initial: loading ? 0 : 1,
+    resetWhileWaiting: true,
+    timing: { duration: 400, useNativeDriver: true },
+  });
 
   return (
     <View style={{ flexDirection: 'row' }}>

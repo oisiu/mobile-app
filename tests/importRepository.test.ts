@@ -34,6 +34,16 @@ const e = (id: string, habitId: string, value = 5): Entry => ({
 });
 const doc = (habits: Habit[], entries: Entry[] = []): ExportData => ({ version: 1, exportedAt: now, habits, entries });
 const setup = openTestRepository;
+
+type HabitPatch = Partial<Pick<Habit, 'name' | 'emoji' | 'color' | 'calendarThreshold'>>;
+/** Changes one habit's fields the way the editor does: through a hierarchy save of its root. */
+async function updateHabit(repo: HabitRepository, id: string, patch: HabitPatch) {
+  const habits = await repo.habits();
+  const saved = habits.find(item => item.id === id)!;
+  let root = saved;
+  while (root.parentId) root = habits.find(item => item.id === root.parentId)!;
+  await repo.editTree(root.id, [{ id, name: saved.name, emoji: saved.emoji, ...patch }], [], []);
+}
 describe('Safe import integrity', () => {
   it('persists root reordering with sequential positions while preserving descendants and entries', async () => {
     const { repo } = await setup();
@@ -204,15 +214,15 @@ describe('Appearance persistence and upgrade', () => {
     const { repo } = await setup(),
       id = await repo.create({ name: 'Colored', emoji: '👨‍👩‍👧‍👦', color: 'blue', type: 'number', parentId: null });
     expect((await repo.habits())[0].color).toBe('blue');
-    await repo.update(id, { color: 'pink' });
+    await updateHabit(repo, id, { color: 'pink' });
     expect((await repo.export()).habits[0].color).toBe('pink');
-    await repo.update(id, { color: null });
+    await updateHabit(repo, id, { color: null });
     expect((await repo.habits())[0].color).toBeUndefined();
     await repo.import(doc([{ ...h('legacy', null, 1), emoji: '✨✨' }]));
-    await repo.update('legacy', { name: 'Renamed' });
+    await updateHabit(repo, 'legacy', { name: 'Renamed' });
     expect((await repo.habits()).find(h => h.id === 'legacy')?.emoji).toBe('✨✨');
-    await expect(repo.update('legacy', { emoji: '💪💪' })).rejects.toThrow('INVALID_EMOJI');
-    await repo.update('legacy', { emoji: '👍🏽' });
+    await expect(updateHabit(repo, 'legacy', { emoji: '💪💪' })).rejects.toThrow('INVALID_EMOJI');
+    await updateHabit(repo, 'legacy', { emoji: '👍🏽' });
     expect((await repo.habits()).find(h => h.id === 'legacy')?.emoji).toBe('👍🏽');
   });
   it('stores root and child colors together and leaves records intact', async () => {
@@ -285,7 +295,7 @@ it('upgrades the six-color constraint without changing trees or entries', async 
   expect(after.entries).toEqual(before.entries);
   expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([]);
   expect(sqlite.prepare('SELECT COUNT(*) n FROM schema_versions WHERE version=4').get()).toEqual({ n: 1 });
-  await repo.update('root', { color: 'yellow' });
+  await updateHabit(repo, 'root', { color: 'yellow' });
   expect((await repo.habits()).find(habit => habit.id === 'root')?.color).toBe('yellow');
   for (const color of ['red', 'yellow', 'lime', 'cyan', 'brown', 'gray'] as const) {
     const id = await repo.create({ name: color, emoji: '', color, type: 'number', parentId: null });
@@ -320,7 +330,7 @@ it('upgrades existing habits for soft wine and round-trips the new color', async
   expect(after.entries).toEqual(before.entries);
   expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([]);
   expect(sqlite.prepare('SELECT COUNT(*) n FROM schema_versions WHERE version=8').get()).toEqual({ n: 1 });
-  await repo.update('root', { color: 'wine' });
+  await updateHabit(repo, 'root', { color: 'wine' });
   const exported = await repo.export();
   expect(exported.habits.find(habit => habit.id === 'root')?.color).toBe('wine');
   const copy = await setup();
@@ -401,7 +411,7 @@ it('rolls back a failed soft-wine migration, then retries without changing store
   await migrate(db as unknown as SQLiteDatabase);
   expect((await repo.export()).habits).toEqual(before.habits);
   expect(await repo.entries()).toEqual(before.entries);
-  await repo.update('root', { color: 'wine' });
+  await updateHabit(repo, 'root', { color: 'wine' });
   expect((await repo.habits())[0].color).toBe('wine');
 });
 
@@ -525,7 +535,7 @@ it('persists, clears, exports and imports independent calendar thresholds', asyn
   const { repo: other } = await setup();
   await other.import(data);
   expect(await other.habits()).toEqual(await repo.habits());
-  await repo.update(id, { calendarThreshold: null });
+  await updateHabit(repo, id, { calendarThreshold: null });
   expect((await repo.habits()).find(h => h.id === id)?.calendarThreshold).toBeUndefined();
   expect((await repo.habits()).find(h => h.name === 'Chapter')?.calendarThreshold).toBe(5);
   const changed = { ...data, habits: data.habits.map(h => (h.id === id ? { ...h, calendarThreshold: 30 } : h)) };
@@ -542,7 +552,7 @@ it('upgrades version 6 without changing records and rejects invalid thresholds b
   await expect(
     repo.create({ name: 'Invalid', emoji: '📖', type: 'boolean', parentId: null, calendarThreshold: 1 }),
   ).rejects.toThrow();
-  await expect(repo.update('numeric', { calendarThreshold: -1 })).rejects.toThrow();
+  await expect(updateHabit(repo, 'numeric', { calendarThreshold: -1 })).rejects.toThrow();
   await expect(
     repo.editTree('numeric', [{ id: 'numeric', name: 'Changed', emoji: '•', calendarThreshold: 0 }], [], []),
   ).rejects.toThrow();
@@ -747,8 +757,8 @@ it('enforces name limits on writes while preserving unchanged imported legacy na
   const { repo } = await setup(),
     legacy = 'a'.repeat(60);
   await repo.import(doc([{ ...h('root'), name: legacy }]));
-  await repo.update('root', { name: legacy, color: 'blue' });
-  await expect(repo.update('root', { name: 'b'.repeat(26) })).rejects.toThrow('habitNameTooLong');
+  await updateHabit(repo, 'root', { name: legacy, color: 'blue' });
+  await expect(updateHabit(repo, 'root', { name: 'b'.repeat(26) })).rejects.toThrow('habitNameTooLong');
   await expect(repo.create({ name: ' ', emoji: '✨', type: 'number', parentId: null })).rejects.toThrow('nameRequired');
   await expect(repo.create({ name: 'b'.repeat(26), emoji: '✨', type: 'number', parentId: null })).rejects.toThrow(
     'habitNameTooLong',

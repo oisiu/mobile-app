@@ -6,16 +6,11 @@ import { t } from '@/i18n';
 import { light } from '@/theme';
 import { SvgText } from '@/theme/SvgTypography';
 import { Text } from '@/theme/Typography';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  AccessibilityInfo,
-  Animated,
-  ScrollView,
-  View,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-} from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ScrollView, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
+import { useRevealAnimation } from '@/features/useRevealAnimation';
+import { highlightOpacity, PLOT_HEIGHT, shortMonthLabel, startsNewYear, toggledHighlight } from './chartShared';
 import { tileIndexRange, timelineTiles, useTimelineTiles, type TimelineTile } from './timelineTiles';
 import { useTimelineScroll } from './useTimelineScroll';
 
@@ -40,7 +35,6 @@ type Props = {
 
 type Point = { x: number; y: number };
 
-const PLOT_HEIGHT = 202;
 const AXIS_WIDTH = 42;
 const GRID_VALUES = [100, 80, 60, 40, 20, 0];
 const SUMMARY_LABELS = ['score', 'month', 'year', 'total'] as const;
@@ -58,39 +52,19 @@ const percent = (value: number, signed = false) =>
 
 /** Runs the left-to-right entrance draw; returns its 0–1 progress. */
 function useDrawProgress(enabled: boolean, loading: boolean) {
-  const progress = useRef(new Animated.Value(enabled ? 0 : 1)).current;
   const [drawProgress, setDrawProgress] = useState(enabled ? 0 : 1);
+  const waiting = loading || !enabled;
+  const progress = useRevealAnimation({
+    waiting,
+    initial: enabled ? 0 : 1,
+    timing: { delay: 600, duration: 600, useNativeDriver: false },
+    onShown: () => setDrawProgress(1),
+  });
   useEffect(() => {
-    if (loading || !enabled) return;
-    let active = true;
+    if (waiting) return;
     const listener = progress.addListener(({ value }) => setDrawProgress(value));
-    const reveal = (reduceMotion: boolean) => {
-      if (!active) return;
-      if (reduceMotion) {
-        progress.setValue(1);
-        setDrawProgress(1);
-        return;
-      }
-      Animated.timing(progress, { toValue: 1, delay: 600, duration: 600, useNativeDriver: false }).start(
-        ({ finished }) => {
-          if (active && finished) setDrawProgress(1);
-        },
-      );
-    };
-    void AccessibilityInfo.isReduceMotionEnabled().then(reveal, () => reveal(true));
-    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', reduceMotion => {
-      if (reduceMotion) {
-        progress.stopAnimation();
-        reveal(true);
-      }
-    });
-    return () => {
-      active = false;
-      progress.stopAnimation();
-      progress.removeListener(listener);
-      subscription.remove();
-    };
-  }, [loading, enabled, progress]);
+    return () => progress.removeListener(listener);
+  }, [waiting, progress]);
   return drawProgress;
 }
 
@@ -141,9 +115,9 @@ export function StrengthChart({
         : 3
       : Math.max(1, Math.ceil(count / Math.max(2, Math.floor(span / 32))));
   const revealX = plotWidth - Math.max(0, width - (timeline ? AXIS_WIDTH : 0)) * (1 - drawProgress);
-  const dimmed = (id: string) => (highlightedId && highlightedId !== id ? 0.22 : 1);
+  const dimmed = (id: string) => highlightOpacity(highlightedId, id);
   const toggleHighlight = (id: string) =>
-    onHighlight ? () => onHighlight(highlightedId === id ? null : id) : undefined;
+    onHighlight ? () => onHighlight(toggledHighlight(highlightedId, id)) : undefined;
 
   /** The drawn part of one line between bucket indices, cut at the entrance reveal edge. */
   const linePoints = (values: number[], first: number, last: number) => {
@@ -165,13 +139,11 @@ export function StrengthChart({
     bucketSize === 'month'
       ? index % stride === 0
       : index === 0 || index === count - 1 || (index % stride === 0 && count - 1 - index >= stride);
-  const startsYear = (index: number) =>
-    index === 0 || buckets[index].key.slice(0, 4) !== buckets[index - 1].key.slice(0, 4);
   const hasYearContext = bucketSize === 'month' || bucketSize === 'quarter' || bucketSize === 'week';
 
   const bucketLabels = (index: number) => {
     const bucket = buckets[index];
-    const label = bucketSize === 'month' ? bucket.label.replace(/[.\s]/g, '').slice(0, 3) : bucket.label;
+    const label = bucketSize === 'month' ? shortMonthLabel(bucket.label) : bucket.label;
     const anchor = bucketSize === 'day' ? 'middle' : index === 0 ? 'start' : index === count - 1 ? 'end' : 'middle';
     const dayContext = bucketSize === 'day' ? dayBucketContext(buckets, index) : null;
     return (
@@ -181,7 +153,7 @@ export function StrengthChart({
             {label}
           </SvgText>
         )}
-        {hasYearContext && startsYear(index) && (
+        {hasYearContext && startsNewYear(buckets, index) && (
           <SvgText x={x(index)} y={194} textAnchor={index === 0 ? 'start' : 'middle'} fill={c.muted} fontSize={11}>
             {bucket.key.slice(0, 4)}
           </SvgText>

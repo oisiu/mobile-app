@@ -4,6 +4,7 @@ import { TouchableOpacity, View } from 'react-native';
 import { Habit } from '@/domain/types';
 import { light } from '@/theme';
 import { t } from '@/i18n';
+import { toggledHighlight } from './chartShared';
 
 export function OverviewLegend({
   items,
@@ -37,7 +38,7 @@ export function OverviewLegend({
             accessibilityLabel={item.habit.name}
             accessibilityHint={t('highlightCategoryHint')}
             accessibilityState={{ selected }}
-            onPress={() => onHighlight(selected ? null : item.habit.id)}
+            onPress={() => onHighlight(toggledHighlight(highlightedId, item.habit.id))}
             style={{
               flexDirection: 'row',
               alignItems: 'center',

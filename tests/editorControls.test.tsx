@@ -3,7 +3,7 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { HabitTypeConversion } from '../src/features/HabitTypeConversion';
 import { HabitVisibility } from '../src/features/habitEditor/HabitVisibility';
-import { ChildAddActions, ChildReorderActions } from '../src/features/habitEditor/ChildActions';
+import { AddChildButton, ChildRowActions } from '../src/features/habitEditor/ChildActions';
 import { DraftRow } from '../src/features/habitEditor/DraftRow';
 import { EditorScreen } from '../src/features/habitEditor/EditorScreen';
 import type { DraftNode } from '../src/features/habitEditor/draftTree';
@@ -177,37 +177,75 @@ it('keeps decimal input and duration unit conversion intact with concise convers
   ).toHaveLength(1);
 });
 
-it('disables reorder boundaries, hides controls for one child, and names unnamed drafts', async () => {
-  const move = vi.fn();
-  await render(<ChildReorderActions name=" " siblingIndex={0} siblingCount={2} onReorder={move} c={light} />);
+it('disables reorder boundaries, hides reordering for one child, and names unnamed drafts', async () => {
+  const move = vi.fn(),
+    add = vi.fn(),
+    remove = vi.fn();
+  const actions = (name: string, siblingIndex: number, siblingCount: number) => (
+    <ChildRowActions
+      name={name}
+      siblingIndex={siblingIndex}
+      siblingCount={siblingCount}
+      onAdd={add}
+      onReorder={move}
+      onRemove={remove}
+      c={light}
+    />
+  );
+  await render(actions(' ', 0, 2));
   await act(async () => button(t('moveUp') + ' ' + t('newCategory')).props.onPress());
   expect(move).not.toHaveBeenCalled();
   await act(async () => button(t('moveDown') + ' ' + t('newCategory')).props.onPress());
   expect(move).toHaveBeenCalledWith(1);
-  await act(async () =>
-    renderer.update(<ChildReorderActions name="Last" siblingIndex={1} siblingCount={2} onReorder={move} c={light} />),
-  );
+  await act(async () => renderer.update(actions('Last', 1, 2)));
   await act(async () => button(t('moveDown') + ' Last').props.onPress());
   expect(move).toHaveBeenCalledTimes(1);
   await act(async () => button(t('moveUp') + ' Last').props.onPress());
   expect(move).toHaveBeenCalledWith(-1);
-  await act(async () =>
-    renderer.update(<ChildReorderActions name="Only" siblingIndex={0} siblingCount={1} onReorder={move} c={light} />),
-  );
-  expect(renderer.root.findAllByType('Button' as React.ElementType)).toHaveLength(0);
+  await act(async () => renderer.update(actions('Only', 0, 1)));
+  // An only child keeps its add and delete actions but has nothing to reorder against.
+  const labels = renderer.root
+    .findAllByType('Button' as React.ElementType)
+    .map(node => node.props.accessibilityLabel as string);
+  expect(labels).toEqual([`${t('addLevel')} Only`, `${t('delete')} Only`]);
 });
 
-it('groups new and existing child actions and routes the new-child callback at each level', async () => {
-  const add = vi.fn();
-  for (const nested of [false, true]) {
-    const element = <ChildAddActions onAdd={add} existing={<TextMarker />} c={light} nested={nested} />;
-    if (!nested) await render(element);
-    else await act(async () => renderer.update(element));
-    expect(renderer.root.findByType('Marker' as React.ElementType)).toBeDefined();
-    await act(async () => button(t(nested ? 'addLevel' : 'addChild')).props.onPress());
-  }
-  expect(add).toHaveBeenCalledTimes(2);
+it('keeps every row action on one line and routes add, reorder and delete', async () => {
+  const move = vi.fn(),
+    add = vi.fn(),
+    remove = vi.fn();
+  await render(
+    <ChildRowActions
+      name="Gym"
+      siblingIndex={0}
+      siblingCount={3}
+      onAdd={add}
+      onReorder={move}
+      onRemove={remove}
+      c={light}
+    />,
+  );
+  const row = renderer.root.findAllByType('View' as React.ElementType)[0];
+  expect(row.props.style.flexDirection).toBe('row');
+  expect(row.findAllByType('Button' as React.ElementType)).toHaveLength(4);
+  await act(async () => button(`${t('addLevel')} Gym`).props.onPress());
+  await act(async () => button(`${t('delete')} Gym`).props.onPress());
+  expect(add).toHaveBeenCalledOnce();
+  expect(remove).toHaveBeenCalledOnce();
+  expect(move).not.toHaveBeenCalled();
 });
+
+it('labels the add button for the habit itself and for a named or unnamed sub-habit', async () => {
+  const add = vi.fn();
+  await render(<AddChildButton onAdd={add} c={light} />);
+  await act(async () => button(t('addChild')).props.onPress());
+  await act(async () => renderer.update(<AddChildButton onAdd={add} c={light} parentName="Gym" />));
+  await act(async () => button(`${t('addLevel')} Gym`).props.onPress());
+  await act(async () => renderer.update(<AddChildButton onAdd={add} c={light} parentName="  " />));
+  await act(async () => button(`${t('addLevel')} ${t('newCategory')}`).props.onPress());
+  expect(add).toHaveBeenCalledTimes(3);
+});
+
 function TextMarker() {
   return React.createElement('Marker');
 }
@@ -238,9 +276,6 @@ it('caps cumulative nested indentation and forwards row edits to the correct chi
       onAdd={add}
       onRemove={remove}
       onReorder={vi.fn()}
-      existing={() => null}
-      canRemove={() => true}
-      isAttachment={() => false}
     />,
   );
   const rows = renderer.root.findAllByType(DraftRow),
@@ -258,7 +293,7 @@ it('caps cumulative nested indentation and forwards row edits to the correct chi
   await act(async () => inputs[1].props.onChangeText('Renamed'));
   expect(change).toHaveBeenLastCalledWith('deep', { name: 'Renamed' });
   const addButton = deep.find(
-    node => (node.type as unknown) === 'Button' && node.props.accessibilityLabel === t('addLevel'),
+    node => (node.type as unknown) === 'Button' && node.props.accessibilityLabel === `${t('addLevel')} deep`,
   );
   await act(async () => addButton.props.onPress());
   expect(add).toHaveBeenCalledWith('deep');
