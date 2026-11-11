@@ -7,13 +7,20 @@ async function waitForCI({ repository, commit, listRuns, sleep = setTimeout, att
   }
   for (let attempt = 0; attempt < attempts; attempt++) {
     const runs = await listRuns(repository, commit);
-    const run = runs.filter(candidate =>
-      candidate.path === '.github/workflows/ci.yml' &&
-      candidate.head_sha === commit && candidate.head_branch === 'main' &&
-      ['push', 'workflow_dispatch'].includes(candidate.event)
-    ).sort((a, b) => b.id - a.id)[0];
+    const run = runs
+      .filter(
+        candidate =>
+          candidate.path === '.github/workflows/ci.yml' &&
+          candidate.head_sha === commit &&
+          candidate.head_branch === 'main' &&
+          ['push', 'workflow_dispatch'].includes(candidate.event),
+      )
+      .sort((a, b) => b.id - a.id)[0];
     if (run?.status === 'completed') {
-      if (run.conclusion !== 'success') throw new Error(`CI run ${run.id} ended with ${run.conclusion}. Rerun CI on this commit before retrying the release.`);
+      if (run.conclusion !== 'success')
+        throw new Error(
+          `CI run ${run.id} ended with ${run.conclusion}. Rerun CI on this commit before retrying the release.`,
+        );
       console.log(`CI run ${run.id} succeeded for ${commit}.`);
       return;
     }
@@ -27,9 +34,14 @@ if (require.main === module) {
   waitForCI({
     repository: process.env.GITHUB_REPOSITORY,
     commit: process.env.GITHUB_SHA,
-    listRuns: (repository, commit) => JSON.parse(execFileSync('gh', [
-      'api', `repos/${repository}/actions/workflows/ci.yml/runs?head_sha=${commit}&branch=main&per_page=100`,
-    ], { encoding: 'utf8' })).workflow_runs,
+    listRuns: (repository, commit) =>
+      JSON.parse(
+        execFileSync(
+          'gh',
+          ['api', `repos/${repository}/actions/workflows/ci.yml/runs?head_sha=${commit}&branch=main&per_page=100`],
+          { encoding: 'utf8' },
+        ),
+      ).workflow_runs,
   }).catch(error => {
     console.error(error.message);
     process.exitCode = 1;

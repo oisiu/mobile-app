@@ -9,6 +9,7 @@ auditConfig:
   ignoreGhsas:
     - GHSA-86w9-cpqp-85rv
     - GHSA-vfj7-8cjw-p6xm
+    - GHSA-gcqx-w48m-w2h4
 allowBuilds:
   esbuild: true
   unrs-resolver: true

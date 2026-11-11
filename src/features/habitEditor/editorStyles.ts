@@ -1,0 +1,28 @@
+import { StyleSheet } from 'react-native';
+export const s = StyleSheet.create({
+  page: { flex: 1 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  content: { padding: 20, paddingTop: 12, paddingBottom: 50 },
+  top: { minHeight: 48, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30 },
+  cancelButton: { minHeight: 44, justifyContent: 'center' },
+  title: { fontSize: 17, fontWeight: '700' },
+  label: { fontSize: 13, textTransform: 'uppercase', letterSpacing: 1, marginTop: 22, marginBottom: 8 },
+  nameRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 },
+  emoji: { width: 58, padding: 14, borderRadius: 13, fontSize: 20, textAlign: 'center' },
+  input: { flex: 1, minWidth: 96, padding: 14, borderRadius: 13, fontSize: 17 },
+  childCard: { marginTop: 10 },
+  childRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 7 },
+  childEmoji: { width: 48, minHeight: 46, borderRadius: 12, textAlign: 'center', fontSize: 18 },
+  childName: { flex: 1, minWidth: 96, minHeight: 46, borderRadius: 12, paddingHorizontal: 12, fontSize: 15 },
+  rootActions: { flexDirection: 'row', gap: 10, marginTop: 28 },
+  rootAction: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+});

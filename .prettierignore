@@ -1,0 +1,17 @@
+# Generated and vendored output
+node_modules/
+.pnpm-store/
+.expo/
+dist/
+coverage/
+android/
+ios/
+expo-env.d.ts
+pnpm-lock.yaml
+
+# Prose, store copy and CI workflows keep their hand-written layout
+*.md
+*.yml
+*.yaml
+store/
+assets/

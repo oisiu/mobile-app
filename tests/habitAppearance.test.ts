@@ -1,30 +1,78 @@
-import { describe,expect,it } from 'vitest';
-import { assertHabitAppearance,habitColors,inheritedHabitColor,isHabitColor,isSingleEmoji } from '../src/domain/habitAppearance';
-import { habitAccent,habitAccentPalette,habitChartColor } from '../src/theme/habitColors';
+import { describe, expect, it } from 'vitest';
+import {
+  assertHabitAppearance,
+  habitColors,
+  inheritedHabitColor,
+  isHabitColor,
+  isSingleEmoji,
+} from '../src/domain/habitAppearance';
+import { habitAccent, habitAccentPalette, habitChartColor } from '../src/theme/habitColors';
 import { Habit } from '../src/domain/types';
-const h=(id:string,parentId:string|null=null,color?:Habit['color']):Habit=>({id,parentId,color,name:id,emoji:'',type:'boolean',sortOrder:0,isGeneral:false,archivedAt:null,createdAt:'',updatedAt:''});
-describe('Habit appearance',()=>{
-  it('uses the current theme primary for automatic charts and preserves selected or inherited colors',()=>{
-    const root=h('root'),child=h('child','root'),habits=[root,child];
-    for(const primary of ['#280003','#E8D5BE']){
-      expect(habitChartColor(root,habits,primary)).toBe(primary);
-      expect(habitChartColor(child,habits,primary)).toBe(primary);
-      expect(habitChartColor({...root,color:'pink'},habits,primary)).toBe(habitAccentPalette.pink);
-      expect(habitChartColor(child,[{...root,color:'blue'},child],primary)).toBe(habitAccentPalette.blue);
+const h = (id: string, parentId: string | null = null, color?: Habit['color']): Habit => ({
+  id,
+  parentId,
+  color,
+  name: id,
+  emoji: '',
+  type: 'boolean',
+  sortOrder: 0,
+  isGeneral: false,
+  archivedAt: null,
+  createdAt: '',
+  updatedAt: '',
+});
+describe('Habit appearance', () => {
+  it('uses the current theme primary for automatic charts and preserves selected or inherited colors', () => {
+    const root = h('root'),
+      child = h('child', 'root'),
+      habits = [root, child];
+    for (const primary of ['#280003', '#E8D5BE']) {
+      expect(habitChartColor(root, habits, primary)).toBe(primary);
+      expect(habitChartColor(child, habits, primary)).toBe(primary);
+      expect(habitChartColor({ ...root, color: 'pink' }, habits, primary)).toBe(habitAccentPalette.pink);
+      expect(habitChartColor(child, [{ ...root, color: 'blue' }, child], primary)).toBe(habitAccentPalette.blue);
     }
   });
-  it.each(['','✨','👍🏽','🇪🇸','👨‍👩‍👧‍👦','❤️','1️⃣','🏳️‍🌈','👩🏽‍💻','🏴\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}'])('accepts one complete emoji %s',emoji=>expect(isSingleEmoji(emoji)).toBe(true));
-  it.each(['✨✨','👍🏽🇪🇸','hi','1','🇪','🏽','👨‍','🙂 text',' 🙂','🙂\n'])('rejects multiple or incomplete emoji %s',emoji=>expect(isSingleEmoji(emoji)).toBe(false));
-  it('validates palette choices and empty defaults',()=>{
-    for(const color of habitColors){expect(isHabitColor(color)).toBe(true);expect(()=>assertHabitAppearance('✨',color)).not.toThrow()}
-    expect(()=>assertHabitAppearance('',null)).not.toThrow();expect(()=>assertHabitAppearance('',undefined)).not.toThrow();
-    expect(()=>assertHabitAppearance('✨✨',null)).toThrow('INVALID_EMOJI');expect(()=>assertHabitAppearance('✨','#fff')).toThrow('INVALID_COLOR');expect(isHabitColor(2)).toBe(false);
+  it.each([
+    '',
+    '✨',
+    '👍🏽',
+    '🇪🇸',
+    '👨‍👩‍👧‍👦',
+    '❤️',
+    '1️⃣',
+    '🏳️‍🌈',
+    '👩🏽‍💻',
+    '🏴\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}',
+  ])('accepts one complete emoji %s', emoji => expect(isSingleEmoji(emoji)).toBe(true));
+  it.each(['✨✨', '👍🏽🇪🇸', 'hi', '1', '🇪', '🏽', '👨‍', '🙂 text', ' 🙂', '🙂\n'])(
+    'rejects multiple or incomplete emoji %s',
+    emoji => expect(isSingleEmoji(emoji)).toBe(false),
+  );
+  it('validates palette choices and empty defaults', () => {
+    for (const color of habitColors) {
+      expect(isHabitColor(color)).toBe(true);
+      expect(() => assertHabitAppearance('✨', color)).not.toThrow();
+    }
+    expect(() => assertHabitAppearance('', null)).not.toThrow();
+    expect(() => assertHabitAppearance('', undefined)).not.toThrow();
+    expect(() => assertHabitAppearance('✨✨', null)).toThrow('INVALID_EMOJI');
+    expect(() => assertHabitAppearance('✨', '#fff')).toThrow('INVALID_COLOR');
+    expect(isHabitColor(2)).toBe(false);
   });
-  it('resolves overrides, inheritance, reset, defaults, orphans and cycles',()=>{
-    const root=h('root',null,'blue'),child=h('child','root'),grandchild=h('grandchild','child','pink'),habits=[root,child,grandchild];
-    expect(inheritedHabitColor(child,habits)).toBe('blue');expect(inheritedHabitColor(grandchild,habits)).toBe('pink');
-    expect(inheritedHabitColor({...grandchild,color:null},habits)).toBe('blue');expect(habitAccent(child,habits,'fallback')).toBe(habitAccentPalette.blue);
-    expect(habitAccent(h('plain'),[],'fallback')).toBe('fallback');expect(inheritedHabitColor(h('orphan','missing'),[])).toBeNull();
-    const a=h('a','b'),b=h('b','a');expect(inheritedHabitColor(a,[a,b])).toBeNull();
+  it('resolves overrides, inheritance, reset, defaults, orphans and cycles', () => {
+    const root = h('root', null, 'blue'),
+      child = h('child', 'root'),
+      grandchild = h('grandchild', 'child', 'pink'),
+      habits = [root, child, grandchild];
+    expect(inheritedHabitColor(child, habits)).toBe('blue');
+    expect(inheritedHabitColor(grandchild, habits)).toBe('pink');
+    expect(inheritedHabitColor({ ...grandchild, color: null }, habits)).toBe('blue');
+    expect(habitAccent(child, habits, 'fallback')).toBe(habitAccentPalette.blue);
+    expect(habitAccent(h('plain'), [], 'fallback')).toBe('fallback');
+    expect(inheritedHabitColor(h('orphan', 'missing'), [])).toBeNull();
+    const a = h('a', 'b'),
+      b = h('b', 'a');
+    expect(inheritedHabitColor(a, [a, b])).toBeNull();
   });
 });

@@ -4,13 +4,14 @@
 
 Follow [root setup](../README.md#development). [package.json](../package.json) owns Node/pnpm and dependency versions; [CI](../.github/workflows/ci.yml) selects its runtime. Tests need Node SQLite. Android builds/sync require Java 21: recheck Android Studio’s Gradle JDK after regeneration and set `toolchainVersion=21` in `android/gradle/gradle-daemon-jvm.properties` when present. Bundled Java 25 can fail Prefab through native-access warnings.
 
-The [package manifest](../package.json) defines all scripts:
+Common scripts:
 
 | Command | Purpose |
 | --- | --- |
 | `pnpm start` | Start Expo |
 | `pnpm android` / `pnpm ios` | Build and install the native debug app and start Metro; these do not generate release builds |
 | `pnpm build` | Export production Android and iOS JavaScript bundles |
+| `pnpm format` / `pnpm format:check` | Apply or check Prettier formatting ([configuration](../.prettierrc.json)) |
 | `pnpm typecheck` / `pnpm lint` / `pnpm deadcode` | Run individual static checks |
 | `pnpm test:coverage` | Run tests with enforced coverage |
 

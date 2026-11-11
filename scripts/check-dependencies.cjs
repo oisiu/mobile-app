@@ -16,13 +16,18 @@ for (const [runtime, companion] of pairs) {
       if (typeof value !== 'string' || !value) throw new Error(`Missing version for ${name}`);
       return value;
     };
-    const runtimeVersion = version(runtime), companionVersion = version(companion);
+    const runtimeVersion = version(runtime),
+      companionVersion = version(companion);
     if (runtimeVersion !== companionVersion) {
-      console.error(`Dependency compatibility: ${runtime}@${runtimeVersion} and ${companion}@${companionVersion} must use the same exact version. Update them together; do not bypass this check.`);
+      console.error(
+        `Dependency compatibility: ${runtime}@${runtimeVersion} and ${companion}@${companionVersion} must use the same exact version. Update them together; do not bypass this check.`,
+      );
       failed = true;
     }
   } catch (error) {
-    console.error(`Dependency compatibility: cannot check ${runtime} / ${companion}. Install dependencies with the frozen lockfile first. ${error.message}`);
+    console.error(
+      `Dependency compatibility: cannot check ${runtime} / ${companion}. Install dependencies with the frozen lockfile first. ${error.message}`,
+    );
     failed = true;
   }
 }
