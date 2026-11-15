@@ -5,16 +5,6 @@ export const skeleton = StyleSheet.create({
   skeletonCard: { minHeight: 250, borderRadius: 23, padding: 16, marginBottom: 16, overflow: 'hidden' },
   skeletonPill: { width: 116, height: 36, borderRadius: 18 },
   skeletonLine: { position: 'absolute', left: 0, right: 0, height: 2, borderRadius: 1 },
-  calendarSkeleton: { flexDirection: 'row' },
-  calendarSkeletonWeekdays: { width: 22, paddingTop: 34, gap: 3 },
-  calendarSkeletonWeekday: { width: 12, height: 44, borderRadius: 3 },
-  calendarSkeletonViewport: { flex: 1, overflow: 'hidden' },
-  calendarSkeletonWeeks: { flexDirection: 'row', gap: 3 },
-  calendarSkeletonWeek: { width: 44 },
-  calendarSkeletonMonthSpace: { height: 18 },
-  calendarSkeletonMonth: { width: 44, height: 8, borderRadius: 3 },
-  calendarSkeletonDays: { gap: 3 },
-  calendarSkeletonDay: { width: 44, height: 44, borderRadius: 3 },
 });
 export const s = StyleSheet.create({
   page: { flex: 1 },

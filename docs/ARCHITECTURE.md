@@ -49,7 +49,7 @@ Analytics ownership:
 | `domain/chartTimeline.ts` | Detail Day/Week/Month/Quarter/Year buckets |
 | `domain/habitStrength.ts` | Daily exponential strength and bucket averages |
 | `domain/history.ts` | History totals and axes |
-| `domain/frequency.ts` | Annual weekday frequencies using elapsed-date denominators |
+| `domain/frequency.ts` | Monthly weekday frequencies using elapsed-date denominators |
 | `features/insights/historyLayout.ts` | History bar/label spacing and fixed-axis overflow |
 | `features/insights/useCalendarNavigation.ts` | Measured calendar positioning, overlapping history-request guards, and bounded month navigation |
 | `features/insights/useTimelineScroll.ts` | Concurrent history-request guards; viewport preserved on prepends |

@@ -93,7 +93,7 @@ The header holds Back, the habit title, a move button, and an edit button. Openi
 | Calendar | Activity timeline whose day boxes open a larger calendar for day editing. |
 | History | One stacked bar per period. Records belong to the deepest selected habit; parents retain only contributions not assigned to selected descendants. Boolean dates count once, split equally among active selected segments. |
 | Best streaks | Up to five longest active-date ranges across all recorded history through today. |
-| Frequency | Weekday activity across all recorded history, grouped into annual columns. |
+| Frequency | Weekday activity across all recorded history, grouped into monthly columns. |
 
 - **Mode:** quantity/duration detail starts in its typed mode and offers Activity, which counts any stored record, including zero, once per branch/date. Mode applies to Calendar, History, streaks, Frequency, and the enlarged Calendar; it preserves periods/selections and resets on another habit. Consistency always uses original positive records. Boolean habits have no mode selector.
 - **Grouping:** Consistency and History have independent Day/Week/Month/Quarter/Year menus, initially Day and reset when opening another habit. Best streaks/Frequency use all history without period controls.
@@ -116,12 +116,13 @@ Above the plot, show the opened habit’s current strength, signed percentage-po
 - Start at the current month’s end, completing its final week through Sunday with disabled future boxes.
 - Combine selected branches’ activity. Explicit active descendant colors take priority over parent fallback; simultaneous colors form sectors. Deduplicate overlapping branches and identical colors.
 - Any compact box opens the enlarged calendar centered on the tapped week without mutating data. Future boxes may open the dialog but cannot be edited.
+- The enlarged calendar opens with numbered day boxes and month labels. Activity fills fade in once ready, and editing is disabled until then.
 - Only the enlarged dialog edits, with an explicit editing habit when several are selected. Boolean toggles direct input; number/duration uses the shared form within the same modal. Back exits the form before the dialog.
 - Thresholds: original aggregated activity strictly below the threshold gets 30% fill; at/above gets full fill, in both calendars and both modes. Thresholds affect appearance only.
 
 ### Frequency timeline
 
-Annual columns cover at least the current year and nine preceding years, extending to the selected branch’s first recorded year, including child/archived records. Denominators use complete past years and elapsed current-year weekdays; future dates are excluded. Circle size/shade reflects active/possible days. Longer histories open at the latest year beside a fixed weekday axis. Circles are non-interactive; accessible labels give year, weekday, and counts.
+Monthly columns cover at least the current month and eleven preceding months, extending to the selected branch’s first recorded month, including child/archived records. Denominators use complete past months and elapsed weekdays through today in the current month. Circle size and shade reflect the share of active days. The timeline opens at the latest month beside a fixed weekday axis. Circles are non-interactive, and accessibility labels give the month, year, weekday, and counts.
 
 ## More
 

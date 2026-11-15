@@ -23,7 +23,7 @@ export const extra = {
     streaksInfo:
       'Shows the five longest runs of consecutive active days across all recorded history, through today.\n\nEach bar shows the start date, end date and number of days. A day without activity breaks the streak.',
     frequencyInfo:
-      'Shows which days of the week you are most often active. Larger, darker circles mean a higher share of active days.\n\nEach column is one year, from the selected habit’s first recorded year through today.\n\nAll recorded history counts, including child habits. Future dates are excluded.',
+      'Shows which days of the week you are most often active. Larger, darker circles mean a higher share of active days.\n\nEach column is one month. The chart shows at least the last 12 months and extends back to the first recorded month.\n\nAll recorded history counts, including child habits. Future dates are excluded.',
     homeEmpty: 'Your habits start here. Tap + to add your first one.',
     boolean: 'Yes/No',
     number: 'Quantity',
@@ -47,7 +47,7 @@ export const extra = {
     holdToReorder: 'Press and hold, then drag vertically to reorder among siblings.',
     expand: 'Expand children',
     frequencyHelp:
-      'Active days by weekday across the last 12 months. Larger, darker circles mean that weekday was active more often.',
+      'Active days by weekday, grouped by month. Larger, darker circles mean that weekday was active more often.',
     habitArchived: '{name} archived',
     habitCreated: '{name} added',
     habitDeleted: '{name} deleted',
@@ -108,7 +108,7 @@ export const extra = {
     streaksInfo:
       'Muestra las cinco rachas más largas de días activos seguidos de todo el historial registrado, hasta hoy.\n\nCada barra indica la fecha de inicio, la de fin y el número de días. Un día sin actividad interrumpe la racha.',
     frequencyInfo:
-      'Muestra qué días de la semana tienes actividad con más frecuencia. Los círculos más grandes y oscuros indican una mayor proporción de días activos.\n\nCada columna es un año, desde el primer año con registros del hábito seleccionado hasta hoy.\n\nSe tiene en cuenta todo el historial, incluidos los hábitos hijos. Las fechas futuras quedan excluidas.',
+      'Muestra qué días de la semana tienes actividad con más frecuencia. Los círculos más grandes y oscuros indican una mayor proporción de días activos.\n\nCada columna representa un mes. El gráfico muestra al menos los últimos 12 meses y se amplía hasta el primer mes con registros.\n\nSe tiene en cuenta todo el historial, incluidos los hábitos hijos. Las fechas futuras quedan excluidas.',
     homeEmpty: 'Tus hábitos empiezan aquí. Toca + para añadir el primero.',
     boolean: 'Marcar sí/no',
     number: 'Cantidad',
@@ -132,7 +132,7 @@ export const extra = {
     holdToReorder: 'Mantén pulsado y arrastra verticalmente para reordenar entre hermanos.',
     expand: 'Expandir hijos',
     frequencyHelp:
-      'Días activos por día de la semana durante los últimos 12 meses. Los círculos más grandes y oscuros indican más actividad ese día.',
+      'Días activos por día de la semana, agrupados por mes. Los círculos más grandes y oscuros indican más actividad ese día.',
     habitArchived: '{name} archivado',
     habitCreated: '{name} añadido',
     habitDeleted: '{name} eliminado',

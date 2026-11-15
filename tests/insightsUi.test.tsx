@@ -1,4 +1,5 @@
 import { addDays } from '../src/utils/dates';
+import { CalendarDialog } from '../src/features/insights/CalendarDialog';
 import { CalendarTimeline } from '../src/features/insights/CalendarWeekTimeline';
 import { AnchoredPopover, openPopover } from '../src/features/AnchoredPopover';
 import { HiddenCategories } from '../src/features/settings/HiddenCategories';
@@ -1851,57 +1852,63 @@ it('removes shared time controls while retaining independent chart menus and Cal
   expect(root.findAll(node => node.props.accessibilityHint === t('openCalendarDay')).length).toBeGreaterThan(0);
 });
 
-it.each([1, 37])('keeps Frequency weekdays fixed on the right and opens at the latest of %i years', async years => {
-  const scrollToEnd = vi.fn(),
-    startYear = Number(state.today.slice(0, 4)) - years + 1,
-    visibleYears = Math.max(10, years),
-    firstVisible = Number(state.today.slice(0, 4)) - visibleYears + 1;
-  state.app = {
-    ...state.app,
-    entries: [
-      {
-        id: 'old',
-        habitId: habit.id,
-        localDate: `${startYear}-01-01`,
-        value: 1,
-        occurredAt: '',
-        timezone: 'UTC',
-        createdAt: '',
-        updatedAt: '',
-      },
-    ],
-  };
-  await act(async () => {
-    renderer = create(<InsightDetailScreen />, { createNodeMock: () => ({ scrollToEnd }) });
-  });
-  const root = renderer.root;
-  await act(async () =>
-    root
-      .findAllByType('ScrollView' as React.ElementType)[0]
-      .props.onScroll({ nativeEvent: { contentOffset: { y: 800 } } }),
-  );
-  const frequency = root.find(node => typeof node.type === 'function' && node.type.name === 'Frequency'),
-    scroll = frequency.findByType('ScrollView' as React.ElementType);
-  expect(scrollToEnd).toHaveBeenCalledWith({ animated: false });
-  const weekdays = Array.from({ length: 7 }, (_, i) =>
-    new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(new Date(2024, 0, 1 + i)),
-  );
-  expect(scroll.findAllByType('Text' as React.ElementType).map(node => node.props.children)).toEqual(
-    Array.from({ length: visibleYears }, (_, index) => String(firstVisible + index)),
-  );
-  const axis = scroll.parent!.findAllByType('View' as React.ElementType).find(node => node.props.style?.width === 48)!;
-  expect(axis.findAllByType('Text' as React.ElementType).map(node => node.props.children)).toEqual(weekdays);
-  expect(scroll.parent!.children.indexOf(axis)).toBeGreaterThan(scroll.parent!.children.indexOf(scroll));
-  expect(scroll.props.contentContainerStyle).toMatchObject({ flexGrow: 1, justifyContent: 'flex-end' });
-  scrollToEnd.mockClear();
-  await act(async () => {
-    scroll.props.onLayout();
-    scroll.props.onContentSizeChange();
-  });
-  expect(scrollToEnd).toHaveBeenCalledTimes(2);
-});
+it.each([
+  ['2026-01-01', 12, 'Oct 25'],
+  ['1990-01-01', 441, 'Jan 90'],
+])(
+  'keeps Frequency weekdays fixed and opens at the latest month with history from %s',
+  async (firstDate, count, firstLabel) => {
+    const scrollToEnd = vi.fn();
+    state.app = {
+      ...state.app,
+      entries: [
+        {
+          id: 'old',
+          habitId: habit.id,
+          localDate: firstDate,
+          value: 1,
+          occurredAt: '',
+          timezone: 'UTC',
+          createdAt: '',
+          updatedAt: '',
+        },
+      ],
+    };
+    await act(async () => {
+      renderer = create(<InsightDetailScreen />, { createNodeMock: () => ({ scrollToEnd }) });
+    });
+    const root = renderer.root;
+    await act(async () =>
+      root
+        .findAllByType('ScrollView' as React.ElementType)[0]
+        .props.onScroll({ nativeEvent: { contentOffset: { y: 800 } } }),
+    );
+    const frequency = root.find(node => typeof node.type === 'function' && node.type.name === 'Frequency'),
+      scroll = frequency.findByType('ScrollView' as React.ElementType);
+    expect(scrollToEnd).toHaveBeenCalledWith({ animated: false });
+    const weekdays = Array.from({ length: 7 }, (_, i) =>
+      new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(new Date(2024, 0, 1 + i)),
+    );
+    const labels = scroll.findAllByType('Text' as React.ElementType).map(node => node.props.children);
+    expect(labels).toHaveLength(count);
+    expect(labels[0]).toBe(firstLabel);
+    expect(labels.at(-1)).toBe('Sep');
+    const axis = scroll
+      .parent!.findAllByType('View' as React.ElementType)
+      .find(node => node.props.style?.width === 48)!;
+    expect(axis.findAllByType('Text' as React.ElementType).map(node => node.props.children)).toEqual(weekdays);
+    expect(scroll.parent!.children.indexOf(axis)).toBeGreaterThan(scroll.parent!.children.indexOf(scroll));
+    expect(scroll.props.contentContainerStyle).toMatchObject({ flexGrow: 1, justifyContent: 'flex-end' });
+    scrollToEnd.mockClear();
+    await act(async () => {
+      scroll.props.onLayout();
+      scroll.props.onContentSizeChange();
+    });
+    expect(scrollToEnd).toHaveBeenCalledTimes(2);
+  },
+);
 
-it('uses complete history for streaks and annual frequency without including future or unrelated records', async () => {
+it('uses complete history for streaks and monthly frequency without including future or unrelated records', async () => {
   const record = (localDate: string, habitId = habit.id, value = 1) => ({
     id: habitId + localDate,
     habitId,
@@ -1953,17 +1960,14 @@ it('uses complete history for streaks and annual frequency without including fut
     frequencyLabels().reduce((sum, label) => sum + Number(label.match(/: (\d+) \/ /)![1]), 0);
   expect(streakCounts()).toEqual([4, 2]);
   expect(frequencyTotal()).toBe(6);
-  expect(frequencyLabels()).toHaveLength(70);
-  expect(frequencyLabels().every(label => /^(2017|2018|2019|2020|2021|2022|2023|2024|2025|2026),/.test(label))).toBe(
-    true,
-  );
-  const possible = (year: string) =>
+  expect(frequencyLabels()).toHaveLength(22 * 7);
+  const possible = (month: string) =>
     frequencyLabels()
-      .filter(label => label.startsWith(year + ','))
+      .filter(label => label.startsWith(month + ','))
       .reduce((sum, label) => sum + Number(label.match(/\/ (\d+) /)![1]), 0);
-  expect(possible('2024')).toBe(366);
-  expect(possible('2025')).toBe(365);
-  expect(possible('2026')).toBe(251);
+  expect(possible('December 2024')).toBe(31);
+  expect(possible('February 2025')).toBe(28);
+  expect(possible('September 2026')).toBe(8);
   for (const label of ['consistencyGrouping', 'historyGrouping'] as const) {
     await press(button(root, t(label)));
     const menu = root.find(
@@ -2905,6 +2909,27 @@ it('keeps Calendar weeks attached and its initial index stable when prepending h
   expect(list().props.data[0][0] < firstWeek).toBe(true);
   expect(list().props.initialScrollIndex).toBe(initialIndex);
   expect(list().props.data.some((week: string[]) => week[0] === firstWeek)).toBe(true);
+});
+
+it('keeps enlarged Calendar dates mounted while their activity loads', async () => {
+  state.app = {
+    ...state.app,
+    entries: [{ id: 'entry', habitId: habit.id, value: 1, localDate: state.today }],
+  };
+  const root = await render(
+    <CalendarDialog initialDate={state.today} calendarHabits={[habit]} color={light.accent} onClose={vi.fn()} />,
+  );
+  const cell = button(root, `Reading, ${state.today}`);
+  expect(cell.props.accessibilityState).toEqual({ busy: true, disabled: true });
+  expect(cell.findByType('Text' as React.ElementType).props.children).toBe(8);
+  expect(cell.findAllByType(CalendarDayBackground)).toHaveLength(0);
+  await press(cell);
+  expect(state.app.changeEntry).not.toHaveBeenCalled();
+
+  await act(async () => root.findByType('Modal' as React.ElementType).props.onShow());
+  expect(cell.props.accessibilityState).toEqual({ busy: false, disabled: false });
+  expect(cell.props.accessibilityLabel).toBe(`Reading, ${state.today}: ${t('active')}`);
+  expect(cell.findByType(CalendarDayBackground)).toBeDefined();
 });
 
 it.each(['future', 'saving', 'archived'] as const)(

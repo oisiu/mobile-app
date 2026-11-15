@@ -2,8 +2,8 @@ export const dateLabel = (date: string) =>
   new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).format(
     new Date(`${date}T12:00:00`),
   );
-export const calendarMonthLabel = (date: string, today: string) => {
-  const month = new Intl.DateTimeFormat(undefined, { month: 'short' })
+export const calendarMonthLabel = (date: string, today: string, locale?: string) => {
+  const month = new Intl.DateTimeFormat(locale, { month: 'short' })
     .format(new Date(`${date}T12:00:00`))
     .replace(/[.\s]/g, '')
     .slice(0, 3);

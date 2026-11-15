@@ -9,7 +9,6 @@ import { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, TouchableOpacity, View } from 'react-native';
 import { CalendarEntryModal } from './CalendarEntryModal';
 import { CalendarTimeline } from './CalendarWeekTimeline';
-import { CalendarSkeleton } from './DetailSkeletons';
 import { dateLabel } from './calendarLabels';
 import { s } from './detailStyles';
 import { useCalendarEditor } from './useCalendarEditor';
@@ -111,24 +110,21 @@ export function CalendarDialog({
                 </View>
               )}
               <Text style={{ color: c.text, marginTop: 8, fontWeight: '600' }}>{dateLabel(initialDate)}</Text>
-              {ready ? (
-                <CalendarTimeline
-                  selected={displayHabits}
-                  initialDate={initialDate}
-                  cellSize={44}
-                  habit={displayHabit}
-                  habits={analysis.habits}
-                  entries={analysis.entries}
-                  today={today}
-                  onSelectDate={editing.openDate}
-                  saving={editing.saving}
-                  savingDate={editing.savingDate}
-                  color={color}
-                  c={c}
-                />
-              ) : (
-                <CalendarSkeleton c={c} />
-              )}
+              <CalendarTimeline
+                loading={!ready}
+                selected={displayHabits}
+                initialDate={initialDate}
+                cellSize={44}
+                habit={displayHabit}
+                habits={analysis.habits}
+                entries={analysis.entries}
+                today={today}
+                onSelectDate={editing.openDate}
+                saving={editing.saving}
+                savingDate={editing.savingDate}
+                color={color}
+                c={c}
+              />
             </Pressable>
           </ScrollView>
         </Pressable>

@@ -251,7 +251,7 @@ it('keeps Calendar activity-mode edits in the original duration units and reject
   expect(renderer.root.findAllByType('Editor' as React.ElementType)).toHaveLength(0);
 });
 
-it('renders Frequency history only for the selected branch and excludes future years', async () => {
+it('renders Frequency history only for the selected branch and excludes future months', async () => {
   const other = { ...root, id: 'other' },
     entries = [
       record('child', 1, '2012-09-04'),
@@ -271,11 +271,11 @@ it('renders Frequency history only for the selected branch and excludes future y
     />,
   );
   const labels = renderer.root.findAll(node => (node.type as unknown) === 'Text').map(node => node.props.children);
-  expect(labels).toContain('2012');
-  expect(labels).not.toContain('2000');
-  expect(labels).not.toContain('2027');
+  expect(labels[2]).toBe('Sep 12');
+  expect(labels).toContain('Sep');
   const cells = renderer.root.findAll(node => (node.type as unknown) === 'View' && node.props.accessibilityLabel);
-  expect(cells.some(node => /^2026, .*: 1 \/ /.test(node.props.accessibilityLabel))).toBe(true);
+  expect(cells).toHaveLength(169 * 7);
+  expect(cells.some(node => /^September 2026, .*: 1 \/ /.test(node.props.accessibilityLabel))).toBe(true);
   expect(mocks.scrollToEnd).toHaveBeenCalledWith({ animated: false });
   await act(async () => {
     native('ScrollView').props.onLayout();
