@@ -2666,11 +2666,15 @@ it('draws the Consistency line quickly while axes stay visible', async () => {
   const before = chart.findAllByType('Polyline' as React.ElementType).at(-1)!.props.points;
   expect(before).not.toBe('');
 
-  await act(async () => listener.mock.calls[0][0]({ value: 0.5 }));
+  await act(async () => {
+    listener.mock.calls[0][0]({ value: 0.5 });
+  });
   const halfway = chart.findAllByType('Polyline' as React.ElementType).at(-1)!.props.points;
   expect(halfway).not.toBe(before);
 
-  await act(async () => listener.mock.calls[0][0]({ value: 1 }));
+  await act(async () => {
+    listener.mock.calls[0][0]({ value: 1 });
+  });
   expect(chart.findAllByType('Polyline' as React.ElementType).at(-1)!.props.points).not.toBe(halfway);
 
   expect(timing).toHaveBeenCalledWith(expect.anything(), {

@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
-import { NativeScrollEvent, NativeSyntheticEvent, ScrollView } from 'react-native';
+import { NativeScrollEvent, NativeSyntheticEvent, type ScrollViewInstance } from 'react-native';
 import { TimeBucket } from '@/domain/analytics';
 
 export function useTimelineScroll(buckets: TimeBucket[], onLoadEarlier?: () => void) {
-  const scroll = useRef<ScrollView>(null),
+  const scroll = useRef<ScrollViewInstance>(null),
     offset = useRef(0),
     loading = useRef(false),
     gestureLoaded = useRef(false);

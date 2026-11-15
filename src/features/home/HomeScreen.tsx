@@ -102,10 +102,12 @@ export default function HomeScreen() {
               />
             )}
             ListFooterComponent={
-              hiddenReveal.visible ? <HiddenCategories variant="list" onOpenDetail={hiddenReveal.openDetail} /> : null
+              hiddenReveal.visible ? (
+                <HiddenCategories variant="list" onOpenDetail={hiddenReveal.openDetail} />
+              ) : undefined
             }
             ListEmptyComponent={
-              !allTree.length ? <Text style={[s.empty, { color: c.muted }]}>{t('homeEmpty')}</Text> : null
+              !allTree.length ? <Text style={[s.empty, { color: c.muted }]}>{t('homeEmpty')}</Text> : undefined
             }
           />
         </View>
