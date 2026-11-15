@@ -7,7 +7,7 @@ import { PopoverAnchor } from '@/features/AnchoredPopover';
 import { language, t } from '@/i18n';
 import { Text } from '@/theme/Typography';
 import { useEffect, useMemo, useRef } from 'react';
-import { ScrollView, View } from 'react-native';
+import { ScrollView, View, type ScrollViewInstance } from 'react-native';
 import { Header } from './DetailControls';
 import { calendarMonthLabel, dateLabel } from './calendarLabels';
 import { s, type Palette } from './detailStyles';
@@ -84,7 +84,7 @@ export function Frequency({
   onFilter: (anchor?: PopoverAnchor) => void;
   c: Palette;
 }) {
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const showLatest = () => scroll.current?.scrollToEnd({ animated: false });
   useEffect(() => {
     scroll.current?.scrollToEnd({ animated: false });

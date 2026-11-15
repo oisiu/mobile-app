@@ -1,6 +1,6 @@
 import { addDays } from '@/utils/dates';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Animated, type ScrollView } from 'react-native';
+import { Animated, type ScrollViewInstance } from 'react-native';
 import { HABIT_COLUMN_WIDTH, HOME_VISIBLE_DAYS, homeDateWindow, homeDayChunks, homeHistoryDays } from './dateWindow';
 
 type ScrollEvent = { nativeEvent: { contentOffset: { x: number } } };
@@ -10,7 +10,7 @@ export function useHomeDates(today: string, width: number) {
   const [firstDay, setFirstDay] = useState(0),
     [historyDays, setHistoryDays] = useState(60);
   const visibleFirstDay = useRef(0),
-    dateScroll = useRef<ScrollView>(null);
+    dateScroll = useRef<ScrollViewInstance>(null);
   const [dateScrollX] = useState(() => new Animated.Value(0));
   const dateTrackX = useMemo(() => Animated.multiply(dateScrollX, -1), [dateScrollX]);
   const pendingScroll = useRef<{ index: number; animated: boolean } | null>(null);

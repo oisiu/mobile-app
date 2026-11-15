@@ -4,6 +4,7 @@ import {
   StyleSheet,
   type TextProps,
   type TextInputProps,
+  type TextInputInstance,
 } from 'react-native';
 
 function fontStyle(weight: string | number | undefined) {
@@ -25,6 +26,6 @@ export function Text({ style, ...props }: TextProps) {
   return <NativeText {...props} style={[style, fontStyle(StyleSheet.flatten(style)?.fontWeight)]} />;
 }
 
-export function TextInput({ style, ref, ...props }: TextInputProps & { ref?: React.Ref<NativeTextInput> }) {
+export function TextInput({ style, ref, ...props }: TextInputProps & { ref?: React.Ref<TextInputInstance> }) {
   return <NativeTextInput {...props} ref={ref} style={[style, fontStyle(StyleSheet.flatten(style)?.fontWeight)]} />;
 }
