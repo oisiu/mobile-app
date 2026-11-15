@@ -100,6 +100,7 @@ export function CalendarTimeline({
         onScrollEndDrag={navigation.loadEarlier}
         onMomentumScrollEnd={navigation.loadEarlier}
         accessibilityRole="adjustable"
+        accessibilityState={{ busy: loading }}
         accessibilityHint={t('swipeCalendar')}
         accessibilityActions={[
           { name: 'increment', label: t('nextMonth') },
@@ -243,11 +244,11 @@ function CalendarDay({
       </TouchableOpacity>
     );
   if (onSelectDate) {
-    const disabled = isFuture || saving || !!habit.archivedAt;
+    const disabled = loading || isFuture || saving || !!habit.archivedAt;
     return (
       <TouchableOpacity
         disabled={disabled}
-        accessibilityState={{ disabled, busy: saving }}
+        accessibilityState={{ disabled, busy: loading || saving }}
         accessibilityRole="button"
         accessibilityLabel={label}
         accessibilityHint={habit.type === 'boolean' ? t('ownRecordHint') : t('editDay')}

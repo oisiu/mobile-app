@@ -4,12 +4,12 @@ import { buildFrequency, buildFrequencyBuckets } from '@/domain/frequency';
 import { descendants } from '@/domain/tree';
 import { Entry, Habit } from '@/domain/types';
 import { PopoverAnchor } from '@/features/AnchoredPopover';
-import { t } from '@/i18n';
+import { language, t } from '@/i18n';
 import { Text } from '@/theme/Typography';
 import { useEffect, useMemo, useRef } from 'react';
 import { ScrollView, View } from 'react-native';
 import { Header } from './DetailControls';
-import { dateLabel } from './calendarLabels';
+import { calendarMonthLabel, dateLabel } from './calendarLabels';
 import { s, type Palette } from './detailStyles';
 const activeDates = (habit: Habit, habits: Habit[], entries: Entry[], dates: string[]) =>
   new Set(dates.filter(date => aggregate(habits, entries, habit.id, new Set([date])) > 0));
@@ -94,10 +94,11 @@ export function Frequency({
     const records = entries.filter(entry => ids.has(entry.habitId) && entry.localDate <= today);
     return buildFrequencyBuckets(records, today);
   }, [habit, habits, entries, today]);
-  const weekdays = Array.from({ length: 7 }, (_, i) =>
-    new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(new Date(2024, 0, 1 + i)),
-  );
-  const { rows } = buildFrequency(habit, habits, entries, buckets);
+  const weekdayFormat = new Intl.DateTimeFormat(language, { weekday: 'short' });
+  const weekdays = Array.from({ length: 7 }, (_, i) => weekdayFormat.format(new Date(2024, 0, 1 + i)));
+  const monthFormat = new Intl.DateTimeFormat(language, { month: 'long', year: 'numeric' });
+  const monthLabels = buckets.map(bucket => monthFormat.format(new Date(`${bucket.key}T12:00:00`)));
+  const { rows } = useMemo(() => buildFrequency(habit, habits, entries, buckets), [habit, habits, entries, buckets]);
   return (
     <View style={[s.card, { backgroundColor: c.card }]}>
       <Header chart="frequency" habit={habit} onFilter={onFilter} c={c} />
@@ -123,7 +124,7 @@ export function Frequency({
                       key={bucket.key}
                       accessible
                       accessibilityLabel={
-                        bucket.label + ', ' + day + ': ' + count + ' / ' + possible + ' ' + t('activeDays')
+                        monthLabels[column] + ', ' + day + ': ' + count + ' / ' + possible + ' ' + t('activeDays')
                       }
                       style={{ width: 40, height: 33, alignItems: 'center', justifyContent: 'center' }}
                     >
@@ -147,7 +148,7 @@ export function Frequency({
                   key={bucket.key}
                   style={{ width: 40, textAlign: 'center', color: c.muted, fontSize: 10, marginTop: 8 }}
                 >
-                  {bucket.label}
+                  {calendarMonthLabel(bucket.key, today, language)}
                 </Text>
               ))}
             </View>

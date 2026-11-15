@@ -49,7 +49,9 @@ describe('Insights overview language', () => {
       );
       expect(t('historyTimeline')).toContain(locale === 'es-ES' ? 'Desliza horizontalmente' : 'Swipe horizontally');
       expect(t('streaksInfo')).toContain(locale === 'es-ES' ? 'todo el historial' : 'all recorded history');
-      expect(t('frequencyInfo')).toContain(locale === 'es-ES' ? 'Cada columna es un año' : 'Each column is one year');
+      expect(t('frequencyInfo')).toContain(
+        locale === 'es-ES' ? 'Cada columna representa un mes' : 'Each column is one month',
+      );
       expect(t('frequencyInfo')).not.toContain(locale === 'es-ES' ? 'periodo seleccionado' : 'selected period');
       expect(t('historyInfo')).toContain(locale === 'es-ES' ? 'ene, abr, jul, oct' : 'Jan, Apr, Jul, Oct');
       expect(t('year')).toBe(locale === 'es-ES' ? 'Año' : 'Year');

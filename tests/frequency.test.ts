@@ -79,21 +79,22 @@ describe('Frequency chart', () => {
   });
 });
 
-it('shows ten elapsed years even without records, with empty years retaining zero counts', () => {
-  const buckets = buildFrequencyBuckets([], '2026-09-08');
-  expect(buckets.map(bucket => bucket.label)).toEqual(Array.from({ length: 10 }, (_, index) => String(2017 + index)));
-  expect(buckets[7].dates.size).toBe(366);
-  expect(buckets[9].dates.size).toBe(251);
-  expect(
-    buildFrequency(habit, [habit], [], buckets)
-      .rows.flat()
-      .every(cell => cell.count === 0 && cell.size === 4),
-  ).toBe(true);
+it('shows twelve months without records and clips the current month to today', () => {
+  const buckets = buildFrequencyBuckets([entry('2030-01-01')], '2026-02-08');
+  expect(buckets).toHaveLength(12);
+  expect(buckets[0].key).toBe('2025-03-01');
+  expect(buckets.at(-2)?.key).toBe('2026-01-01');
+  expect(buckets.at(-2)?.dates.size).toBe(31);
+  expect(buckets.at(-1)?.key).toBe('2026-02-01');
+  expect(buckets.at(-1)?.dates.size).toBe(8);
 });
-it('extends beyond ten years for older records and excludes future years', () => {
-  const buckets = buildFrequencyBuckets([entry('2010-02-01'), entry('2030-01-01')], '2026-09-08');
-  expect(buckets[0].label).toBe('2010');
-  expect(buckets.at(-1)?.label).toBe('2026');
-  expect(buckets).toHaveLength(17);
-  expect([...buckets.at(-1)!.dates].at(-1)).toBe('2026-09-08');
+
+it('extends to the first recorded month and counts only elapsed occurrences of each weekday', () => {
+  const entries = [entry('2024-02-29'), entry('2026-02-05'), entry('2026-02-12')];
+  const buckets = buildFrequencyBuckets(entries, '2026-02-08');
+  expect(buckets[0].key).toBe('2024-02-01');
+  expect(buckets).toHaveLength(25);
+  const { rows } = buildFrequency(habit, [habit], entries, buckets);
+  expect(rows[3][0]).toMatchObject({ count: 1, possible: 5, intensity: 0.2 });
+  expect(rows[3].at(-1)).toMatchObject({ count: 1, possible: 1, intensity: 1 });
 });
