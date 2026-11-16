@@ -1,5 +1,6 @@
 overrides:
   '@react-native/metro-config': 0.88.1
+  minimatch@10: 11.0.8
   postcss: 8.5.23
   react-dom: 19.3.0
   react-native-reanimated: 4.7.1

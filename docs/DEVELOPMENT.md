@@ -87,6 +87,8 @@ Use compatible stable Expo/managed dependencies from manifest/lockfile. Coordina
 
 [Dependabot configuration](../.github/dependabot.yml) owns schedules, cooldowns, and groups. Review updates before merging; grouping does not establish Expo compatibility. Use Doctor and `expo install --check`.
 
+The `minimatch@10` override in `pnpm-workspace.yaml` brings Expo Fingerprint and TypeScript ESLint onto the patched 11.x line for [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249). ESLint 9 and its plugins still use the callable 3.x export. Remove the override once both 10.x consumers require patched releases upstream.
+
 ## Change workflow
 
 Follow [Contributing](../CONTRIBUTING.md) and, for agents, [AGENTS.md](../AGENTS.md). Inspect relevant code/docs, preserve unrelated changes, and follow native checks for UI/persistence work.
