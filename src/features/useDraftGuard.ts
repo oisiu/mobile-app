@@ -1,17 +1,12 @@
-import { useRef } from 'react';
+import { useState, useRef } from 'react';
 import { Alert } from 'react-native';
-import { useNavigation, usePreventRemove } from 'expo-router/react-navigation';
+import { usePreventRemove } from 'expo-router';
 import { t } from '@/i18n';
 
 export function useDraftGuard(dirty: boolean, busy?: { current: boolean }) {
-  const navigation = useNavigation(),
-    allowed = useRef(false),
-    prompting = useRef(false);
-  usePreventRemove(dirty || !!busy?.current, ({ data }) => {
-    if (allowed.current) {
-      navigation.dispatch(data.action);
-      return;
-    }
+  const [allowed, setAllowed] = useState(false);
+  const prompting = useRef(false);
+  const disablePrevention = usePreventRemove(!allowed && (dirty || !!busy?.current), ({ repeat }) => {
     if (busy?.current || prompting.current) return;
     prompting.current = true;
     Alert.alert(
@@ -30,7 +25,8 @@ export function useDraftGuard(dirty: boolean, busy?: { current: boolean }) {
           style: 'destructive',
           onPress: () => {
             prompting.current = false;
-            navigation.dispatch(data.action);
+            setAllowed(true);
+            repeat();
           },
         },
       ],
@@ -43,6 +39,7 @@ export function useDraftGuard(dirty: boolean, busy?: { current: boolean }) {
     );
   });
   return () => {
-    allowed.current = true;
+    setAllowed(true);
+    disablePrevention();
   };
 }

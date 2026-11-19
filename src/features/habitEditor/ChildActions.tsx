@@ -1,10 +1,9 @@
 import { t } from '@/i18n';
-import { Text } from '@/theme/Typography';
 import { Ionicons } from '@expo/vector-icons';
 import { TouchableOpacity, View } from 'react-native';
+import { s } from './editorStyles';
 import type { Palette } from './editorTypes';
 
-/** Adds a sub-habit: a full-width button for the habit being edited, a compact one on each row. */
 export function AddChildButton({
   onAdd,
   c,
@@ -21,21 +20,9 @@ export function AddChildButton({
       accessibilityRole="button"
       accessibilityLabel={nested ? `${t('addLevel')} ${parentName.trim() || t('newCategory')}` : t('addChild')}
       onPress={onAdd}
-      style={{
-        minHeight: 44,
-        paddingHorizontal: nested ? 10 : 14,
-        borderRadius: 12,
-        backgroundColor: nested ? 'transparent' : c.soft,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: nested ? 'flex-start' : 'center',
-        gap: 6,
-      }}
+      style={[s.iconButton, !nested && { backgroundColor: c.soft }]}
     >
-      <Ionicons name="add" size={18} color={c.accent} accessible={false} />
-      <Text style={{ color: c.accent, fontSize: nested ? 13 : 15, fontWeight: '600' }}>
-        {t(nested ? 'newChildHabit' : 'addChild')}
-      </Text>
+      <Ionicons name={nested ? 'add-circle-outline' : 'add'} size={20} color={c.accent} accessible={false} />
     </TouchableOpacity>
   );
 }
@@ -54,9 +41,8 @@ type RowActionsProps = {
 export function ChildRowActions({ name, siblingIndex, siblingCount, onAdd, onReorder, onRemove, c }: RowActionsProps) {
   const label = name.trim() || t('newCategory');
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
       <AddChildButton onAdd={onAdd} c={c} parentName={name} />
-      <View style={{ flex: 1 }} />
       {siblingCount > 1 &&
         ([-1, 1] as const).map(direction => {
           const disabled = direction === -1 ? siblingIndex === 0 : siblingIndex === siblingCount - 1;
@@ -70,13 +56,7 @@ export function ChildRowActions({ name, siblingIndex, siblingCount, onAdd, onReo
               onPress={() => {
                 if (!disabled) onReorder(direction);
               }}
-              style={{
-                width: 44,
-                height: 44,
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: disabled ? 0.3 : 1,
-              }}
+              style={[s.iconButton, { opacity: disabled ? 0.3 : 1 }]}
             >
               <Ionicons
                 name={direction === -1 ? 'arrow-up' : 'arrow-down'}
@@ -89,9 +69,9 @@ export function ChildRowActions({ name, siblingIndex, siblingCount, onAdd, onReo
         })}
       <TouchableOpacity
         accessibilityRole="button"
-        accessibilityLabel={`${t('delete')} ${name}`}
+        accessibilityLabel={`${t('delete')} ${label}`}
         onPress={onRemove}
-        style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
+        style={s.iconButton}
       >
         <Ionicons name="trash-outline" size={18} color={c.danger} accessible={false} />
       </TouchableOpacity>

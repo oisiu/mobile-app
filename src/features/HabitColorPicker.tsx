@@ -58,7 +58,7 @@ export function HabitColorPicker({
   );
 }
 const s = StyleSheet.create({
-  container: { gap: 8, marginBottom: 12 },
+  container: { gap: 8 },
   trigger: {
     width: 48,
     minHeight: 48,

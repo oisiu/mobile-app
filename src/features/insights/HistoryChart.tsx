@@ -1,16 +1,15 @@
 import { BucketSize, TimeBucket } from '@/domain/analytics';
-import { dayBucketContext } from '@/domain/chartTimeline';
 import { historyAxis } from '@/domain/history';
 import { Habit } from '@/domain/types';
 import { t } from '@/i18n';
 import { light } from '@/theme';
 import { SvgText } from '@/theme/SvgTypography';
 import { Text } from '@/theme/Typography';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ScrollView, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import Svg, { Line, Rect } from 'react-native-svg';
-import { highlightOpacity, PLOT_HEIGHT, shortMonthLabel, startsNewYear, toggledHighlight } from './chartShared';
-import { historyLayout } from './historyLayout';
+import { highlightOpacity, PLOT_HEIGHT, shortMonthLabel, toggledHighlight } from './chartShared';
+import { historyContextLabels, historyLayout } from './historyLayout';
 import { tileIndexRange, timelineTiles, useTimelineTiles, type TimelineTile } from './timelineTiles';
 import { useTimelineScroll } from './useTimelineScroll';
 
@@ -74,6 +73,10 @@ export function HistoryChart({
     tickLabels: axis.ticks.map(formatTick),
   });
   const grouped = bucketSize === 'month' || bucketSize === 'quarter';
+  const contextLabels = useMemo(
+    () => historyContextLabels(buckets, bucketSize, { plotStart, plotWidth, slot }),
+    [buckets, bucketSize, plotStart, plotWidth, slot],
+  );
   const barHeight = (value: number) => (value / axis.divisor / axis.max) * BAR_AREA;
   const x = (index: number) => plotStart + slot * (index + 0.5);
   const dimmed = (id: string) => highlightOpacity(highlightedId, id);
@@ -92,7 +95,7 @@ export function HistoryChart({
   const renderBucket = (index: number) => {
     const bucket = buckets[index];
     const center = x(index);
-    const dayContext = bucketSize === 'day' ? dayBucketContext(buckets, index) : null;
+    const context = contextLabels.get(index);
     let stacked = 0;
     return (
       <React.Fragment key={bucket.key}>
@@ -133,14 +136,9 @@ export function HistoryChart({
             {bucketLabel(bucket)}
           </SvgText>
         )}
-        {dayContext && (
-          <SvgText x={center} y={193} fill={c.muted} fontSize={11} textAnchor="middle">
-            {dayContext}
-          </SvgText>
-        )}
-        {(grouped || bucketSize === 'week') && startsNewYear(buckets, index) && (
-          <SvgText x={center} y={193} fill={c.muted} fontSize={11} textAnchor={index === 0 ? 'start' : 'middle'}>
-            {bucket.key.slice(0, 4)}
+        {context && (
+          <SvgText x={context.x} y={193} fill={c.muted} fontSize={11} textAnchor="middle">
+            {context.label}
           </SvgText>
         )}
       </React.Fragment>

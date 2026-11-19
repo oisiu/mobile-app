@@ -16,7 +16,8 @@ const mocks = vi.hoisted(() => ({
   createTree: vi.fn(),
   editTree: vi.fn(),
   refresh: vi.fn(),
-  leave: vi.fn(),
+  disablePrevention: vi.fn(),
+  removePrevented: null as null | ((event: { repeat: () => void }) => void),
   back: vi.fn(),
   dismissTo: vi.fn(),
   guard: vi.fn(),
@@ -45,11 +46,10 @@ vi.mock('react-native', () => ({
 vi.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: mocks.id }),
   router: { back: mocks.back, dismissTo: mocks.dismissTo },
-}));
-vi.mock('../src/features/useDraftGuard', () => ({
-  useDraftGuard: (dirty: boolean) => {
-    mocks.guard(dirty);
-    return mocks.leave;
+  usePreventRemove: (prevent: boolean, handler: typeof mocks.removePrevented) => {
+    mocks.guard(prevent);
+    mocks.removePrevented = prevent ? handler : null;
+    return mocks.disablePrevention;
   },
 }));
 vi.mock('../src/features/AppProvider', () => ({
@@ -102,18 +102,19 @@ const button = (text: string) =>
         node.findAll(child => (child.type as unknown) === 'Text').some(child => child.props.children === text),
     )!;
 it.each([
-  ['en-US', 'Yes/No', 'Exercise done: ✓', 'Hide from overview', 'Hide completely'],
-  ['es-ES', 'Sí/No', 'Ejercicio hecho: ✓', 'Ocultar del resumen', 'Ocultar completamente'],
-])('localizes the concise type and visibility controls for %s', async (locale, yesNo, example, overview, hidden) => {
+  ['en-US', 'Back', 'Yes/No', 'Exercise done: ✓', 'Visibility', 'Hide from overview', 'Hide completely'],
+  ['es-ES', 'Atrás', 'Sí/No', 'Ejercicio hecho: ✓', 'Visibilidad', 'Ocultar del resumen', 'Ocultar completamente'],
+])('localizes the editor controls for %s', async (locale, back, yesNo, example, visibility, overview, hidden) => {
   const options = new Intl.DateTimeFormat().resolvedOptions();
   vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockReturnValue({ ...options, locale });
   vi.resetModules();
   try {
     const { HabitTypeConversion } = await import('../src/features/HabitTypeConversion');
     const { HabitVisibility } = await import('../src/features/habitEditor/HabitVisibility');
+    const { EditorScreen } = await import('../src/features/habitEditor/EditorScreen');
     await act(async () => {
       renderer = create(
-        <>
+        <EditorScreen c={light} title="" onSave={vi.fn()}>
           <HabitTypeConversion
             from="boolean"
             type="boolean"
@@ -130,12 +131,18 @@ it.each([
             onHiddenChange={vi.fn()}
             c={light}
           />
-        </>,
+        </EditorScreen>,
       );
     });
     const texts = renderer.root.findAll(node => (node.type as unknown) === 'Text').map(node => node.props.children);
     expect(texts).toContain(yesNo);
-    expect(texts).toContain(example);
+    expect(texts).not.toContain(example);
+    expect(button(yesNo).props.accessibilityHint).toBe(example);
+    expect(texts).toContain(back);
+    expect(button(back).props.accessibilityLabel).toBe(back);
+    expect(texts).toContain(visibility);
+    expect(button(overview)).toBeUndefined();
+    await act(async () => button(visibility).props.onPress());
     expect(button(overview).props.accessibilityRole).toBe('switch');
     expect(button(hidden).props.accessibilityRole).toBe('switch');
   } finally {
@@ -182,6 +189,7 @@ it('creates a colored root with a complete family emoji without a code-unit limi
     parentId: null,
   });
   expect(mocks.dismissTo).toHaveBeenCalledWith('/(tabs)');
+  expect(mocks.disablePrevention).toHaveBeenCalledBefore(mocks.dismissTo);
   expect(mocks.back).not.toHaveBeenCalled();
 });
 it('reorders child subtrees in the draft, restores clean state on undo, and saves nested sibling positions', async () => {
@@ -232,7 +240,7 @@ it('reorders child subtrees in the draft, restores clean state on undo, and save
   ]);
 });
 
-it('discards child reordering when canceling the editor', async () => {
+it('discards child reordering when leaving the editor with Back', async () => {
   const root: Habit = {
     id: 'root',
     parentId: null,
@@ -255,8 +263,26 @@ it('discards child reordering when canceling the editor', async () => {
     renderer = create(<HabitEditor />);
   });
   await act(async () => button(t('moveUp') + ' Second').props.onPress());
-  await act(async () => button(t('cancel')).props.onPress());
+  const repeat = vi.fn();
+  const goBack = async () => {
+    mocks.dismissTo.mockImplementationOnce(() => mocks.removePrevented!({ repeat }));
+    await act(async () => button(t('habitEditorBack')).props.onPress());
+  };
+  await goBack();
   expect(mocks.dismissTo).toHaveBeenCalledWith('/(tabs)');
+  expect(mocks.alert).toHaveBeenCalledWith(
+    t('discardTitle'),
+    t('discardMessage'),
+    expect.any(Array),
+    expect.any(Object),
+  );
+  await act(async () => mocks.alert.mock.calls.at(-1)![2][0].onPress());
+  expect(repeat).not.toHaveBeenCalled();
+  expect(mocks.guard).toHaveBeenLastCalledWith(true);
+  await goBack();
+  await act(async () => mocks.alert.mock.calls.at(-1)![2][1].onPress());
+  expect(repeat).toHaveBeenCalledOnce();
+  expect(mocks.guard).toHaveBeenLastCalledWith(false);
   expect(mocks.editTree).not.toHaveBeenCalled();
   await act(async () => {
     renderer.update(<HabitEditor key="reopened" />);
@@ -376,22 +402,24 @@ it('defaults new roots to automatic and treats the untouched or reverted color a
     parentId: null,
   });
 });
-it('cancel returns to Home without saving or bypassing the draft guard', async () => {
+it('Back returns to Home without saving or bypassing the draft guard', async () => {
   await act(async () => {
     renderer = create(<HabitEditor />);
   });
-  await act(async () => button(t('cancel')).props.onPress());
+  await act(async () => button(t('habitEditorBack')).props.onPress());
   expect(mocks.dismissTo).toHaveBeenCalledWith('/(tabs)');
   expect(mocks.back).not.toHaveBeenCalled();
   expect(mocks.create).not.toHaveBeenCalled();
   expect(mocks.editTree).not.toHaveBeenCalled();
-  expect(mocks.leave).not.toHaveBeenCalled();
+  expect(mocks.disablePrevention).not.toHaveBeenCalled();
 });
 
 it('creates a hidden root and guards unsaved visibility changes', async () => {
   await act(async () => {
     renderer = create(<HabitEditor />);
   });
+  await act(async () => button(t('visibility')).props.onPress());
+  expect(mocks.guard).toHaveBeenLastCalledWith(false);
   expect(button(t('hideFromOverview')).props.accessibilityState.checked).toBe(false);
   await act(async () => button(t('hideFromOverview')).props.onPress());
   expect(mocks.guard).toHaveBeenLastCalledWith(true);
@@ -423,6 +451,8 @@ it('offers visibility only for the root and can restore it to overview', async (
   await act(async () => {
     renderer = create(<HabitEditor />);
   });
+  expect(button(t('visibility')).props.accessibilityValue.text).toBe(t('visibilityOverviewHidden'));
+  await act(async () => button(t('visibility')).props.onPress());
   expect(
     renderer.root.findAll(node => (node.type as unknown) === 'Button' && node.props.accessibilityRole === 'switch'),
   ).toHaveLength(2);
@@ -438,6 +468,7 @@ it('creates and edits complete hiding without changing the separate overview pre
   await act(async () => {
     renderer = create(<HabitEditor />);
   });
+  await act(async () => button(t('visibility')).props.onPress());
   await act(async () => {
     input(1).props.onChangeText('Hidden');
     button(t('hideCompletely')).props.onPress();
@@ -462,6 +493,8 @@ it('creates and edits complete hiding without changing the separate overview pre
   mocks.id = 'root';
   mocks.habits = [root];
   await act(async () => renderer.update(<HabitEditor />));
+  expect(button(t('visibility')).props.accessibilityValue.text).toBe(t('visibilityHidden'));
+  await act(async () => button(t('visibility')).props.onPress());
   expect(button(t('hideCompletely')).props.accessibilityState.checked).toBe(true);
   await act(async () => button(t('hideCompletely')).props.onPress());
   await act(async () => button(t('save')).props.onPress());
@@ -818,11 +851,14 @@ it.each(['rename', 'hideCompletely', 'hideFromOverview'] as const)(
       renderer = create(<HabitEditor />);
     });
     if (change === 'rename') await act(async () => input(1).props.onChangeText('Renamed'));
-    else await act(async () => button(t(change)).props.onPress());
+    else {
+      await act(async () => button(t('visibility')).props.onPress());
+      await act(async () => button(t(change)).props.onPress());
+    }
     await act(async () => button(t('save')).props.onPress());
     expect(mocks.editTree).toHaveBeenCalledOnce();
     expect(mocks.refresh).toHaveBeenCalledOnce();
-    expect(mocks.leave).toHaveBeenCalledOnce();
+    expect(mocks.disablePrevention).toHaveBeenCalledBefore(mocks.dismissTo);
     expect(mocks.dismissTo).toHaveBeenCalledWith('/(tabs)');
     expect(mocks.back).not.toHaveBeenCalled();
   },
@@ -839,6 +875,44 @@ const historicalRecord = (id: string, value: number, habitId = 'Root'): import('
 });
 const labeledInput = (label: string) =>
   renderer.root.find(node => (node.type as unknown) === 'TextInput' && node.props.accessibilityLabel === label);
+
+it('keeps visibility and threshold edits in the draft when their panels close', async () => {
+  mocks.id = 'Practice';
+  mocks.habits = [{ ...category('Practice', 'duration'), calendarThreshold: 1800 }];
+  await act(async () => {
+    renderer = create(<HabitEditor />);
+  });
+
+  const thresholdLabel = t('calendarThresholdFor', { name: 'Practice' });
+  const infoLabel = t('chartInfo', { name: thresholdLabel });
+  await act(async () => button(infoLabel).props.onPress());
+  await act(async () => button(t('visibility')).props.onPress());
+  await act(async () => button(t('hours')).props.onPress());
+  expect(labeledInput(thresholdLabel).props.value).toBe('0.5');
+  expect(mocks.guard).toHaveBeenLastCalledWith(false);
+
+  await act(async () => {
+    labeledInput(thresholdLabel).props.onChangeText('1.25');
+    button(t('hideFromOverview')).props.onPress();
+  });
+  await act(async () => button(t('visibility')).props.onPress());
+  await act(async () => button(infoLabel).props.onPress());
+  expect(button(t('hideFromOverview'))).toBeUndefined();
+  expect(button(t('visibility')).props.accessibilityValue.text).toBe(t('visibilityOverviewHidden'));
+  expect(button(infoLabel).props.accessibilityState.expanded).toBe(false);
+  expect(labeledInput(thresholdLabel).props.value).toBe('1.25');
+  expect(mocks.guard).toHaveBeenLastCalledWith(true);
+  expect(mocks.editTree).not.toHaveBeenCalled();
+
+  await act(async () => button(t('save')).props.onPress());
+  expect(mocks.editTree).toHaveBeenCalledOnce();
+  expect(mocks.editTree.mock.calls[0][1][0]).toMatchObject({
+    id: 'Practice',
+    hideFromOverview: true,
+    calendarThreshold: 4500,
+  });
+});
+
 it.each(['number', 'duration'] as const)(
   'asks before converting Boolean history to %s with the selected historical value',
   async type => {
@@ -913,7 +987,7 @@ it.each(['cancel', 'dismiss'] as const)(
     });
     await act(async () => {
       input(1).props.onChangeText('Renamed');
-      button(t('boolean')).props.onPress();
+      button(t('typeYesNo')).props.onPress();
     });
     let save!: Promise<void>;
     await act(async () => {
@@ -957,7 +1031,7 @@ it('restores unsaved thresholds and a clean draft when reverting a type selectio
   await act(async () => {
     renderer = create(<HabitEditor />);
   });
-  await act(async () => button(t('boolean')).props.onPress());
+  await act(async () => button(t('typeYesNo')).props.onPress());
   expect(
     renderer.root.findAll(
       node =>
@@ -977,7 +1051,7 @@ it('retains the conversion draft and shows localized guidance if the reviewed hi
   await act(async () => {
     renderer = create(<HabitEditor />);
   });
-  await act(async () => button(t('boolean')).props.onPress());
+  await act(async () => button(t('typeYesNo')).props.onPress());
   let save!: Promise<void>;
   await act(async () => {
     save = button(t('save')).props.onPress();
@@ -988,7 +1062,7 @@ it('retains the conversion draft and shows localized guidance if the reviewed hi
   });
   expect(mocks.alert).toHaveBeenLastCalledWith(t('couldNotSave'), t('typeChangeStaleHelp'));
   expect(mocks.back).not.toHaveBeenCalled();
-  expect(button(t('boolean')).props.accessibilityState.selected).toBe(true);
+  expect(button(t('typeYesNo')).props.accessibilityState.selected).toBe(true);
 });
 
 it('changes an empty category without asking for an unused historical value', async () => {

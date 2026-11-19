@@ -12,6 +12,9 @@ export const reorderMessages = {
     toggleHiddenCategoriesHint:
       'Tap three times quickly to show or hide hidden habits below the list. They are hidden again when you leave Home.',
     hideCompletely: 'Hide completely',
+    visibility: 'Visibility',
+    visibilityHidden: 'Hidden',
+    visibilityOverviewHidden: 'Hidden from overview',
     hideCompletelyHelp:
       'Hide this habit and its children from Today, Calendar and Insights. Restore in More → Data → Hidden categories.',
     hiddenCategories: 'Hidden categories',
@@ -39,6 +42,9 @@ export const reorderMessages = {
     toggleHiddenCategoriesHint:
       'Toca tres veces seguidas para mostrar u ocultar los hábitos ocultos debajo de la lista. Se ocultan al salir de Hoy.',
     hideCompletely: 'Ocultar completamente',
+    visibility: 'Visibilidad',
+    visibilityHidden: 'Oculto',
+    visibilityOverviewHidden: 'Fuera del resumen',
     hideCompletelyHelp:
       'Oculta este hábito y sus hijos de Hoy, Calendario y Análisis. Recupéralos en Más → Datos → Categorías ocultas.',
     hiddenCategories: 'Categorías ocultas',

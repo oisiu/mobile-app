@@ -115,7 +115,8 @@ afterEach(async () => {
 
 it('offers the action for active habits only', async () => {
   await render('Gym');
-  expect(trigger().props.accessibilityLabel).toBe(t('moveHabitTo', { name: 'Gym' }));
+  expect(trigger().props.accessibilityLabel).toBe(t('moveHabitAction'));
+  expect(texts()).toContain(t('moveHabitAction'));
   for (const id of ['Sport general', 'Old']) {
     await act(async () => renderer.update(<MoveHabitButton habit={find(id)} />));
     expect(renderer.root.findAllByType('Pressable' as React.ElementType)).toHaveLength(0);

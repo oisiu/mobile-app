@@ -17,6 +17,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Habit } from '../src/domain/types';
 import { light, dark, depthBackground } from '../src/theme';
 import { aggregate } from '../src/domain/aggregation';
+import { buildTimelineBuckets } from '../src/domain/chartTimeline';
 import InsightDetailScreen from '../src/features/insights/InsightDetailScreen';
 import { StrengthChart } from '../src/features/insights/StrengthChart';
 import { habitStrength, strengthSummary } from '../src/domain/habitStrength';
@@ -32,6 +33,7 @@ const state = vi.hoisted(() => ({
   keyboardListeners: {} as Record<string, (event: { endCoordinates: { screenY: number } }) => void>,
   app: {} as Record<string, unknown>,
   chartReady: true,
+  detailId: 'habit',
   revealHidden: undefined as string | undefined,
   blur: null as null | (() => void),
   alert: vi.fn(),
@@ -129,7 +131,7 @@ vi.mock('expo-router', () => ({
       state.blur = cleanup;
       return cleanup;
     }, [effect]),
-  useLocalSearchParams: () => ({ id: 'habit', revealHidden: state.revealHidden }),
+  useLocalSearchParams: () => ({ id: state.detailId, revealHidden: state.revealHidden }),
   usePathname: () => state.path,
   router: { push: state.push, back: vi.fn(), navigate: state.navigate, dismissTo: state.dismissTo },
 }));
@@ -219,6 +221,7 @@ const day = (modal: ReactTestInstance, date = '2026-09-08') =>
 beforeEach(() => {
   vi.clearAllMocks();
   state.chartReady = true;
+  state.detailId = 'habit';
   state.today = '2026-09-08';
   state.pending = null;
   state.revealHidden = undefined;
@@ -2389,19 +2392,44 @@ it('draws years of Consistency and History as bounded tiles that join without ga
   const [olderBars, latestBars] = plots(history).map(box);
   expect(latestBars[0]).toBe(olderBars[0] + olderBars[2]);
   const bars = history.findAllByType('Rect' as React.ElementType);
-  expect(bars.length).toBeLessThan(110);
-  expect(bars.every(bar => bar.props.width === 16)).toBe(true);
+  expect(bars.length).toBeLessThan(140);
+  expect(bars.every(bar => bar.props.width === 12)).toBe(true);
 });
 
-it('groups History independently, preserves its selection, and loads older bars', async () => {
+it('keeps Edit in the header and opens Move to below the charts for the selected sub-habit', async () => {
+  const child = { ...habit, id: 'child', name: 'Child', parentId: habit.id };
+  state.detailId = child.id;
+  state.app.habits = [habit, child];
   const root = await render(<InsightDetailScreen />);
+  await press(button(root, `${t('edit')} ${child.name}`));
+  expect(state.push).toHaveBeenCalledExactlyOnceWith('/habit/child');
+  expect(button(root, t('moveHabitAction'))).toBeUndefined();
   await act(async () =>
     root
       .findAllByType('ScrollView' as React.ElementType)[0]
       .props.onScroll({ nativeEvent: { contentOffset: { y: 800 } } }),
   );
+  await press(button(root, t('moveHabitAction')));
+  const title = t('moveHabitTitle', { name: `${child.emoji} ${child.name}`.trim() });
+  const modal = root.findAllByType('Modal' as React.ElementType).find(node => node.props.visible)!;
+  expect(modal.findByProps({ accessibilityRole: 'radiogroup', accessibilityLabel: title })).toBeDefined();
+  expect(button(modal, t('topLevel'))).toBeDefined();
+});
+
+it('groups History independently, preserves its selection, and loads older bars', async () => {
+  state.app.habits = [habit, { ...habit, id: 'second', name: 'Second' }];
+  const root = await render(<InsightDetailScreen />);
+  const revealHistory = () =>
+    act(async () =>
+      root
+        .findAllByType('ScrollView' as React.ElementType)[0]
+        .props.onScroll({ nativeEvent: { contentOffset: { y: 800 } } }),
+    );
+  await revealHistory();
   const chart = () => root.findByType(HistoryChart),
     score = root.findByType(StrengthChart).props.buckets;
+  expect(chart().props.bucketSize).toBe('month');
+  expect(chart().props.buckets).toHaveLength(36);
   const selected = chart().props.series.map((item: { habit: Habit }) => item.habit.id);
   for (const scale of ['week', 'month', 'quarter', 'year', 'day'] as const) {
     await press(button(root, t('historyGrouping')));
@@ -2425,6 +2453,52 @@ it('groups History independently, preserves its selection, and loads older bars'
   await act(async () => chart().props.onLoadEarlier());
   expect(chart().props.buckets).toHaveLength(120);
   expect(chart().props.buckets.slice(-60)).toEqual(buckets);
+  state.detailId = 'second';
+  await act(async () => renderer.update(<InsightDetailScreen />));
+  await revealHistory();
+  expect(chart().props.bucketSize).toBe('month');
+  expect(chart().props.buckets).toHaveLength(36);
+});
+
+it.each([
+  ['day', '2026-01-20', 21, ['Dec 2025', 'Jan 2026']],
+  ['week', '2026-02-01', 6, ['2025', '2026']],
+  ['month', '2026-11-19', 12, ['2025', '2026']],
+  ['quarter', '2026-11-19', 13, ['2023', '2024', '2025', '2026']],
+  ['year', '2026-11-19', 12, []],
+] as const)('renders readable %s History axis rows across year boundaries', async (scale, today, count, expected) => {
+  const buckets = buildTimelineBuckets(scale, today, count);
+  const root = await render(
+    <HistoryChart
+      series={[{ habit, color: light.accent, values: buckets.map(() => 1) }]}
+      buckets={buckets}
+      bucketSize={scale}
+      type="boolean"
+      c={light}
+      timeline
+      showValues
+    />,
+  );
+  const outer = root.findAllByType('View' as React.ElementType).find(node => node.props.onLayout)!;
+  await act(async () => outer.props.onLayout({ nativeEvent: { layout: { width: 240 } } }));
+  const plot = root.findAllByType('Svg' as React.ElementType).find(node => node.props.accessible)!;
+  const labels = plot.findAllByType('SvgText' as React.ElementType);
+  const primary = labels.filter(node => node.props.y === 177);
+  const context = labels.filter(node => node.props.y === 193);
+  expect(primary.map(node => node.props.children)).toEqual(buckets.map(bucket => bucket.label));
+  const monthYear = new Intl.DateTimeFormat(undefined, { month: 'short', year: 'numeric' });
+  expect(context.map(node => node.props.children)).toEqual(
+    scale === 'day'
+      ? [buckets[0], buckets[1]].map(bucket => monthYear.format(new Date(`${bucket.key}T12:00:00`)))
+      : expected,
+  );
+  let previousRight = 0;
+  for (const node of context) {
+    const halfWidth = String(node.props.children).length * 3.25;
+    expect(node.props.x - halfWidth).toBeGreaterThanOrEqual(previousRight);
+    previousRight = node.props.x + halfWidth;
+    expect(previousRight).toBeLessThanOrEqual(plot.props.width);
+  }
 });
 
 it('centers History month/year context beneath daily buckets and fits short timelines to the viewport', async () => {
@@ -2434,6 +2508,8 @@ it('centers History month/year context beneath daily buckets and fits short time
   const root = await render(
     <HistoryChart series={series} buckets={buckets} bucketSize="day" type="boolean" c={light} timeline />,
   );
+  const outer = root.findAllByType('View' as React.ElementType).find(node => node.props.onLayout)!;
+  await act(async () => outer.props.onLayout({ nativeEvent: { layout: { width: 420 } } }));
   const labels = root.findAllByType('SvgText' as React.ElementType),
     days = labels.filter(node => node.props.y === 177),
     context = labels.filter(node => node.props.y === 193);
@@ -2459,8 +2535,6 @@ it('centers History month/year context beneath daily buckets and fits short time
       />,
     ),
   );
-  const outer = root.findAllByType('View' as React.ElementType).find(node => node.props.onLayout)!;
-  await act(async () => outer.props.onLayout({ nativeEvent: { layout: { width: 420 } } }));
   const scroll = root.findByType('ScrollView' as React.ElementType),
     plot = root.findAllByType('Svg' as React.ElementType).find(node => node.props.accessible)!;
   expect(plot.props.width).toBe(420 - scroll.props.style.marginLeft);
@@ -2731,7 +2805,7 @@ it('shows real Calendar dates before activity is ready and enables editing after
 });
 
 it.each(['day', 'week', 'month', 'quarter', 'year'] as const)(
-  'keeps History %s bars at 16 points and preserves compact period spacing',
+  'renders narrow History %s bars with compact period spacing',
   async scale => {
     const buckets = Array.from({ length: 24 }, (_, index) => ({
       key: `2026-09-${String(index + 1).padStart(2, '0')}`,
@@ -2751,8 +2825,8 @@ it.each(['day', 'week', 'month', 'quarter', 'year'] as const)(
     );
     const bars = root.findAllByType('Rect' as React.ElementType);
     expect(bars).toHaveLength(24);
-    expect(bars.every(bar => bar.props.width === 16)).toBe(true);
-    const spacing = scale === 'week' ? 46 : scale === 'year' ? 40 : 28;
+    expect(bars.every(bar => bar.props.width === 12)).toBe(true);
+    const spacing = { day: 21, week: 38, month: 22, quarter: 22, year: 32 }[scale];
     expect(bars[1].props.x - bars[0].props.x).toBeCloseTo(spacing - 4 / 24);
   },
 );
@@ -2775,8 +2849,8 @@ it('expands History spacing for readable totals without widening its bars', asyn
     />,
   );
   const bars = root.findAllByType('Rect' as React.ElementType);
-  expect(bars[1].props.x - bars[0].props.x).toBeGreaterThan(28);
-  expect(bars.every(bar => bar.props.width === 16)).toBe(true);
+  expect(bars[1].props.x - bars[0].props.x).toBeGreaterThan(22);
+  expect(bars.every(bar => bar.props.width === 12)).toBe(true);
 });
 
 it.each(['enabled', 'unavailable'] as const)(

@@ -2,14 +2,17 @@ import type { HabitType } from '@/domain/types';
 import type { CalendarDraft } from '@/features/insights/calendarEntry';
 import { t } from '@/i18n';
 import { Text } from '@/theme/Typography';
+import { Ionicons } from '@expo/vector-icons';
 import { TouchableOpacity, View } from 'react-native';
 import { HistoryConversionInput } from './habitEditor/HistoryConversionInput';
-import { s } from './habitEditor/editorStyles';
 import type { Palette } from './habitEditor/editorTypes';
 
-const types: HabitType[] = ['boolean', 'number', 'duration'];
+const typeChoices = [
+  { type: 'boolean', icon: 'checkmark-circle-outline', label: 'typeYesNo' },
+  { type: 'number', icon: 'calculator-outline', label: 'number' },
+  { type: 'duration', icon: 'time-outline', label: 'duration' },
+] as const;
 
-/** Three equal type buttons with one short example of the selected type. */
 export function HabitTypeSelector({
   type,
   onType,
@@ -20,43 +23,39 @@ export function HabitTypeSelector({
   c: Palette;
 }) {
   return (
-    <View>
-      <Text style={[s.label, { color: c.muted }]}>{t('type')}</Text>
-      <View
-        accessibilityRole="radiogroup"
-        accessibilityLabel={t('changeHabitType')}
-        style={{ flexDirection: 'row', gap: 8 }}
-      >
-        {types.map(option => {
-          const selected = type === option;
-          return (
-            <TouchableOpacity
-              key={option}
-              accessibilityRole="radio"
-              accessibilityLabel={t(option)}
-              accessibilityState={{ selected }}
-              onPress={() => onType(option)}
-              style={{
-                flex: 1,
-                minHeight: 48,
-                paddingHorizontal: 8,
-                paddingVertical: 12,
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 14,
-                backgroundColor: selected ? c.accent : c.card,
-              }}
-            >
-              <Text style={{ color: selected ? c.onAccent : c.text, fontWeight: '600', textAlign: 'center' }}>
-                {t(option === 'boolean' ? 'typeYesNo' : option)}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-      <Text accessibilityLiveRegion="polite" style={{ color: c.muted, fontSize: 12, marginTop: 8 }}>
-        {t(`${type}ShortExample`)}
-      </Text>
+    <View
+      accessibilityRole="radiogroup"
+      accessibilityLabel={t('changeHabitType')}
+      style={{ flexDirection: 'row', gap: 3, padding: 4, borderRadius: 15, backgroundColor: c.card }}
+    >
+      {typeChoices.map(({ type: option, icon, label }) => {
+        const selected = type === option;
+        const color = selected ? c.onAccent : c.text;
+        return (
+          <TouchableOpacity
+            key={option}
+            accessibilityRole="radio"
+            accessibilityLabel={t(label)}
+            accessibilityHint={t(`${option}ShortExample`)}
+            accessibilityState={{ selected }}
+            onPress={() => onType(option)}
+            style={{
+              flex: 1,
+              minHeight: 44,
+              paddingHorizontal: 6,
+              paddingVertical: 8,
+              flexDirection: 'column',
+              gap: 4,
+              alignItems: 'center',
+              borderRadius: 11,
+              backgroundColor: selected ? c.accent : 'transparent',
+            }}
+          >
+            <Ionicons name={icon} size={16} color={color} accessible={false} />
+            <Text style={{ color, fontWeight: '600', textAlign: 'center', flexShrink: 1 }}>{t(label)}</Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }
@@ -73,9 +72,8 @@ type Props = {
 
 /** Type selector for a saved habit; choosing another type reveals what happens to its history. */
 export function HabitTypeConversion({ from, type, onType, draft, onDraft, c, hasHistory }: Props) {
-  const help = !hasHistory
-    ? 'noHistoryToConvert'
-    : type === 'boolean'
+  const help =
+    type === 'boolean'
       ? 'historyToBooleanHelp'
       : from === 'boolean'
         ? 'historyFromBooleanHelp'
@@ -83,10 +81,10 @@ export function HabitTypeConversion({ from, type, onType, draft, onDraft, c, has
   return (
     <View>
       <HabitTypeSelector type={type} onType={onType} c={c} />
-      {type !== from && (
+      {type !== from && hasHistory && (
         <View style={{ marginTop: 12, padding: 12, borderRadius: 14, backgroundColor: c.card }}>
           <Text style={{ color: c.text, lineHeight: 21 }}>{t(help)}</Text>
-          {hasHistory && type !== 'boolean' && (
+          {type !== 'boolean' && (
             <HistoryConversionInput from={from} type={type} draft={draft} onDraft={onDraft} c={c} />
           )}
         </View>

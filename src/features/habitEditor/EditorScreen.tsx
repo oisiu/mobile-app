@@ -1,5 +1,6 @@
 import { t } from '@/i18n';
 import { Text } from '@/theme/Typography';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useRef, useState, type ReactNode } from 'react';
 import { ScrollView, TouchableOpacity, View } from 'react-native';
@@ -40,25 +41,30 @@ export function EditorScreen({ c, title, onSave, children, onSavingChange, busy 
       <View style={s.top}>
         <TouchableOpacity
           accessibilityRole="button"
-          accessibilityLabel={t('cancel')}
+          accessibilityLabel={t('habitEditorBack')}
           disabled={saving || busy}
           hitSlop={8}
-          style={s.cancelButton}
+          style={s.backButton}
           onPress={() => router.dismissTo('/(tabs)')}
         >
-          <Text style={{ color: c.accent, fontSize: 17 }}>{t('cancel')}</Text>
+          <Ionicons name="chevron-back" size={16} color={c.accent} accessible={false} />
+          <Text style={{ color: c.accent, fontSize: 17 }}>{t('habitEditorBack')}</Text>
         </TouchableOpacity>
-        <Text style={[s.title, { color: c.text }]}>{title}</Text>
+        <Text accessibilityRole="header" style={[s.title, { color: c.text }]}>
+          {title}
+        </Text>
         <TouchableOpacity
           accessibilityRole="button"
           accessibilityState={{ disabled: saving || busy, busy: saving || busy }}
           disabled={saving || busy}
           onPress={save}
+          style={[s.saveButton, { backgroundColor: c.accent, opacity: saving || busy ? 0.5 : 1 }]}
         >
-          <Text style={{ color: c.accent, fontWeight: '700', fontSize: 17 }}>{t('save')}</Text>
+          <Text style={{ color: c.onAccent, fontWeight: '700', fontSize: 16 }}>{t('save')}</Text>
         </TouchableOpacity>
       </View>
       <View
+        style={s.form}
         pointerEvents={saving || busy || locked ? 'none' : 'auto'}
         accessibilityElementsHidden={saving || busy || locked}
         importantForAccessibility={saving || busy || locked ? 'no-hide-descendants' : 'auto'}

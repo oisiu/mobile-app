@@ -34,17 +34,20 @@ it('keeps empty periods and labels that fit in the viewport without scrolling', 
     expect(Number.isFinite(result.slot)).toBe(true);
   }
 });
-it.each(['day', 'week', 'month', 'quarter', 'year'] as const)(
-  'preserves fixed-width detail bars and compact %s spacing',
-  bucketSize => {
-    const result = historyLayout({ ...base, bucketSize, timeline: true, count: 60 });
-    expect(result.scrollable).toBe(true);
-    expect(result.barWidth).toBe(16);
-    expect(result.labelStride).toBe(1);
-    expect(result.slot).toBeGreaterThanOrEqual(bucketSize === 'week' ? 45 : 27);
-    expect(result.plotStart).toBe(bucketSize === 'day' ? 34 : 0);
-  },
-);
+it.each([
+  ['day', 21],
+  ['week', 38],
+  ['month', 22],
+  ['quarter', 22],
+  ['year', 32],
+] as const)('keeps detail bars narrow and uses compact %s spacing', (bucketSize, spacing) => {
+  const result = historyLayout({ ...base, bucketSize, timeline: true, count: 60 });
+  expect(result.scrollable).toBe(true);
+  expect(result.barWidth).toBe(12);
+  expect(result.labelStride).toBe(1);
+  expect(result.slot).toBeCloseTo(spacing - 4 / 60);
+  expect(result.plotStart).toBe(bucketSize === 'day' ? 34 : 0);
+});
 it('expands for long totals and axis labels but still fits short monthly timelines', () => {
   const result = historyLayout({ ...base, timeline: true, count: 60, valueLabels: ['999.9K'], tickLabels: ['100000'] });
   expect(result.left).toBe(48);
