@@ -40,55 +40,58 @@ afterEach(async () => {
   if (renderer) await act(async () => renderer.unmount());
 });
 
-it.each([light, dark])(
-  'keeps both visibility toggles in one row with independent states and decorative leading icons',
-  async c => {
-    const overview = vi.fn(),
-      hidden = vi.fn();
-    const root = await render(
-      <HabitVisibility hideFromOverview={false} onOverviewChange={overview} isHidden onHiddenChange={hidden} c={c} />,
-    );
-    expect(root.findAllByType('View' as React.ElementType)[0].props.style.flexDirection).toBe('row');
-    const first = button(t('hideFromOverview')),
-      second = button(t('hideCompletely'));
-    expect(first.props.accessibilityState.checked).toBe(false);
-    expect(second.props.accessibilityState.checked).toBe(true);
-    expect(first.findAllByType('Icon' as React.ElementType)[0].props).toMatchObject({
-      name: 'pie-chart-outline',
-      accessible: false,
-    });
-    expect(second.findAllByType('Icon' as React.ElementType)[0].props).toMatchObject({
-      name: 'eye-off-outline',
-      accessible: false,
-    });
-    expect(second.props.accessibilityHint).toContain('→');
-    expect(first.props.style.flex).toBe(1);
-    expect(second.props.style.flex).toBe(1);
-    await act(async () => first.props.onPress());
-    expect(overview).toHaveBeenCalledWith(true);
-    expect(hidden).not.toHaveBeenCalled();
-    await act(async () => second.props.onPress());
-    expect(hidden).toHaveBeenCalledWith(false);
-    await act(async () =>
-      renderer.update(
-        <HabitVisibility hideFromOverview onOverviewChange={overview} isHidden={false} onHiddenChange={hidden} c={c} />,
-      ),
-    );
-    expect(
-      button(t('hideFromOverview'))
-        .findAllByType('Icon' as React.ElementType)
-        .at(-1)?.props.name,
-    ).toBe('checkbox');
-    expect(
-      button(t('hideCompletely'))
-        .findAllByType('Icon' as React.ElementType)
-        .at(-1)?.props.name,
-    ).toBe('square-outline');
-  },
-);
+it.each([light, dark])('summarizes visibility while collapsed and exposes independent switches on demand', async c => {
+  const overview = vi.fn(),
+    hidden = vi.fn();
+  await render(
+    <HabitVisibility hideFromOverview={false} onOverviewChange={overview} isHidden onHiddenChange={hidden} c={c} />,
+  );
+  const trigger = () => button(t('visibility'));
+  expect(trigger().props.accessibilityState.expanded).toBe(false);
+  expect(trigger().props.accessibilityValue).toEqual({ text: t('visibilityHidden') });
+  expect(renderer.root.findAllByProps({ accessibilityRole: 'switch' })).toHaveLength(0);
+  await act(async () => trigger().props.onPress());
+  expect(trigger().props.accessibilityState.expanded).toBe(true);
+  const first = button(t('hideFromOverview')),
+    second = button(t('hideCompletely'));
+  expect(first.props.accessibilityState.checked).toBe(false);
+  expect(second.props.accessibilityState.checked).toBe(true);
+  expect(first.findAllByType('Icon' as React.ElementType)[0].props).toMatchObject({
+    name: 'pie-chart-outline',
+    accessible: false,
+  });
+  expect(second.findAllByType('Icon' as React.ElementType)[0].props).toMatchObject({
+    name: 'eye-off-outline',
+    accessible: false,
+  });
+  expect(second.props.accessibilityHint).toContain('→');
+  await act(async () => first.props.onPress());
+  expect(overview).toHaveBeenCalledWith(true);
+  expect(hidden).not.toHaveBeenCalled();
+  await act(async () => second.props.onPress());
+  expect(hidden).toHaveBeenCalledWith(false);
+  await act(async () =>
+    renderer.update(
+      <HabitVisibility hideFromOverview onOverviewChange={overview} isHidden={false} onHiddenChange={hidden} c={c} />,
+    ),
+  );
+  expect(
+    button(t('hideFromOverview'))
+      .findAllByType('Icon' as React.ElementType)
+      .at(-1)?.props.name,
+  ).toBe('checkbox');
+  expect(
+    button(t('hideCompletely'))
+      .findAllByType('Icon' as React.ElementType)
+      .at(-1)?.props.name,
+  ).toBe('square-outline');
+  await act(async () => trigger().props.onPress());
+  expect(trigger().props.accessibilityValue).toEqual({ text: t('visibilityOverviewHidden') });
+  expect(renderer.root.findAllByProps({ accessibilityRole: 'switch' })).toHaveLength(0);
+});
 
 it.each(['boolean', 'number', 'duration'] as const)(
-  'shows a stable one-row type selector and only the selected %s example',
+  'shows a stable one-row type selector with icons and accessible examples for %s',
   async from => {
     const choose = vi.fn(),
       draft = { date: '', value: '', unit: 'minutes' as const };
@@ -107,11 +110,14 @@ it.each(['boolean', 'number', 'duration'] as const)(
       node => (node.type as unknown) === 'View' && node.props.accessibilityLabel === t('changeHabitType'),
     );
     expect(group.props.style.flexDirection).toBe('row');
-    expect(group.findAllByType('Button' as React.ElementType).map(node => node.props.accessibilityLabel)).toEqual(
-      ['boolean', 'number', 'duration'].map(type => t(type as 'boolean' | 'number' | 'duration')),
-    );
+    expect(group.findAllByType('Button' as React.ElementType).map(node => node.props.accessibilityLabel)).toEqual([
+      t('typeYesNo'),
+      t('number'),
+      t('duration'),
+    ]);
     for (const type of ['boolean', 'number', 'duration'] as const) {
-      await act(async () => button(t(type)).props.onPress());
+      const choice = () => button(t(type === 'boolean' ? 'typeYesNo' : type));
+      await act(async () => choice().props.onPress());
       expect(choose).toHaveBeenLastCalledWith(type);
       await act(async () =>
         renderer.update(
@@ -126,15 +132,31 @@ it.each(['boolean', 'number', 'duration'] as const)(
           />,
         ),
       );
-      const examples = renderer.root.findAll(
-        node => (node.type as unknown) === 'Text' && node.props.accessibilityLiveRegion === 'polite',
-      );
-      expect(examples.map(node => node.props.children)).toEqual([t(`${type}ShortExample`)]);
+      expect(choice().props.accessibilityHint).toBe(t(`${type}ShortExample`));
+      expect(choice().props.style.flexDirection).toBe('column');
+      expect(choice().findByType('Icon' as React.ElementType).props.accessible).toBe(false);
+      expect(renderer.root.findAllByProps({ children: t(`${type}ShortExample`) })).toHaveLength(0);
       expect(renderer.root.findAllByType('Input' as React.ElementType)).toHaveLength(0);
-      expect(button(t(type)).props.accessibilityState.selected).toBe(true);
+      expect(choice().props.accessibilityState.selected).toBe(true);
     }
   },
 );
+
+it('reveals threshold help without changing the value or the draft', async () => {
+  const onChange = vi.fn();
+  await render(<CalendarThresholdInput type="number" value={5} onChange={onChange} name="Practice" c={light} />);
+  const field = renderer.root.findByType('Input' as React.ElementType);
+  const label = t('chartInfo', { name: field.props.accessibilityLabel });
+  const help = () => renderer.root.findAllByProps({ children: t('calendarThresholdHelp') });
+  expect(help()).toHaveLength(0);
+  await act(async () => button(label).props.onPress());
+  expect(button(label).props.accessibilityState.expanded).toBe(true);
+  expect(help().length).toBeGreaterThan(0);
+  await act(async () => button(label).props.onPress());
+  expect(help()).toHaveLength(0);
+  expect(field.props.value).toBe('5');
+  expect(onChange).not.toHaveBeenCalled();
+});
 
 it('keeps decimal input and duration unit conversion intact with concise conversion copy', async () => {
   const onDraft = vi.fn(),
@@ -228,6 +250,7 @@ it('keeps every row action on one line and routes add, reorder and delete', asyn
   const row = renderer.root.findAllByType('View' as React.ElementType)[0];
   expect(row.props.style.flexDirection).toBe('row');
   expect(row.findAllByType('Button' as React.ElementType)).toHaveLength(4);
+  expect(row.findAllByType('Text' as React.ElementType)).toHaveLength(0);
   await act(async () => button(`${t('addLevel')} Gym`).props.onPress());
   await act(async () => button(`${t('delete')} Gym`).props.onPress());
   expect(add).toHaveBeenCalledOnce();
@@ -350,7 +373,7 @@ it('blocks repeated saves until completion and exposes the editor again afterwar
   });
   expect(save).toHaveBeenCalledOnce();
   expect(status).toHaveBeenLastCalledWith(true);
-  expect(button(t('cancel')).props.disabled).toBe(true);
+  expect(button(t('habitEditorBack')).props.disabled).toBe(true);
   expect(
     renderer.root.find(node => (node.type as unknown) === 'View' && node.props.pointerEvents === 'none').props
       .accessibilityElementsHidden,
@@ -366,7 +389,7 @@ it('blocks repeated saves until completion and exposes the editor again afterwar
   ).toBe(false);
 });
 
-it('unlocks the editor after an unexpected save error and keeps Cancel available', async () => {
+it('unlocks the editor after an unexpected save error and keeps Back available', async () => {
   const save = vi.fn().mockRejectedValueOnce(new Error('Synthetic save failure')).mockResolvedValue(undefined),
     status = vi.fn();
   await render(
@@ -384,9 +407,9 @@ it('unlocks the editor after an unexpected save error and keeps Cancel available
     await expect(saveButton().props.onPress()).rejects.toThrow('Synthetic save failure');
   });
   expect(status).toHaveBeenLastCalledWith(false);
-  expect(button(t('cancel')).props.disabled).toBe(false);
+  expect(button(t('habitEditorBack')).props.disabled).toBe(false);
   await act(async () => saveButton().props.onPress());
   expect(save).toHaveBeenCalledTimes(2);
-  await act(async () => button(t('cancel')).props.onPress());
+  await act(async () => button(t('habitEditorBack')).props.onPress());
   expect(mocks.dismissTo).toHaveBeenCalledWith('/(tabs)');
 });

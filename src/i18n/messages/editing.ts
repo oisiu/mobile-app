@@ -1,6 +1,6 @@
 export const moveMessages = {
   en: {
-    moveHabitTo: 'Move {name} to another habit',
+    moveHabitAction: 'Move to…',
     moveHabitTitle: 'Move {name} to',
     topLevel: 'Top level',
     moveConfirm: 'Move',
@@ -21,12 +21,11 @@ export const moveMessages = {
     deletionSummary: 'Habits: {habits} · Records: {entries}',
     habitSavedRefreshFailed: 'Changes saved; refresh failed',
     habitSavedRefreshFailedHelp: 'Your changes are already saved. Tap Save to retry loading them without saving again.',
-    newChildHabit: 'Sub-habit',
     searchHabits: 'Search habits',
     noMatchingHabits: 'No habits match your search.',
   },
   es: {
-    moveHabitTo: 'Mover {name} a otro hábito',
+    moveHabitAction: 'Mover a…',
     moveHabitTitle: 'Mover {name} a',
     topLevel: 'Nivel principal',
     moveConfirm: 'Mover',
@@ -48,7 +47,6 @@ export const moveMessages = {
     habitSavedRefreshFailed: 'Cambios guardados; no se pudo actualizar',
     habitSavedRefreshFailedHelp:
       'Tus cambios ya están guardados. Toca Guardar para volver a cargarlos sin guardarlos otra vez.',
-    newChildHabit: 'Subhábito',
     searchHabits: 'Buscar hábitos',
     noMatchingHabits: 'No hay hábitos que coincidan con la búsqueda.',
   },

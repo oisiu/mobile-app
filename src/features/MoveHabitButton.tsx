@@ -26,7 +26,7 @@ const pathOf = (habits: Habit[], habit: Habit): string => {
   return names.join(' / ');
 };
 
-/** Header action that moves a habit, with its sub-habits and history, under another habit or to the top level. */
+/** Moves a habit, with its sub-habits and history, under another habit or to the top level. */
 export function MoveHabitButton({ habit }: { habit: Habit }) {
   const { habits, entries, repo, refresh, showSuccess, palette: c } = useApp();
   const mutation = useHabitMutation(refresh);
@@ -106,7 +106,8 @@ export function MoveHabitButton({ habit }: { habit: Habit }) {
     <>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={t('moveHabitTo', { name: habit.name })}
+        accessibilityLabel={t('moveHabitAction')}
+        accessibilityState={{ expanded: open }}
         onPress={event =>
           openPopover(event, next => {
             setAnchor(next);
@@ -115,7 +116,8 @@ export function MoveHabitButton({ habit }: { habit: Habit }) {
         }
         style={({ pressed }) => [s.trigger, { backgroundColor: pressed ? c.soft : 'transparent' }]}
       >
-        {({ pressed }) => <Ionicons name="enter-outline" size={18} color={pressed ? c.text : c.muted} />}
+        <Ionicons name="enter-outline" size={17} color={c.accent} accessible={false} />
+        <Text style={{ color: c.accent, fontSize: 15, fontWeight: '600' }}>{t('moveHabitAction')}</Text>
       </Pressable>
       {open && (
         <AnchoredPopover visible onClose={close} anchor={anchor} c={c} maxWidth={390} maxHeight={620}>
@@ -186,7 +188,16 @@ export function MoveHabitButton({ habit }: { habit: Habit }) {
 }
 
 const s = StyleSheet.create({
-  trigger: { width: 44, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  trigger: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 48,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
   title: { fontSize: 20, fontWeight: '700', marginBottom: 12 },
   search: { minHeight: 46, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, marginBottom: 10, fontSize: 16 },
   list: { gap: 8, paddingBottom: 4 },

@@ -1,12 +1,8 @@
-import { habitNameLimit } from '@/domain/habitName';
 import type { HabitType } from '@/domain/types';
 import { CalendarThresholdInput } from '@/features/CalendarThresholdInput';
-import { HabitColorPicker } from '@/features/HabitColorPicker';
-import { HabitNameCounter } from '@/features/HabitNameCounter';
-import { t } from '@/i18n';
-import { TextInput } from '@/theme/Typography';
 import { View } from 'react-native';
 import { ChildRowActions } from './ChildActions';
+import { HabitInputs } from './EditorFields';
 import type { DraftNode } from './draftTree';
 import { s } from './editorStyles';
 import type { Palette } from './editorTypes';
@@ -45,30 +41,15 @@ export function DraftRow({
   return (
     <View style={{ marginLeft: indent }}>
       <View style={[s.childCard, depth > 0 && { borderLeftWidth: 2, borderLeftColor: c.line, paddingLeft: 10 }]}>
-        <HabitColorPicker value={node.color ?? null} onChange={color => onChange(node.key, { color })} c={c}>
-          {colorButton => (
-            <View style={s.childRow}>
-              <TextInput
-                value={node.emoji}
-                onChangeText={emoji => onChange(node.key, { emoji })}
-                accessibilityLabel={t('habitEmoji')}
-                accessibilityHint={t('emojiHelp')}
-                style={[s.childEmoji, { backgroundColor: c.card, color: c.text }]}
-              />
-              <TextInput
-                value={node.name}
-                onChangeText={name => onChange(node.key, { name })}
-                accessibilityLabel={t('habitName')}
-                accessibilityHint={t('habitNameLimitHelp', { limit: habitNameLimit })}
-                placeholder={t('habitName')}
-                placeholderTextColor={c.muted}
-                style={[s.childName, { backgroundColor: c.card, color: c.text }]}
-              />
-              {colorButton}
-            </View>
-          )}
-        </HabitColorPicker>
-        <HabitNameCounter name={node.name} c={c} />
+        <HabitInputs
+          name={node.name}
+          emoji={node.emoji}
+          color={node.color ?? null}
+          onName={name => onChange(node.key, { name })}
+          onEmoji={emoji => onChange(node.key, { emoji })}
+          onColor={color => onChange(node.key, { color })}
+          c={c}
+        />
         <CalendarThresholdInput
           key={type}
           type={type}

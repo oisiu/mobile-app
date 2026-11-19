@@ -4,7 +4,6 @@ export const typeChangeMessages = {
     booleanShortExample: 'Exercise done: ✓',
     numberShortExample: '8 glasses of water',
     durationShortExample: '30 min of reading',
-    noHistoryToConvert: 'No records to convert.',
     confirmEmptyHistory:
       'Change “{name}” to {type}. Affected habits: {habits}. There are no historical records to convert. Previous calendar color thresholds will be removed.',
     changeHabitType: 'Change habit type',
@@ -35,7 +34,6 @@ export const typeChangeMessages = {
     booleanShortExample: 'Ejercicio hecho: ✓',
     numberShortExample: '8 vasos de agua',
     durationShortExample: '30 min de lectura',
-    noHistoryToConvert: 'No hay registros que convertir.',
     confirmEmptyHistory:
       'Se cambiará «{name}» al tipo «{type}». Hábitos afectados: {habits}. No hay registros históricos que convertir. Se borrarán los umbrales de color anteriores del calendario.',
     changeHabitType: 'Cambiar tipo de hábito',

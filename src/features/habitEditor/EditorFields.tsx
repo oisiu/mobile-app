@@ -1,10 +1,11 @@
+import type { DurationUnit } from '@/domain/entries';
 import type { HabitColor } from '@/domain/habitAppearance';
 import { habitNameLimit } from '@/domain/habitName';
 import { HabitColorPicker } from '@/features/HabitColorPicker';
 import { HabitNameCounter } from '@/features/HabitNameCounter';
 import { t } from '@/i18n';
-import { TextInput } from '@/theme/Typography';
-import { View } from 'react-native';
+import { Text, TextInput } from '@/theme/Typography';
+import { TouchableOpacity, View } from 'react-native';
 import { s } from './editorStyles';
 import type { Palette } from './editorTypes';
 
@@ -45,5 +46,40 @@ export function HabitInputs({ name, emoji, color, onName, onEmoji, onColor, c }:
         </View>
       )}
     </HabitColorPicker>
+  );
+}
+export function DurationUnitPicker({
+  unit,
+  onChange,
+  c,
+}: {
+  unit: DurationUnit;
+  onChange: (unit: DurationUnit) => void;
+  c: Palette;
+}) {
+  return (
+    <View
+      accessibilityRole="radiogroup"
+      accessibilityLabel={t('durationUnit')}
+      style={{ flexDirection: 'row', gap: 2, padding: 2, borderRadius: 11, backgroundColor: c.bg }}
+    >
+      {(['minutes', 'hours'] as const).map(option => {
+        const selected = unit === option;
+        return (
+          <TouchableOpacity
+            key={option}
+            accessibilityRole="radio"
+            accessibilityLabel={t(option)}
+            accessibilityState={{ selected }}
+            onPress={() => onChange(option)}
+            style={[s.unitButton, { backgroundColor: selected ? c.accent : 'transparent' }]}
+          >
+            <Text style={{ color: selected ? c.onAccent : c.text, fontSize: 12, textAlign: 'center' }}>
+              {t(option)}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
   );
 }

@@ -63,15 +63,15 @@ export default function InsightDetailScreen() {
   );
   const scoreInitial = useMemo(() => new Set([id]), [id]),
     historyInitial = useMemo(() => new Set([id]), [id]);
-  const [historyScale, setHistoryScale] = useState<BucketSize>('day'),
-    [historyCount, setHistoryCount] = useState(60);
+  const [historyScale, setHistoryScale] = useState<BucketSize>('month'),
+    [historyCount, setHistoryCount] = useState(() => initialTimelineCount('month'));
   const historyBuckets = useMemo(
     () => buildTimelineBuckets(historyScale, today, historyCount),
     [historyScale, today, historyCount],
   );
   useEffect(() => {
-    setHistoryScale('day');
-    setHistoryCount(60);
+    setHistoryScale('month');
+    setHistoryCount(initialTimelineCount('month'));
   }, [id]);
   const [scoreScale, setScoreScale] = useState<BucketSize>('day'),
     [scoreCount, setScoreCount] = useState(60);
@@ -222,7 +222,6 @@ export default function InsightDetailScreen() {
           <Text accessibilityRole="header" style={[s.title, { color: c.text }]}>
             {root.emoji} {root.name}
           </Text>
-          <MoveHabitButton habit={root} />
           <Pressable
             disabled={navigation.pending !== null}
             accessibilityRole="button"
@@ -391,6 +390,7 @@ export default function InsightDetailScreen() {
               }}
               c={c}
             />
+            <MoveHabitButton key={root.id} habit={root} />
           </>
         ) : (
           <>

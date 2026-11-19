@@ -2,6 +2,7 @@ import type { HabitType } from '@/domain/types';
 import { t } from '@/i18n';
 import { Text } from '@/theme/Typography';
 import type { Dispatch, SetStateAction } from 'react';
+import { View } from 'react-native';
 import { AddChildButton } from './ChildActions';
 import { DraftRow } from './DraftRow';
 import { changeNode, reorderNode, type DraftNode } from './draftTree';
@@ -21,9 +22,13 @@ type Props = {
 /** The sub-habits section shared by the new and existing habit editors. */
 export function ChildList({ type, nodes, setNodes, onAdd, onRemove, c }: Props) {
   return (
-    <>
-      <Text style={[s.label, { color: c.muted, marginTop: 30 }]}>{t('children')}</Text>
-      <AddChildButton onAdd={() => onAdd()} c={c} />
+    <View>
+      <View style={s.childHeader}>
+        <Text accessibilityRole="header" style={[s.childTitle, { color: c.text }]}>
+          {t('children')}
+        </Text>
+        <AddChildButton onAdd={() => onAdd()} c={c} />
+      </View>
       {nodes.map((node, index) => (
         <DraftRow
           type={type}
@@ -39,6 +44,6 @@ export function ChildList({ type, nodes, setNodes, onAdd, onRemove, c }: Props) 
           onReorder={(key, direction) => setNodes(current => reorderNode(current, key, direction))}
         />
       ))}
-    </>
+    </View>
   );
 }

@@ -29,15 +29,15 @@ Apply [shared write recovery](#entry-editing-and-sheets). Stale source records r
 
 ## Habit editor
 
-- Descendant editing opens the root hierarchy; new sub-habits inherit its type. **Add sub-habit** inserts a blank row above the existing ones. Each row has one line of actions: add a sub-habit inside it, move the whole subtree up or down among its siblings, and delete. Everything stays a draft until Save; Cancel discards it.
-- Keep the screen short: no section explanations, and the same three-way type selector for new and saved habits. Moving a habit elsewhere is not an editor action; see [Moving a habit](#moving-a-habit).
+- Descendant editing opens the root hierarchy; new sub-habits inherit its type. The plus button beside **Sub-habits** inserts a blank row above the existing ones. Each row has labeled icon buttons for adding inside it, moving its subtree among siblings, and deleting it. Everything stays a draft until Save.
+- New and saved habits share the same three labeled type icons. Show conversion guidance when a change affects saved records. See [Moving a habit](#moving-a-habit) for changing a parent.
 - Names allow 1–25 Unicode code points after trimming; a counter appears within five characters of the limit. Emoji input accepts empty or one complete emoji, including flags, skin tones, keycaps, and joined sequences. Reject invalid input without truncating or discarding drafts; unchanged legacy names/emojis remain valid.
 - New roots default to Automatic color, which inherits the nearest ancestor or root default; children can override. The palette offers thirteen colors.
-- Root visibility offers **Hide from overview** and **Hide completely**; see [Category visibility](#category-visibility).
-- Quantity/duration habits may set a positive, non-inherited calendar threshold. Blank removes it; duration uses value-preserving Minutes/Hours and rejects fractional seconds instead of rounding.
+- The collapsed **Visibility** row shows any active hiding setting. Expand it for **Hide from overview** and **Hide completely**. See [Category visibility](#category-visibility).
+- Quantity/duration habits may set a positive, non-inherited calendar threshold, with help available from its info button. Blank removes it; duration uses value-preserving Minutes/Hours and rejects fractional seconds instead of rounding.
 - Confirm impact before staging descendant deletions; summaries exclude General identities but include their records.
 - Active roots have no Archive action; use Hide completely. Previously archived roots retain Restore, which acts on saved data and confirms discarding a changed draft.
-- Back, Cancel, native gestures, and footer navigation confirm discarding changed drafts; unchanged/reverted drafts leave without prompting. Save, restoration, deletion, and Cancel return Home and dismiss intermediate routes so Back cannot reopen unavailable habits.
+- **Back**, native gestures, and footer navigation confirm discarding changed drafts. Unchanged or reverted drafts leave without prompting. **Save**, restoration, deletion, and the editor’s **Back** button return Home and dismiss intermediate routes.
 
 ### Changing a habit type
 
@@ -49,7 +49,7 @@ Save requires a localized warning naming category, branch/record counts, target 
 
 ### Moving a habit
 
-The Insights header of any active habit, at any depth, opens **Move to…**. It is the only way to change a habit’s parent.
+**Move to…** below the Insights charts changes the parent of the active habit shown on screen, at any depth.
 
 - List **Top level** (unless already there) followed by compatible destinations with their full path: same type, active, outside the habit’s own branch, and not its current parent. Show search once the list is long.
 - Selecting a destination previews the old and new path and how many sub-habits and records move with it. **Move** stays disabled until then.
@@ -85,7 +85,7 @@ Open all visible roots collapsed, including inactive ones. Only parent arrows to
 
 ### Detail
 
-The header holds Back, the habit title, a move button, and an edit button. Opening detail immediately exposes accessible progress and rejects repeated taps. Sections appear in this order:
+The header holds Back, the habit title, and Edit. Opening detail immediately exposes accessible progress and rejects repeated taps. Sections appear in this order:
 
 | Section | Behavior |
 | --- | --- |
@@ -96,10 +96,10 @@ The header holds Back, the habit title, a move button, and an edit button. Openi
 | Frequency | Weekday activity across all recorded history, grouped into monthly columns. |
 
 - **Mode:** quantity/duration detail starts in its typed mode and offers Activity, which counts any stored record, including zero, once per branch/date. Mode applies to Calendar, History, streaks, Frequency, and the enlarged Calendar; it preserves periods/selections and resets on another habit. Consistency always uses original positive records. Boolean habits have no mode selector.
-- **Grouping:** Consistency and History have independent Day/Week/Month/Quarter/Year menus, initially Day and reset when opening another habit. Best streaks/Frequency use all history without period controls.
+- **Grouping:** Consistency and History have independent Day/Week/Month/Quarter/Year menus. Consistency opens in Day and History in Month. Both reset when opening another habit. Best streaks/Frequency use all history without period controls.
 - **Selection:** Consistency, Calendar, and History have independent multi-selection, initially the opened habit, retaining at least one. Selectors list parents followed by complete visible subtrees in saved order and omit General/archived branches. Unavailable selections fall back to the opened root; restoration does not reselect.
 - **Timelines:** open at the latest data, scroll horizontally into earlier buckets, and preserve position on prepend. Axes and legends stay outside scrolling. Current buckets end today.
-- **History:** sums typed values or unique Boolean dates, including direct entries at all depths and archived descendants without duplication. Each nonzero stack shows one total in its unit.
+- **History:** sums typed values or unique Boolean dates, including direct entries at all depths and archived descendants without duplication. Narrow bars leave room for one total per nonzero stack. The lower axis row marks month and year changes in Day and year changes in Week, Month, and Quarter. Quarter uses the first month of each quarter. Year shows one row of years.
 - **Help:** every chart except Calendar has an information button that toggles initially collapsed inline help, in equivalent English/Spanish. No help alerts.
 - **Loading:** the header, Consistency axes, Calendar dates, and fixed-height placeholders show during the opening transition. Consistency/Calendar become interactive first; Calendar editing stays disabled with an accessible busy state until activity is ready. Lower sections mount in order as scrolling approaches. Reduce Motion skips the line draw and fades.
 
